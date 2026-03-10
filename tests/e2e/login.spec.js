@@ -4,10 +4,10 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const ADMIN_USER = process.env.E2E_ADMIN_USER || 'testadmin';
-const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'test';
-const GUEST_USER = process.env.E2E_GUEST_USER || 'testguest';
-const GUEST_PASS = process.env.E2E_GUEST_PASS || 'test';
+const ADMIN_USER = 'e2e-admin';
+const ADMIN_PASS = 'e2epassword';
+const GUEST_USER = 'e2e-guest';
+const GUEST_PASS = 'e2epassword';
 
 // ── Login page renders ────────────────────────────────────────────────────────
 test('login page renders required elements', async ({ page }) => {
@@ -27,7 +27,6 @@ test('shows error message for invalid credentials', async ({ page }) => {
   await page.getByTestId('login-password').fill('wrongpassword');
   await page.getByTestId('login-submit-btn').click();
   await expect(page.getByTestId('login-error')).toBeVisible();
-  // Must still be on login page
   await expect(page).toHaveURL(/\/login/);
 });
 
@@ -58,13 +57,11 @@ test('guest login redirects to dashboard', async ({ page }) => {
 
 // ── Already logged in → skip login ───────────────────────────────────────────
 test('visiting /login while authenticated redirects to dashboard', async ({ page }) => {
-  // Log in first
   await page.goto(`${BASE}/login`);
   await page.getByTestId('login-identifier').fill(ADMIN_USER);
   await page.getByTestId('login-password').fill(ADMIN_PASS);
   await page.getByTestId('login-submit-btn').click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
-  // Now navigate back to /login
   await page.goto(`${BASE}/login`);
   await expect(page).toHaveURL(/\/dashboard/);
 });

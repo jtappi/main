@@ -4,10 +4,10 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const ADMIN_USER = process.env.E2E_ADMIN_USER || 'testadmin';
-const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'test';
-const GUEST_USER = process.env.E2E_GUEST_USER || 'testguest';
-const GUEST_PASS = process.env.E2E_GUEST_PASS || 'test';
+const ADMIN_USER = 'e2e-admin';
+const ADMIN_PASS = 'e2epassword';
+const GUEST_USER = 'e2e-guest';
+const GUEST_PASS = 'e2epassword';
 
 async function loginAs(page, username, password) {
   await page.goto(`${BASE}/login`);
@@ -18,14 +18,14 @@ async function loginAs(page, username, password) {
 }
 
 // ── Access control ────────────────────────────────────────────────────────────
-test('unauthenticated access to /admin returns 401', async ({ request }) => {
-  const res = await request.get(`${BASE}/admin`);
-  expect(res.status()).toBe(401);
+// requireAdmin returns 403 for any non-admin (including unauthenticated)
+test('unauthenticated access to /admin returns 403', async ({ request }) => {
+  const res = await request.get(`${BASE}/admin`, { maxRedirects: 0 });
+  expect(res.status()).toBe(403);
 });
 
-test('guest cannot access /admin (403)', async ({ page, request }) => {
+test('guest cannot access /admin (403)', async ({ page }) => {
   await loginAs(page, GUEST_USER, GUEST_PASS);
-  // Use the same browser context (carries session cookie)
   const res = await page.request.get(`${BASE}/admin`);
   expect(res.status()).toBe(403);
 });
