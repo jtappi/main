@@ -1,42 +1,75 @@
 // @ts-check
+'use strict';
+
 const { test, expect } = require('@playwright/test');
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
+const ADMIN_USER = process.env.E2E_ADMIN_USER || 'testadmin';
+const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'test';
+const GUEST_USER = process.env.E2E_GUEST_USER || 'testguest';
+const GUEST_PASS = process.env.E2E_GUEST_PASS || 'test';
 
-async function loginAsAdmin(page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.getByTestId('login-identifier').fill(process.env.E2E_ADMIN_USER || 'testadmin');
-  await page.getByTestId('login-password').fill(process.env.E2E_ADMIN_PASS || 'test');
+async function loginAs(page, username, password) {
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-identifier').fill(username);
+  await page.getByTestId('login-password').fill(password);
   await page.getByTestId('login-submit-btn').click();
-  await page.waitForURL(`${BASE_URL}/dashboard`);
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
 }
 
-test.describe('Dashboard Flow', () => {
-  test('unauthenticated access redirects to login', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard`);
-    await page.waitForURL(`${BASE_URL}/login`);
-    expect(page.url()).toContain('/login');
-  });
+// ── Unauthenticated redirect ──────────────────────────────────────────────────
+test('unauthenticated access to /dashboard returns 401', async ({ request }) => {
+  const res = await request.get(`${BASE}/dashboard`);
+  expect(res.status()).toBe(401);
+});
 
-  test('dashboard renders header and project grid after login', async ({ page }) => {
-    await loginAsAdmin(page);
-    await expect(page.getByTestId('dashboard-header')).toBeVisible();
-    await expect(page.getByTestId('dashboard-user-name')).toBeVisible();
-    await expect(page.getByTestId('dashboard-project-grid')).toBeVisible();
-  });
+// ── Dashboard renders for guest ───────────────────────────────────────────────
+test('dashboard renders all required elements for guest', async ({ page }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  await expect(page.getByTestId('dashboard-header')).toBeVisible();
+  await expect(page.getByTestId('dashboard-user-name')).toBeVisible();
+  await expect(page.getByTestId('dashboard-logout-btn')).toBeVisible();
+  await expect(page.getByTestId('dashboard-project-grid')).toBeVisible();
+});
 
-  test('admin link is visible for admin user', async ({ page }) => {
-    await loginAsAdmin(page);
-    await expect(page.getByTestId('dashboard-admin-link')).toBeVisible();
-  });
+// ── User name is populated ────────────────────────────────────────────────────
+test('dashboard shows logged-in user name', async ({ page }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  const name = await page.getByTestId('dashboard-user-name').textContent();
+  expect(name.trim().length).toBeGreaterThan(0);
+});
 
-  test('logout clears session and redirects to login', async ({ page }) => {
-    await loginAsAdmin(page);
-    await page.getByTestId('dashboard-logout-btn').click();
-    await page.waitForURL(`${BASE_URL}/login`);
-    expect(page.url()).toContain('/login');
-    // Verify session is gone — navigating to dashboard should redirect back
-    await page.goto(`${BASE_URL}/dashboard`);
-    await page.waitForURL(`${BASE_URL}/login`);
-  });
+// ── Admin link visibility ─────────────────────────────────────────────────────
+test('admin link is HIDDEN for guest user', async ({ page }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  await expect(page.getByTestId('dashboard-admin-link')).toBeHidden();
+});
+
+test('admin link is VISIBLE for admin user', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await expect(page.getByTestId('dashboard-admin-link')).toBeVisible();
+});
+
+// ── Project cards render ──────────────────────────────────────────────────────
+test('project grid contains at least one card', async ({ page }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  const grid = page.getByTestId('dashboard-project-grid');
+  await expect(grid).toBeVisible();
+  // Wait for JS to populate cards (loading text disappears)
+  await expect(grid.locator('.project-card').first()).toBeVisible({ timeout: 5000 });
+});
+
+// ── Logout works ──────────────────────────────────────────────────────────────
+test('logout redirects to login page', async ({ page }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  await page.getByTestId('dashboard-logout-btn').click();
+  await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
+});
+
+test('after logout, /dashboard returns 401', async ({ page, request }) => {
+  await loginAs(page, GUEST_USER, GUEST_PASS);
+  await page.getByTestId('dashboard-logout-btn').click();
+  await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
+  const res = await request.get(`${BASE}/dashboard`);
+  expect(res.status()).toBe(401);
 });

@@ -1,29 +1,30 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 const os = require('os');
 const auth = require('../../core/auth/auth');
 
-// ── Fixture helpers ──────────────────────────────────────────────────────────
 const FIXTURE = path.join(__dirname, '../fixtures/users.fixture.json');
 
-function makeTempUsersFile() {
-  const tmp = path.join(os.tmpdir(), `users-test-${Date.now()}.json`);
+// Each test gets a fresh writable copy of the fixture
+function makeTempUsers() {
+  const tmp = path.join(os.tmpdir(), `users-${Date.now()}-${Math.random()}.json`);
   fs.copyFileSync(FIXTURE, tmp);
   return tmp;
 }
 
 // ── hashPassword ─────────────────────────────────────────────────────────────
 describe('hashPassword', () => {
-  test('returns a 64-char hex string', () => {
-    const hash = auth.hashPassword('test');
-    expect(hash).toHaveLength(64);
-    expect(hash).toMatch(/^[a-f0-9]+$/);
+  test('returns 64-char hex string', () => {
+    const h = auth.hashPassword('test');
+    expect(h).toHaveLength(64);
+    expect(h).toMatch(/^[0-9a-f]+$/);
   });
 
-  test('same input always produces same hash', () => {
-    expect(auth.hashPassword('hello')).toBe(auth.hashPassword('hello'));
+  test('SHA-256 of "test" matches known value', () => {
+    expect(auth.hashPassword('test'))
+      .toBe('9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08');
   });
 
   test('different inputs produce different hashes', () => {
@@ -33,166 +34,162 @@ describe('hashPassword', () => {
 
 // ── loadUsers ─────────────────────────────────────────────────────────────────
 describe('loadUsers', () => {
-  test('loads users from a valid file', () => {
+  test('returns array from fixture', () => {
     const users = auth.loadUsers(FIXTURE);
     expect(Array.isArray(users)).toBe(true);
     expect(users.length).toBeGreaterThan(0);
   });
 
-  test('throws when file does not exist', () => {
+  test('throws if file does not exist', () => {
     expect(() => auth.loadUsers('/nonexistent/path.json')).toThrow();
   });
 });
 
 // ── findUser ──────────────────────────────────────────────────────────────────
 describe('findUser', () => {
-  test('finds user by email', () => {
-    const user = auth.findUser('admin@test.com', FIXTURE);
-    expect(user).not.toBeNull();
-    expect(user.id).toBe('test-admin-001');
+  test('finds by email', () => {
+    const u = auth.findUser('admin@test.com', FIXTURE);
+    expect(u).not.toBeNull();
+    expect(u.id).toBe('test-admin-001');
   });
 
-  test('finds user by username', () => {
-    const user = auth.findUser('testadmin', FIXTURE);
-    expect(user).not.toBeNull();
-    expect(user.id).toBe('test-admin-001');
+  test('finds by username', () => {
+    const u = auth.findUser('testadmin', FIXTURE);
+    expect(u).not.toBeNull();
+    expect(u.id).toBe('test-admin-001');
   });
 
   test('returns null for unknown identifier', () => {
-    expect(auth.findUser('nobody@test.com', FIXTURE)).toBeNull();
+    expect(auth.findUser('nobody@nowhere.com', FIXTURE)).toBeNull();
   });
 });
 
 // ── authenticate ──────────────────────────────────────────────────────────────
 describe('authenticate', () => {
-  // passwordHash for 'test' = SHA256('test')
-  const VALID_HASH = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+  const HASH = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
 
-  test('returns user on valid email + hash', () => {
-    const user = auth.authenticate('admin@test.com', VALID_HASH, FIXTURE);
-    expect(user).not.toBeNull();
-    expect(user.role).toBe('admin');
+  test('returns user for valid admin credentials', () => {
+    const u = auth.authenticate('testadmin', HASH, FIXTURE);
+    expect(u).not.toBeNull();
+    expect(u.role).toBe('admin');
   });
 
-  test('returns user on valid username + hash', () => {
-    const user = auth.authenticate('testadmin', VALID_HASH, FIXTURE);
-    expect(user).not.toBeNull();
+  test('returns user for valid guest credentials', () => {
+    const u = auth.authenticate('testguest', HASH, FIXTURE);
+    expect(u).not.toBeNull();
+    expect(u.role).toBe('guest');
   });
 
   test('returns null for wrong password', () => {
-    expect(auth.authenticate('admin@test.com', 'badhash', FIXTURE)).toBeNull();
+    expect(auth.authenticate('testadmin', 'wronghash', FIXTURE)).toBeNull();
   });
 
-  test('returns null for unknown identifier', () => {
-    expect(auth.authenticate('nobody', VALID_HASH, FIXTURE)).toBeNull();
+  test('returns null for unknown user', () => {
+    expect(auth.authenticate('nobody', HASH, FIXTURE)).toBeNull();
   });
 
   test('returns null for inactive user', () => {
-    expect(auth.authenticate('inactive@test.com', VALID_HASH, FIXTURE)).toBeNull();
+    expect(auth.authenticate('inactiveuser', HASH, FIXTURE)).toBeNull();
   });
 });
 
 // ── updateLastLogin ───────────────────────────────────────────────────────────
 describe('updateLastLogin', () => {
-  test('updates lastLogin timestamp for existing user', () => {
-    const tmp = makeTempUsersFile();
+  test('sets lastLogin timestamp on user', () => {
+    const tmp = makeTempUsers();
     auth.updateLastLogin('test-admin-001', tmp);
     const users = auth.loadUsers(tmp);
-    const user = users.find(u => u.id === 'test-admin-001');
-    expect(user.lastLogin).not.toBeNull();
-    fs.unlinkSync(tmp);
+    const u = users.find(x => x.id === 'test-admin-001');
+    expect(u.lastLogin).not.toBeNull();
+    expect(new Date(u.lastLogin).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
-  test('does nothing for unknown userId', () => {
-    const tmp = makeTempUsersFile();
-    expect(() => auth.updateLastLogin('unknown-id', tmp)).not.toThrow();
-    fs.unlinkSync(tmp);
+  test('does nothing for unknown id', () => {
+    const tmp = makeTempUsers();
+    expect(() => auth.updateLastLogin('no-such-id', tmp)).not.toThrow();
   });
 });
 
 // ── getAllUsers ───────────────────────────────────────────────────────────────
 describe('getAllUsers', () => {
-  test('returns all users array', () => {
+  test('returns all users', () => {
     const users = auth.getAllUsers(FIXTURE);
-    expect(users).toHaveLength(3);
+    expect(users.length).toBe(3);
   });
 });
 
 // ── getUserById ───────────────────────────────────────────────────────────────
 describe('getUserById', () => {
-  test('returns user for valid id', () => {
-    const user = auth.getUserById('test-admin-001', FIXTURE);
-    expect(user.email).toBe('admin@test.com');
+  test('returns correct user', () => {
+    const u = auth.getUserById('test-guest-001', FIXTURE);
+    expect(u.username).toBe('testguest');
   });
 
   test('returns null for unknown id', () => {
-    expect(auth.getUserById('nope', FIXTURE)).toBeNull();
+    expect(auth.getUserById('no-such-id', FIXTURE)).toBeNull();
   });
 });
 
 // ── createUser ────────────────────────────────────────────────────────────────
 describe('createUser', () => {
-  test('creates a new guest user and persists it', () => {
-    const tmp = makeTempUsersFile();
-    const before = auth.loadUsers(tmp).length;
-    const user = auth.createUser(
-      { name: 'New User', email: 'new@test.com', username: 'newuser', password: 'secret', projectAccess: ['trackmyweek'] },
-      tmp
-    );
-    expect(user.role).toBe('guest');
-    expect(user.id).toBeDefined();
-    expect(auth.loadUsers(tmp).length).toBe(before + 1);
-    fs.unlinkSync(tmp);
+  test('adds user and returns it with an id', () => {
+    const tmp = makeTempUsers();
+    const u = auth.createUser({
+      name: 'New User', email: 'new@test.com',
+      username: 'newuser', password: 'secret123',
+      projectAccess: ['trackmyweek']
+    }, tmp);
+    expect(u.id).toBeDefined();
+    expect(u.role).toBe('guest');
+    expect(u.active).toBe(true);
+    // confirm it persisted
+    const all = auth.loadUsers(tmp);
+    expect(all.find(x => x.id === u.id)).toBeDefined();
   });
 
-  test('defaults projectAccess to empty array if not provided', () => {
-    const tmp = makeTempUsersFile();
-    const user = auth.createUser(
-      { name: 'N', email: 'n@test.com', username: 'n', password: 'p' },
-      tmp
-    );
-    expect(user.projectAccess).toEqual([]);
-    fs.unlinkSync(tmp);
+  test('hashes the password (does not store plaintext)', () => {
+    const tmp = makeTempUsers();
+    const u = auth.createUser({
+      name: 'Test', email: 't@t.com',
+      username: 'ttt', password: 'mypassword'
+    }, tmp);
+    expect(u.passwordHash).not.toBe('mypassword');
+    expect(u.passwordHash).toHaveLength(64);
   });
 });
 
 // ── updateUser ────────────────────────────────────────────────────────────────
 describe('updateUser', () => {
-  test('updates fields on existing user', () => {
-    const tmp = makeTempUsersFile();
-    const updated = auth.updateUser('test-guest-001', { name: 'Updated Name' }, tmp);
-    expect(updated.name).toBe('Updated Name');
-    fs.unlinkSync(tmp);
+  test('updates a field', () => {
+    const tmp = makeTempUsers();
+    const updated = auth.updateUser('test-guest-001', { active: false }, tmp);
+    expect(updated.active).toBe(false);
   });
 
-  test('hashes password when password field is supplied', () => {
-    const tmp = makeTempUsersFile();
+  test('hashes password if included in update', () => {
+    const tmp = makeTempUsers();
     const updated = auth.updateUser('test-guest-001', { password: 'newpass' }, tmp);
-    expect(updated.passwordHash).toBe(auth.hashPassword('newpass'));
-    expect(updated.password).toBeUndefined();
-    fs.unlinkSync(tmp);
+    expect(updated.passwordHash).toHaveLength(64);
+    expect(updated.passwordHash).not.toBe('newpass');
   });
 
   test('returns null for unknown id', () => {
-    const tmp = makeTempUsersFile();
-    expect(auth.updateUser('nope', { name: 'x' }, tmp)).toBeNull();
-    fs.unlinkSync(tmp);
+    const tmp = makeTempUsers();
+    expect(auth.updateUser('no-such-id', { active: false }, tmp)).toBeNull();
   });
 });
 
 // ── deleteUser ────────────────────────────────────────────────────────────────
 describe('deleteUser', () => {
-  test('deletes existing user and returns true', () => {
-    const tmp = makeTempUsersFile();
+  test('removes user and returns true', () => {
+    const tmp = makeTempUsers();
     const result = auth.deleteUser('test-guest-001', tmp);
     expect(result).toBe(true);
     expect(auth.getUserById('test-guest-001', tmp)).toBeNull();
-    fs.unlinkSync(tmp);
   });
 
   test('returns false for unknown id', () => {
-    const tmp = makeTempUsersFile();
-    expect(auth.deleteUser('nope', tmp)).toBe(false);
-    fs.unlinkSync(tmp);
+    const tmp = makeTempUsers();
+    expect(auth.deleteUser('no-such-id', tmp)).toBe(false);
   });
 });

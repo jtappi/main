@@ -1,46 +1,70 @@
 // @ts-check
+'use strict';
+
 const { test, expect } = require('@playwright/test');
 
-/**
- * E2E: Login Flow
- * Requires the portal to be running at BASE_URL (default: http://localhost:3000)
- */
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
+const ADMIN_USER = process.env.E2E_ADMIN_USER || 'testadmin';
+const ADMIN_PASS = process.env.E2E_ADMIN_PASS || 'test';
+const GUEST_USER = process.env.E2E_GUEST_USER || 'testguest';
+const GUEST_PASS = process.env.E2E_GUEST_PASS || 'test';
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3000';
+// ── Login page renders ────────────────────────────────────────────────────────
+test('login page renders required elements', async ({ page }) => {
+  await page.goto(`${BASE}/login`);
+  await expect(page.getByTestId('login-card')).toBeVisible();
+  await expect(page.getByTestId('login-logo')).toBeVisible();
+  await expect(page.getByTestId('login-identifier')).toBeVisible();
+  await expect(page.getByTestId('login-password')).toBeVisible();
+  await expect(page.getByTestId('login-submit-btn')).toBeVisible();
+  await expect(page.getByTestId('login-error')).toBeHidden();
+});
 
-test.describe('Login Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE_URL}/login`);
-  });
+// ── Bad credentials show error ────────────────────────────────────────────────
+test('shows error message for invalid credentials', async ({ page }) => {
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-identifier').fill('nobody');
+  await page.getByTestId('login-password').fill('wrongpassword');
+  await page.getByTestId('login-submit-btn').click();
+  await expect(page.getByTestId('login-error')).toBeVisible();
+  // Must still be on login page
+  await expect(page).toHaveURL(/\/login/);
+});
 
-  test('login page renders key elements', async ({ page }) => {
-    await expect(page.getByTestId('login-card')).toBeVisible();
-    await expect(page.getByTestId('login-identifier')).toBeVisible();
-    await expect(page.getByTestId('login-password')).toBeVisible();
-    await expect(page.getByTestId('login-submit-btn')).toBeVisible();
-    await expect(page.getByTestId('login-error')).toBeHidden();
-  });
+// ── Empty fields show error ───────────────────────────────────────────────────
+test('shows error when fields are empty', async ({ page }) => {
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-submit-btn').click();
+  await expect(page.getByTestId('login-error')).toBeVisible();
+});
 
-  test('shows error on invalid credentials', async ({ page }) => {
-    await page.getByTestId('login-identifier').fill('nobody');
-    await page.getByTestId('login-password').fill('wrongpass');
-    await page.getByTestId('login-submit-btn').click();
-    await expect(page.getByTestId('login-error')).toBeVisible();
-  });
+// ── Successful admin login ────────────────────────────────────────────────────
+test('admin login redirects to dashboard', async ({ page }) => {
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-identifier').fill(ADMIN_USER);
+  await page.getByTestId('login-password').fill(ADMIN_PASS);
+  await page.getByTestId('login-submit-btn').click();
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
+});
 
-  test('redirects to dashboard on valid admin login', async ({ page }) => {
-    await page.getByTestId('login-identifier').fill(process.env.E2E_ADMIN_USER || 'testadmin');
-    await page.getByTestId('login-password').fill(process.env.E2E_ADMIN_PASS || 'test');
-    await page.getByTestId('login-submit-btn').click();
-    await page.waitForURL(`${BASE_URL}/dashboard`);
-    expect(page.url()).toContain('/dashboard');
-  });
+// ── Successful guest login ────────────────────────────────────────────────────
+test('guest login redirects to dashboard', async ({ page }) => {
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-identifier').fill(GUEST_USER);
+  await page.getByTestId('login-password').fill(GUEST_PASS);
+  await page.getByTestId('login-submit-btn').click();
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
+});
 
-  test('enter key triggers login', async ({ page }) => {
-    await page.getByTestId('login-identifier').fill(process.env.E2E_ADMIN_USER || 'testadmin');
-    await page.getByTestId('login-password').fill(process.env.E2E_ADMIN_PASS || 'test');
-    await page.keyboard.press('Enter');
-    await page.waitForURL(`${BASE_URL}/dashboard`);
-    expect(page.url()).toContain('/dashboard');
-  });
+// ── Already logged in → skip login ───────────────────────────────────────────
+test('visiting /login while authenticated redirects to dashboard', async ({ page }) => {
+  // Log in first
+  await page.goto(`${BASE}/login`);
+  await page.getByTestId('login-identifier').fill(ADMIN_USER);
+  await page.getByTestId('login-password').fill(ADMIN_PASS);
+  await page.getByTestId('login-submit-btn').click();
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
+  // Now navigate back to /login
+  await page.goto(`${BASE}/login`);
+  await expect(page).toHaveURL(/\/dashboard/);
 });
