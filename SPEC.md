@@ -1,6 +1,6 @@
 # trackmyweek.com — Platform Specification
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** 2026-03-10  
 **Status:** APPROVED — Ready to Build  
 
@@ -8,96 +8,73 @@
 
 ## 1. Vision
 
-A self-hosted personal development portfolio and app ecosystem, running on a Mac Mini home server, that serves as both a practice ground for development skills (especially AI) and a collection of genuinely useful personal life apps. Protected by enterprise-grade security, fully monitored, with CI/CD pipelines and multi-project architecture.
+A self-hosted personal development portfolio and app ecosystem that serves as both a practice ground for development skills (especially AI) and a collection of genuinely useful personal life apps. Protected by enterprise-grade security, fully monitored, with CI/CD pipelines and a multi-project architecture designed to grow over time.
 
 ---
 
 ## 2. Goals
 
-- Single login to access all projects
+- Single login to access all projects (SSO)
 - Practice modern development skills including AI integration
-- Build genuinely useful personal apps (scheduling, habits, health, etc.)
+- Build genuinely useful personal apps over time
 - Full visibility into errors, performance, and uptime
 - CI/CD pipeline for easy deployments
-- Ability to invite guests to specific projects with granular control
+- Ability to invite guests to specific projects with granular access control
+- Architecture that supports adding new sub-projects at any time
 
 ---
 
-## 3. Infrastructure
+## 3. Technology Stack
 
 | Component | Technology |
 |-----------|------------|
-| Server | Mac Mini (Intel i5, macOS Monterey) |
-| Domain | trackmyweek.com |
 | Web Server | Nginx |
 | CDN / Proxy | Cloudflare (Full Strict SSL) |
 | Process Manager | PM2 |
 | Monitoring | Better Stack |
 | Version Control | GitHub (private monorepo: jtappi/main) |
-| Runtime | Node.js (via NVM) |
+| Runtime | Node.js |
 | Database | JSON files (migrate to MongoDB later) |
 | Future | AWS, MongoDB, New Relic |
 
 ---
 
-## 4. Port Allocation
+## 4. Current Scope
 
-| App | Port | URL |
-|-----|------|-----|
-| Portal | 3000 | trackmyweek.com/ |
-| TrackMyWeek | 3001 | trackmyweek.com/trackmyweek |
-| ToDo | 3002 | trackmyweek.com/todo |
-| Habits | 3003 | trackmyweek.com/habits |
-| Scheduler | 3004 | trackmyweek.com/scheduler |
-| MedTracker | 3005 | trackmyweek.com/medtracker |
-| HealthDashboard | 3006 | trackmyweek.com/health |
+This spec covers **Phase 1 and Phase 2** only:
 
----
+| Project | Description | Status |
+|---------|-------------|--------|
+| **Portal** | Main entry point — login, dashboard, admin panel | 🔜 Building now |
+| **TrackMyWeek** | Activity and week tracking app | 🔜 Migrating into monorepo |
 
-## 5. Nginx Routing
-
-All traffic enters through Nginx on port 443 (HTTPS). Nginx routes by subpath:
-
-```nginx
-# Portal (root)
-location / {
-    proxy_pass http://127.0.0.1:3000;
-}
-
-# TrackMyWeek
-location /trackmyweek {
-    proxy_pass http://127.0.0.1:3001;
-}
-
-# ToDo
-location /todo {
-    proxy_pass http://127.0.0.1:3002;
-}
-
-# Habits
-location /habits {
-    proxy_pass http://127.0.0.1:3003;
-}
-
-# Scheduler
-location /scheduler {
-    proxy_pass http://127.0.0.1:3004;
-}
-
-# MedTracker
-location /medtracker {
-    proxy_pass http://127.0.0.1:3005;
-}
-
-# Health Dashboard
-location /health {
-    proxy_pass http://127.0.0.1:3006;
-}
-```
+Additional sub-projects will be defined in future spec versions as they are planned.
 
 ---
 
-## 6. Repository Structure
+## 5. Port Allocation
+
+| App | Port |
+|-----|------|
+| Portal | 3000 |
+| TrackMyWeek | 3001 |
+| Reserved for future projects | 3002–3010 |
+
+---
+
+## 6. URL Structure
+
+All sub-projects are served as subpaths of the main domain:
+
+| App | URL |
+|-----|-----|
+| Portal / Login | trackmyweek.com/ |
+| TrackMyWeek | trackmyweek.com/trackmyweek |
+| Future projects | trackmyweek.com/{project-name} |
+
+---
+
+## 7. Repository Structure
 
 ```
 main/                          # Root monorepo (github.com/jtappi/main)
@@ -111,38 +88,33 @@ main/                          # Root monorepo (github.com/jtappi/main)
 │   │   └── middleware.js      # Auth + access control middleware
 │   └── data/                  # Shared data files
 │       ├── users.json         # All users
-│       └── projects.json      # All projects registry
+│       └── projects.json      # Project registry
 │
 ├── portal/                    # Main entry point (port 3000)
-│   ├── server.js              # Express app
+│   ├── server.js
 │   ├── package.json
 │   └── public/
-│       ├── login.html         # Login page
-│       ├── dashboard.html     # Project dashboard
-│       ├── admin.html         # Admin panel
-│       └── assets/            # CSS, JS, images
+│       ├── login.html
+│       ├── dashboard.html
+│       ├── admin.html
+│       └── assets/
 │
 └── projects/                  # All sub-projects
-    ├── trackmyweek/           # Port 3001 — Activity tracker
-    ├── todo/                  # Port 3002 — Task management
-    ├── habits/                # Port 3003 — Daily habits
-    ├── scheduler/             # Port 3004 — Calendar
-    ├── medtracker/            # Port 3005 — Medication tracking
-    └── healthdashboard/       # Port 3006 — Healthcare data
+    └── trackmyweek/           # Port 3001 — Activity tracker
 ```
 
 ---
 
-## 7. User Roles
+## 8. User Roles
 
 | Role | Description | Access |
 |------|-------------|--------|
-| Admin | Owner (Jiten) | Full access to everything |
-| Guest | Family / Friends | Only projects explicitly granted by Admin |
+| Admin | Platform owner | Full access to everything |
+| Guest | Invited users | Only projects explicitly granted by Admin |
 
 ---
 
-## 8. User Stories
+## 9. User Stories
 
 ### Admin
 - I can log in with my email or username + password
@@ -162,7 +134,7 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 9. Data Model
+## 10. Data Model
 
 ### core/data/users.json
 ```json
@@ -200,9 +172,9 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 10. API Specification
+## 11. API Specification
 
-### Auth Routes (Portal)
+### Auth Routes
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | /auth/login | Login with email or username + password | No |
@@ -230,20 +202,20 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 11. Authentication Specification
+## 12. Authentication Specification
 
 - Login accepts either **email** or **username** + password
 - Passwords hashed with **SHA256** client-side before sending
 - Sessions managed with **express-session**
-- Session secret stored in `.env`
+- Session secret stored in `.env` — never committed to GitHub
 - Unauthenticated requests redirect to `/login`
 - Session expires after **24 hours** of inactivity
 - Sessions are shared across sub-projects via the portal session cookie
-- Each sub-project checks session validity via core auth middleware
+- Each sub-project validates session via shared core auth middleware
 
 ---
 
-## 12. UI Specification
+## 13. UI Specification
 
 ### Login Page (`/login`)
 - Single input: email or username
@@ -275,27 +247,27 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 13. Security Requirements
+## 14. Security Requirements
 
-- HTTPS enforced via Cloudflare Full Strict
-- All traffic must pass through Cloudflare (direct IP access blocked at Nginx)
+- HTTPS enforced end-to-end
+- All traffic proxied through Cloudflare
 - Helmet.js security headers on all routes
 - Rate limiting on auth endpoints (100 requests / 15 min)
-- Express `trust proxy` enabled (behind Nginx)
+- Express `trust proxy` enabled
 - No plain text passwords stored anywhere
 - `.env` never committed to GitHub
 - Guest access verified on every sub-project request
 - Sessions invalidated on logout
-- `.gitignore` covers: `.env`, `node_modules/`, `*.json` data files
+- `.gitignore` covers: `.env`, `node_modules/`, data files with personal info
 
 ---
 
-## 14. Monitoring & Observability
+## 15. Monitoring & Observability
 
 | Tool | Purpose |
 |------|---------|
 | Better Stack | Uptime monitoring + alerting |
-| Better Stack Heartbeat | Mac Mini alive check (every 5 min via PM2) |
+| Better Stack Heartbeat | Server alive check (every 5 min) |
 | PM2 | Process monitoring + auto-restart |
 | Nginx logs | Request logging |
 | Future: New Relic | APM + error tracking |
@@ -303,42 +275,26 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 15. CI/CD Pipeline (Phase 3)
+## 16. CI/CD Pipeline (Phase 3)
 
 **Target workflow:**
 1. Push code to GitHub `main` branch
 2. GitHub Action triggers
 3. Runs tests
-4. SSHes into Mac Mini
-5. Runs `git pull`
-6. Runs `npm install` if `package.json` changed
-7. Runs `pm2 restart` for affected project only
-8. Sends success/failure notification via Better Stack
+4. Deploys to server
+5. Restarts affected project only
+6. Sends success/failure notification
 
 ---
 
-## 16. Project Roadmap
+## 17. Project Roadmap
 
 | Phase | What We Build | Status |
 |-------|---------------|--------|
-| **Phase 1** | Core platform: SSO auth, portal dashboard, admin panel | 🔜 Next |
+| **Phase 1** | Portal: SSO auth, dashboard, admin panel | 🔜 Next |
 | **Phase 2** | Migrate TrackMyWeek into monorepo | ⬜ |
 | **Phase 3** | CI/CD pipeline | ⬜ |
-| **Phase 4** | First new project (ToDo) | ⬜ |
+| **Phase 4** | First new sub-project | ⬜ |
 | **Phase 5** | MongoDB migration | ⬜ |
 | **Phase 6** | New Relic + AWS integration | ⬜ |
 | **Phase 7** | AI features across projects | ⬜ |
-
----
-
-## 17. Open Questions — RESOLVED
-
-| Question | Decision |
-|----------|----------|
-| Port allocation | Portal=3000, projects 3001-3006 |
-| URL structure | Subpaths (trackmyweek.com/habits) |
-| Auth method | Email or username + password |
-| Session management | express-session |
-| Database | JSON files first, MongoDB later |
-| Repo structure | Private monorepo (jtappi/main) |
-| Routing | Nginx subpath proxying |
