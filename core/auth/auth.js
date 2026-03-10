@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
 
+// No external dependencies in core — crypto.randomUUID() is built into Node 14.17+
 const DEFAULT_USERS_FILE = path.join(__dirname, '../data/users.json');
 
 /**
@@ -64,7 +64,7 @@ function getUserById(id, usersFile = DEFAULT_USERS_FILE) {
 function createUser(userData, usersFile = DEFAULT_USERS_FILE) {
   const users = loadUsers(usersFile);
   const newUser = {
-    id: uuidv4(),
+    id: crypto.randomUUID(),
     name: userData.name,
     email: userData.email,
     username: userData.username,
