@@ -13,14 +13,12 @@ let tmpUsers;
 let app;
 
 beforeEach(() => {
-  // Fresh writable users file per test
   tmpUsers = path.join(os.tmpdir(), `users-${Date.now()}-${Math.random()}.json`);
   fs.copyFileSync(USERS_FIXTURE, tmpUsers);
   process.env.USERS_FILE = tmpUsers;
   process.env.PROJECTS_FILE = PROJECTS_FIXTURE;
   process.env.SESSION_SECRET = 'test-secret';
   process.env.NODE_ENV = 'test';
-  // Re-require app fresh each test to pick up env vars
   jest.resetModules();
   app = require('../../portal/server');
 });
@@ -33,10 +31,9 @@ afterEach(() => {
 async function loginAs(agent, username, password = 'test') {
   const hash = require('crypto')
     .createHash('sha256').update(password).digest('hex');
-  const res = await agent
+  return agent
     .post('/auth/login')
     .send({ identifier: username, passwordHash: hash });
-  return res;
 }
 
 // ── Root redirect ─────────────────────────────────────────────────────────────
@@ -128,9 +125,12 @@ describe('POST /auth/logout', () => {
 
 // ── Protected routes ──────────────────────────────────────────────────────────
 describe('GET /dashboard', () => {
-  test('returns 401 when unauthenticated', async () => {
+  // requireAuth redirects unauthenticated browsers to /login (302).
+  // Supertest does not follow redirects, so we assert 302.
+  test('redirects to /login when unauthenticated', async () => {
     const res = await request(app).get('/dashboard');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login');
   });
 
   test('returns 200 for authenticated user', async () => {
@@ -142,12 +142,14 @@ describe('GET /dashboard', () => {
 });
 
 describe('GET /admin', () => {
-  test('returns 401 when unauthenticated', async () => {
+  // requireAdmin returns 403 for any non-admin (including unauthenticated)
+  // because it checks role directly without a prior auth gate.
+  test('returns 403 when unauthenticated', async () => {
     const res = await request(app).get('/admin');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
-  test('returns 403 for guest user', async () => {
+  test('returns 403 for authenticated guest user', async () => {
     const agent = request.agent(app);
     await loginAs(agent, 'testguest');
     const res = await agent.get('/admin');
@@ -164,9 +166,11 @@ describe('GET /admin', () => {
 
 // ── API: projects ─────────────────────────────────────────────────────────────
 describe('GET /api/projects', () => {
-  test('returns 401 when unauthenticated', async () => {
+  // requireAuth redirects unauthenticated requests to /login (302)
+  test('redirects to /login when unauthenticated', async () => {
     const res = await request(app).get('/api/projects');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login');
   });
 
   test('returns projects for authenticated guest with access', async () => {
@@ -178,12 +182,11 @@ describe('GET /api/projects', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 
-  test('admin sees all projects', async () => {
+  test('admin sees all projects including disabled', async () => {
     const agent = request.agent(app);
     await loginAs(agent, 'testadmin');
     const res = await agent.get('/api/projects');
     expect(res.status).toBe(200);
-    // Fixture has 2 projects; admin sees both including disabled
     expect(res.body.length).toBe(2);
   });
 });
@@ -196,7 +199,6 @@ describe('Admin user CRUD', () => {
     const res = await agent.get('/admin/users');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    // passwordHash must never be exposed
     res.body.forEach(u => expect(u.passwordHash).toBeUndefined());
   });
 
@@ -207,7 +209,7 @@ describe('Admin user CRUD', () => {
     expect(res.status).toBe(403);
   });
 
-  test('POST /admin/users creates a guest user', async () => {
+  test('POST /admin/users creates a guest user without exposing passwordHash', async () => {
     const agent = request.agent(app);
     await loginAs(agent, 'testadmin');
     const res = await agent.post('/admin/users').send({
@@ -235,6 +237,7 @@ describe('Admin user CRUD', () => {
       .send({ active: false });
     expect(res.status).toBe(200);
     expect(res.body.active).toBe(false);
+    expect(res.body.passwordHash).toBeUndefined();
   });
 
   test('DELETE /admin/users/:id removes a user', async () => {
@@ -242,7 +245,6 @@ describe('Admin user CRUD', () => {
     await loginAs(agent, 'testadmin');
     const res = await agent.delete('/admin/users/test-guest-001');
     expect(res.status).toBe(200);
-    // Verify gone
     const list = await agent.get('/admin/users');
     expect(list.body.find(u => u.id === 'test-guest-001')).toBeUndefined();
   });
