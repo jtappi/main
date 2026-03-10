@@ -6,13 +6,25 @@
   <title>trackmyweek — Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body class="auth-page">
   <div class="auth-card" data-testid="login-card">
     <div class="logo" data-testid="login-logo">
-      <img src="/assets/logo.png" alt="trackmyweek" class="logo-img">
+      <svg class="logo-img" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="18" width="90" height="77" rx="10" fill="#6b7f96"/>
+        <rect x="5" y="28" width="90" height="67" rx="8" fill="#fff"/>
+        <rect x="5" y="28" width="90" height="18" fill="#6b7f96"/>
+        <rect x="25" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
+        <rect x="65" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
+        <line x1="5" y1="60" x2="95" y2="60" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="5" y1="76" x2="95" y2="76" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="32" y1="46" x2="32" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="52" y1="46" x2="52" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="72" y1="46" x2="72" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <polyline points="22,68 34,80 58,52" stroke="#4fb8c4" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
       <h1>track<span>my</span>week</h1>
     </div>
     <div id="error-msg" data-testid="login-error" class="error-msg hidden"></div>
