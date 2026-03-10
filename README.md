@@ -6,21 +6,28 @@ See [SPEC.md](./SPEC.md) for the full platform specification.
 
 ## Structure
 
-```
-core/       # Shared auth and data
-portal/     # Main entry point — login, dashboard, admin
-projects/   # Sub-projects
-```
+- `core/` — Shared auth and data
+- `portal/` — Main entry point (login, dashboard, admin)
+- `projects/` — Sub-projects
 
-## Getting Started
+## Setup
 
 ```bash
-# Install portal dependencies
+# 1. Clone
+git clone git@github.com:jtappi/main.git
+cd main
+
+# 2. Copy and configure data files
+cp core/data/users.template.json core/data/users.json
+# Edit users.json with your admin account details
+
+# 3. Create .env in root
+cp .env.example .env
+# Fill in SESSION_SECRET and PORTAL_PORT
+
+# 4. Install portal dependencies
 cd portal && npm install
 
-# Copy and configure environment
-cp .env.example .env
-
-# Start portal
+# 5. Start
 node server.js
 ```

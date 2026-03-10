@@ -1,163 +1,137 @@
-let allProjects = [];
+'use strict';
 
-(async () => {
-    // Verify admin session
-    const session = await fetch('/auth/session').then(r => r.json());
-    if (!session.authenticated || session.role !== 'admin') {
-        window.location.href = '/dashboard';
-        return;
-    }
-
-    // Load data
-    allProjects = await fetch('/admin/projects').then(r => r.json());
-    const users = await fetch('/admin/users').then(r => r.json());
-
-    renderUsers(users);
-    renderProjects(allProjects);
-
-    // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-        });
+(async function () {
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
     });
+  });
 
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-        await fetch('/auth/logout', { method: 'POST' });
-        window.location.href = '/login';
-    });
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  });
 
-    // Create user modal
-    document.getElementById('createUserBtn').addEventListener('click', () => {
-        document.getElementById('createUserModal').style.display = 'flex';
-    });
-    document.getElementById('cancelUserBtn').addEventListener('click', () => {
-        document.getElementById('createUserModal').style.display = 'none';
-    });
-    document.getElementById('saveUserBtn').addEventListener('click', createUser);
-})();
+  let allProjects = [];
 
-function renderUsers(users) {
-    const tbody = document.getElementById('usersTableBody');
+  // ── Load Projects ────────────────────────────────────────
+  async function loadProjects() {
+    const res = await fetch('/admin/projects');
+    allProjects = await res.json();
+    const tbody = document.getElementById('projects-tbody');
+    tbody.innerHTML = allProjects.map(p => `
+      <tr>
+        <td>${p.icon}</td>
+        <td>${p.name}</td>
+        <td>${p.route}</td>
+        <td>${p.port}</td>
+        <td><span class="status-badge status-${p.status}">${p.status}</span></td>
+        <td>${p.description}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Load Users ───────────────────────────────────────────
+  async function loadUsers() {
+    const res = await fetch('/admin/users');
+    const users = await res.json();
+    const tbody = document.getElementById('users-tbody');
     tbody.innerHTML = users.map(u => `
-        <tr>
-            <td>${u.name}</td>
-            <td>${u.email}</td>
-            <td>${u.username}</td>
-            <td><span class="status-badge ${u.active ? 'active' : 'disabled'}">
-                ${u.active ? 'Active' : 'Disabled'}
-            </span></td>
-            <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}</td>
-            <td>
-                ${allProjects.map(p => `
-                    <label class="access-toggle">
-                        <input type="checkbox"
-                            data-user="${u.id}"
-                            data-project="${p.id}"
-                            ${u.projectAccess && u.projectAccess.includes(p.id) ? 'checked' : ''}
-                            ${u.role === 'admin' ? 'disabled checked' : ''}
-                            onchange="toggleAccess('${u.id}', this)">
-                        ${p.name}
-                    </label>
-                `).join('')}
-            </td>
-            <td>
-                ${u.role !== 'admin' ? `
-                    <button class="btn-small btn-secondary"
-                        onclick="toggleActive('${u.id}', ${u.active})">
-                        ${u.active ? 'Disable' : 'Enable'}
-                    </button>
-                    <button class="btn-small btn-danger"
-                        onclick="deleteUser('${u.id}', '${u.name}')">
-                        Delete
-                    </button>
-                ` : '<span class="muted">Admin</span>'}
-            </td>
-        </tr>
+      <tr>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.username}</td>
+        <td>${u.role}</td>
+        <td>
+          <button class="btn btn-sm ${u.active ? 'btn-outline' : 'btn-primary'}"
+            onclick="toggleActive('${u.id}', ${u.active})">
+            ${u.active ? 'Disable' : 'Enable'}
+          </button>
+        </td>
+        <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
+        <td>
+          <div class="access-tags">
+            ${(u.projectAccess || []).map(pid =>
+              `<span class="access-tag">${pid}</span>`
+            ).join('')}
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">Delete</button>
+        </td>
+      </tr>
     `).join('');
-}
+  }
 
-function renderProjects(projects) {
-    const tbody = document.getElementById('projectsTableBody');
-    tbody.innerHTML = projects.map(p => `
-        <tr>
-            <td>${p.icon}</td>
-            <td>${p.name}</td>
-            <td><code>${p.route}</code></td>
-            <td><code>${p.port}</code></td>
-            <td><span class="status-badge ${p.status}">${p.status}</span></td>
-        </tr>
-    `).join('');
-}
-
-async function toggleAccess(userId, checkbox) {
-    const projectId = checkbox.dataset.project;
-    const row = document.querySelector(`tr td [data-user="${userId}"]`)?.closest('tr');
-    const checkboxes = row?.querySelectorAll('input[type=checkbox][data-user]');
-    const projectAccess = checkboxes
-        ? Array.from(checkboxes).filter(c => c.checked).map(c => c.dataset.project)
-        : [];
-
-    await fetch(`/admin/users/${userId}/access`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectAccess })
+  // ── Toggle Active ─────────────────────────────────────────
+  window.toggleActive = async (id, current) => {
+    await fetch(`/admin/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !current })
     });
-}
+    loadUsers();
+  };
 
-async function toggleActive(userId, currentlyActive) {
-    await fetch(`/admin/users/${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: !currentlyActive })
-    });
-    location.reload();
-}
-
-async function deleteUser(userId, name) {
+  // ── Delete User ───────────────────────────────────────────
+  window.deleteUser = async (id, name) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-    await fetch(`/admin/users/${userId}`, { method: 'DELETE' });
-    location.reload();
-}
+    await fetch(`/admin/users/${id}`, { method: 'DELETE' });
+    loadUsers();
+  };
 
-async function createUser() {
-    const name = document.getElementById('newName').value.trim();
-    const email = document.getElementById('newEmail').value.trim();
-    const username = document.getElementById('newUsername').value.trim();
-    const password = document.getElementById('newPassword').value;
-    const errorEl = document.getElementById('createUserError');
+  // ── Create User Modal ─────────────────────────────────────
+  document.getElementById('create-user-btn').addEventListener('click', () => {
+    document.getElementById('modal-error').classList.add('hidden');
+    // Render project checkboxes
+    document.getElementById('new-project-access').innerHTML =
+      `<div class="checkbox-group">${allProjects.map(p =>
+        `<label><input type="checkbox" value="${p.id}"> ${p.icon} ${p.name}</label>`
+      ).join('')}</div>`;
+    document.getElementById('create-user-modal').classList.remove('hidden');
+  });
 
+  document.getElementById('cancel-user-btn').addEventListener('click', () => {
+    document.getElementById('create-user-modal').classList.add('hidden');
+  });
+
+  document.getElementById('save-user-btn').addEventListener('click', async () => {
+    const name     = document.getElementById('new-name').value.trim();
+    const email    = document.getElementById('new-email').value.trim();
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value;
+    const access   = [...document.querySelectorAll('#new-project-access input:checked')]
+      .map(cb => cb.value);
+
+    const errEl = document.getElementById('modal-error');
     if (!name || !email || !username || !password) {
-        errorEl.textContent = 'All fields are required';
-        errorEl.style.display = 'block';
-        return;
+      errEl.textContent = 'All fields are required.';
+      errEl.classList.remove('hidden');
+      return;
     }
-
-    const passwordHash = await sha256(password);
 
     const res = await fetch('/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, username, passwordHash })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, username, password, projectAccess: access })
     });
 
-    const data = await res.json();
     if (res.ok) {
-        document.getElementById('createUserModal').style.display = 'none';
-        location.reload();
+      document.getElementById('create-user-modal').classList.add('hidden');
+      loadUsers();
     } else {
-        errorEl.textContent = data.error || 'Failed to create user';
-        errorEl.style.display = 'block';
+      const data = await res.json();
+      errEl.textContent = data.error || 'Failed to create user.';
+      errEl.classList.remove('hidden');
     }
-}
+  });
 
-async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+  // ── Init ─────────────────────────────────────────────────
+  await loadProjects();
+  await loadUsers();
+})();

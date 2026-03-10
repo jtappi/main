@@ -1,34 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>trackmyweek.com — Login</title>
-    <link rel="stylesheet" href="/assets/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>trackmyweek — Login</title>
+  <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body class="login-page">
-    <div class="login-container">
-        <div class="login-logo">
-            <h1>trackmyweek<span>.com</span></h1>
-            <p>Your personal app platform</p>
-        </div>
-        <form id="loginForm" class="login-form">
-            <div class="form-group">
-                <label for="identifier">Email or Username</label>
-                <input type="text" id="identifier" name="identifier"
-                    placeholder="Enter your email or username"
-                    autocomplete="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password"
-                    placeholder="Enter your password"
-                    autocomplete="current-password" required>
-            </div>
-            <div id="errorMessage" class="error-message" style="display:none;"></div>
-            <button type="submit" class="btn-login">Sign In</button>
-        </form>
+<body class="auth-page">
+  <div class="auth-card">
+    <div class="logo">
+      <span class="logo-icon">📅</span>
+      <h1>trackmyweek</h1>
     </div>
-    <script src="/assets/login.js"></script>
+    <div id="error-msg" class="error-msg hidden"></div>
+    <div class="form-group">
+      <label for="identifier">Email or Username</label>
+      <input type="text" id="identifier" placeholder="Enter email or username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button id="login-btn" class="btn btn-primary">Login</button>
+  </div>
+  <script src="/assets/login.js"></script>
 </body>
 </html>

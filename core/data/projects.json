@@ -2,7 +2,7 @@
   {
     "id": "trackmyweek",
     "name": "TrackMyWeek",
-    "description": "Track your daily activities, habits, and weekly patterns.",
+    "description": "Track your weekly activities and goals.",
     "route": "/trackmyweek",
     "port": 3001,
     "icon": "📅",
