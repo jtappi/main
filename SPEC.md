@@ -1,8 +1,8 @@
 # trackmyweek.com — Platform Specification
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** 2026-03-10  
-**Status:** In Progress  
+**Status:** APPROVED — Ready to Build  
 
 ---
 
@@ -19,7 +19,7 @@ A self-hosted personal development portfolio and app ecosystem, running on a Mac
 - Build genuinely useful personal apps (scheduling, habits, health, etc.)
 - Full visibility into errors, performance, and uptime
 - CI/CD pipeline for easy deployments
-- Ability to invite guests to specific projects
+- Ability to invite guests to specific projects with granular control
 
 ---
 
@@ -40,47 +40,100 @@ A self-hosted personal development portfolio and app ecosystem, running on a Mac
 
 ---
 
-## 4. Repository Structure
+## 4. Port Allocation
 
-```
-main/                          # Root monorepo
-├── SPEC.md                    # This file
-├── README.md                  # Project overview
-├── package.json               # Root dependencies
-├── .env                       # Environment variables (not committed)
-├── .gitignore
-│
-├── core/                      # Shared platform code
-│   ├── auth/                  # SSO authentication
-│   │   ├── auth.js            # Login/logout/session logic
-│   │   ├── middleware.js      # Auth middleware
-│   │   └── users.json         # User store
-│   ├── admin/                 # Admin panel
-│   │   └── access-control.js  # Guest access management
-│   └── data/                  # Shared data files
-│       ├── users.json
-│       └── projects.json
-│
-├── portal/                    # Main dashboard (entry point)
-│   ├── server.js              # Express app
-│   └── public/                # Frontend
-│       ├── index.html         # Dashboard
-│       ├── login.html         # Login page
-│       ├── admin.html         # Admin panel
-│       └── assets/
-│
-└── projects/                  # All sub-projects
-    ├── trackmyweek/           # Activity tracker (existing)
-    ├── scheduler/             # Calendar & scheduling
-    ├── todo/                  # Task management
-    ├── medtracker/            # Medication tracking
-    ├── habits/                # Daily habit tracker
-    └── healthdashboard/       # Healthcare data
+| App | Port | URL |
+|-----|------|-----|
+| Portal | 3000 | trackmyweek.com/ |
+| TrackMyWeek | 3001 | trackmyweek.com/trackmyweek |
+| ToDo | 3002 | trackmyweek.com/todo |
+| Habits | 3003 | trackmyweek.com/habits |
+| Scheduler | 3004 | trackmyweek.com/scheduler |
+| MedTracker | 3005 | trackmyweek.com/medtracker |
+| HealthDashboard | 3006 | trackmyweek.com/health |
+
+---
+
+## 5. Nginx Routing
+
+All traffic enters through Nginx on port 443 (HTTPS). Nginx routes by subpath:
+
+```nginx
+# Portal (root)
+location / {
+    proxy_pass http://127.0.0.1:3000;
+}
+
+# TrackMyWeek
+location /trackmyweek {
+    proxy_pass http://127.0.0.1:3001;
+}
+
+# ToDo
+location /todo {
+    proxy_pass http://127.0.0.1:3002;
+}
+
+# Habits
+location /habits {
+    proxy_pass http://127.0.0.1:3003;
+}
+
+# Scheduler
+location /scheduler {
+    proxy_pass http://127.0.0.1:3004;
+}
+
+# MedTracker
+location /medtracker {
+    proxy_pass http://127.0.0.1:3005;
+}
+
+# Health Dashboard
+location /health {
+    proxy_pass http://127.0.0.1:3006;
+}
 ```
 
 ---
 
-## 5. User Roles
+## 6. Repository Structure
+
+```
+main/                          # Root monorepo (github.com/jtappi/main)
+├── SPEC.md                    # This file
+├── README.md                  # Project overview
+├── .gitignore
+│
+├── core/                      # Shared platform code
+│   ├── auth/
+│   │   ├── auth.js            # Login/logout/session logic
+│   │   └── middleware.js      # Auth + access control middleware
+│   └── data/                  # Shared data files
+│       ├── users.json         # All users
+│       └── projects.json      # All projects registry
+│
+├── portal/                    # Main entry point (port 3000)
+│   ├── server.js              # Express app
+│   ├── package.json
+│   └── public/
+│       ├── login.html         # Login page
+│       ├── dashboard.html     # Project dashboard
+│       ├── admin.html         # Admin panel
+│       └── assets/            # CSS, JS, images
+│
+└── projects/                  # All sub-projects
+    ├── trackmyweek/           # Port 3001 — Activity tracker
+    ├── todo/                  # Port 3002 — Task management
+    ├── habits/                # Port 3003 — Daily habits
+    ├── scheduler/             # Port 3004 — Calendar
+    ├── medtracker/            # Port 3005 — Medication tracking
+    └── healthdashboard/       # Port 3006 — Healthcare data
+```
+
+---
+
+## 7. User Roles
 
 | Role | Description | Access |
 |------|-------------|--------|
@@ -89,7 +142,7 @@ main/                          # Root monorepo
 
 ---
 
-## 6. User Stories
+## 8. User Stories
 
 ### Admin
 - I can log in with my email or username + password
@@ -97,7 +150,7 @@ main/                          # Root monorepo
 - I can launch any project from the dashboard
 - I can see the health/status of all projects
 - I can create and manage guest accounts
-- I can grant or revoke a guest's access to any project at any time
+- I can grant or revoke a guest's access to any specific project at any time
 - I can see when guests last logged in
 - I can disable a guest account without deleting it
 
@@ -109,9 +162,9 @@ main/                          # Root monorepo
 
 ---
 
-## 7. Data Model
+## 9. Data Model
 
-### users.json
+### core/data/users.json
 ```json
 [
   {
@@ -129,7 +182,7 @@ main/                          # Root monorepo
 ]
 ```
 
-### projects.json
+### core/data/projects.json
 ```json
 [
   {
@@ -137,6 +190,7 @@ main/                          # Root monorepo
     "name": "string",
     "description": "string",
     "route": "/trackmyweek",
+    "port": 3001,
     "icon": "string (emoji or icon name)",
     "status": "active | maintenance | disabled",
     "createdAt": "ISO timestamp"
@@ -146,9 +200,9 @@ main/                          # Root monorepo
 
 ---
 
-## 8. API Specification
+## 10. API Specification
 
-### Auth Routes
+### Auth Routes (Portal)
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
 | POST | /auth/login | Login with email or username + password | No |
@@ -174,78 +228,74 @@ main/                          # Root monorepo
 | POST | /admin/projects | Add new project | Admin only |
 | PUT | /admin/projects/:id | Update project | Admin only |
 
-### Project Routes
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | /projects/:name/* | Proxy to sub-project | Yes + access check |
-
 ---
 
-## 9. Authentication Specification
+## 11. Authentication Specification
 
 - Login accepts either **email** or **username** + password
-- Passwords hashed with **SHA256** before storing
+- Passwords hashed with **SHA256** client-side before sending
 - Sessions managed with **express-session**
 - Session secret stored in `.env`
 - Unauthenticated requests redirect to `/login`
-- Guests redirected to `/dashboard` (limited view) after login
-- Admin redirected to `/dashboard` (full view) after login
 - Session expires after **24 hours** of inactivity
+- Sessions are shared across sub-projects via the portal session cookie
+- Each sub-project checks session validity via core auth middleware
 
 ---
 
-## 10. UI Specification
+## 12. UI Specification
 
 ### Login Page (`/login`)
-- Email or username field
-- Password field
+- Single input: email or username
+- Password input
 - Login button
 - Error message on failure
-- Branding: trackmyweek.com logo
+- trackmyweek.com branding
 
 ### Dashboard (`/dashboard`)
-- Header with user name + logout button
-- Grid of project cards, each showing:
-  - Project name
-  - Description
-  - Status indicator (active/maintenance/disabled)
+- Header: user name + logout button
+- Grid of project cards:
+  - Project name + icon
+  - Short description
+  - Status badge (active / maintenance / disabled)
   - Launch button
 - Admin sees all projects
 - Guest sees only granted projects
 
 ### Admin Panel (`/admin`)
 - **Users tab:**
-  - Table of all users
+  - Table of all users (name, email, role, active, last login)
   - Create guest button
-  - Per-user: edit, disable, delete
-  - Per-user: toggle project access checkboxes
+  - Per-user: edit, disable/enable, delete
+  - Per-user: project access checkboxes
 - **Projects tab:**
   - Table of all projects
   - Add project button
-  - Per-project: edit name, description, status
+  - Per-project: edit name, description, port, status
 
 ---
 
-## 11. Security Requirements
+## 13. Security Requirements
 
 - HTTPS enforced via Cloudflare Full Strict
-- All traffic must pass through Cloudflare (direct IP blocked)
+- All traffic must pass through Cloudflare (direct IP access blocked at Nginx)
 - Helmet.js security headers on all routes
-- Rate limiting on auth endpoints
-- Express trust proxy enabled (behind Nginx)
+- Rate limiting on auth endpoints (100 requests / 15 min)
+- Express `trust proxy` enabled (behind Nginx)
 - No plain text passwords stored anywhere
 - `.env` never committed to GitHub
-- Guest access checked on every request
+- Guest access verified on every sub-project request
 - Sessions invalidated on logout
+- `.gitignore` covers: `.env`, `node_modules/`, `*.json` data files
 
 ---
 
-## 12. Monitoring & Observability
+## 14. Monitoring & Observability
 
 | Tool | Purpose |
-|------|---------| 
+|------|---------|
 | Better Stack | Uptime monitoring + alerting |
-| Better Stack Heartbeat | Mac Mini alive check (every 5 min) |
+| Better Stack Heartbeat | Mac Mini alive check (every 5 min via PM2) |
 | PM2 | Process monitoring + auto-restart |
 | Nginx logs | Request logging |
 | Future: New Relic | APM + error tracking |
@@ -253,7 +303,7 @@ main/                          # Root monorepo
 
 ---
 
-## 13. CI/CD Pipeline (To Be Built)
+## 15. CI/CD Pipeline (Phase 3)
 
 **Target workflow:**
 1. Push code to GitHub `main` branch
@@ -261,29 +311,34 @@ main/                          # Root monorepo
 3. Runs tests
 4. SSHes into Mac Mini
 5. Runs `git pull`
-6. Runs `npm install` if package.json changed
-7. Runs `pm2 restart` for affected project
-8. Sends success/failure notification
+6. Runs `npm install` if `package.json` changed
+7. Runs `pm2 restart` for affected project only
+8. Sends success/failure notification via Better Stack
 
 ---
 
-## 14. Project Roadmap
+## 16. Project Roadmap
 
-| Phase | What We Build |
-|-------|---------------|
-| **Phase 1** | Core platform: SSO auth, portal dashboard, admin panel |
-| **Phase 2** | Migrate TrackMyWeek into monorepo |
-| **Phase 3** | CI/CD pipeline |
-| **Phase 4** | First new project (ToDo or Habits) |
-| **Phase 5** | MongoDB migration |
-| **Phase 6** | New Relic + AWS integration |
-| **Phase 7** | AI features across projects |
+| Phase | What We Build | Status |
+|-------|---------------|--------|
+| **Phase 1** | Core platform: SSO auth, portal dashboard, admin panel | 🔜 Next |
+| **Phase 2** | Migrate TrackMyWeek into monorepo | ⬜ |
+| **Phase 3** | CI/CD pipeline | ⬜ |
+| **Phase 4** | First new project (ToDo) | ⬜ |
+| **Phase 5** | MongoDB migration | ⬜ |
+| **Phase 6** | New Relic + AWS integration | ⬜ |
+| **Phase 7** | AI features across projects | ⬜ |
 
 ---
 
-## 15. Open Questions
+## 17. Open Questions — RESOLVED
 
-- [ ] What port does each sub-project run on? (Need port allocation plan)
-- [ ] How does Nginx route to sub-projects? (Subpath vs subdomain)
-- [ ] How does SSO session share across sub-projects?
-- [ ] What is the deployment strategy for zero-downtime updates?
+| Question | Decision |
+|----------|----------|
+| Port allocation | Portal=3000, projects 3001-3006 |
+| URL structure | Subpaths (trackmyweek.com/habits) |
+| Auth method | Email or username + password |
+| Session management | express-session |
+| Database | JSON files first, MongoDB later |
+| Repo structure | Private monorepo (jtappi/main) |
+| Routing | Nginx subpath proxying |
