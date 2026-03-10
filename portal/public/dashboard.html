@@ -4,21 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>trackmyweek — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
   <header class="top-bar" data-testid="dashboard-header">
-    <div class="brand" data-testid="dashboard-brand">📅 trackmyweek</div>
+    <div class="brand-logo">
+      <img src="/assets/logo.png" alt="trackmyweek" class="brand-logo-img">
+      <span class="brand">track<span>my</span>week</span>
+    </div>
     <div class="top-bar-right">
-      <span id="user-name" data-testid="dashboard-user-name" class="user-name"></span>
-      <a href="/admin" id="admin-link" data-testid="dashboard-admin-link" class="btn btn-secondary hidden">Admin</a>
-      <button id="logout-btn" data-testid="dashboard-logout-btn" class="btn btn-outline">Logout</button>
+      <span class="user-name" data-testid="dashboard-user-name"></span>
+      <a href="/admin" class="btn btn-outline btn-sm" data-testid="dashboard-admin-link" id="admin-link" style="display:none">Admin</a>
+      <button id="logout-btn" data-testid="dashboard-logout-btn" class="btn btn-secondary btn-sm">Sign out</button>
     </div>
   </header>
   <main class="dashboard">
     <h2>My Projects</h2>
-    <div id="project-grid" data-testid="dashboard-project-grid" class="project-grid">
-      <div data-testid="dashboard-loading" class="loading">Loading projects...</div>
+    <div class="project-grid" data-testid="dashboard-project-grid" id="project-grid">
+      <p class="loading">Loading projects&hellip;</p>
     </div>
   </main>
   <script src="/assets/dashboard.js"></script>

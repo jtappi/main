@@ -4,13 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>trackmyweek — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body class="auth-page">
   <div class="auth-card" data-testid="login-card">
     <div class="logo" data-testid="login-logo">
-      <span class="logo-icon">📅</span>
-      <h1>trackmyweek</h1>
+      <img src="/assets/logo.png" alt="trackmyweek" class="logo-img">
+      <h1>track<span>my</span>week</h1>
     </div>
     <div id="error-msg" data-testid="login-error" class="error-msg hidden"></div>
     <div class="form-group">
@@ -33,7 +36,8 @@
         autocomplete="current-password"
       >
     </div>
-    <button id="login-btn" data-testid="login-submit-btn" class="btn btn-primary">Login</button>
+    <button id="login-btn" data-testid="login-submit-btn" class="btn btn-primary">Sign in</button>
+    <p class="auth-divider">trackmyweek &mdash; your week, tracked.</p>
   </div>
   <script src="/assets/login.js"></script>
 </body>
