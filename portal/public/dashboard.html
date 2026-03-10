@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>trackmyweek.com — Dashboard</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="dashboard-page">
+    <header class="header">
+        <div class="header-brand">
+            <h1>trackmyweek<span>.com</span></h1>
+        </div>
+        <div class="header-user">
+            <span id="userName"></span>
+            <span id="adminBadge" class="badge-admin" style="display:none;">Admin</span>
+            <button id="adminBtn" class="btn-secondary" style="display:none;"
+                onclick="window.location.href='/admin'">Admin Panel</button>
+            <button id="logoutBtn" class="btn-logout">Sign Out</button>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        <h2>My Projects</h2>
+        <div id="projectGrid" class="project-grid">
+            <!-- Project cards injected by JS -->
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none;">
+            <p>No projects available. Contact the admin for access.</p>
+        </div>
+    </main>
+
+    <script src="/assets/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>trackmyweek.com — Login</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-logo">
+            <h1>trackmyweek<span>.com</span></h1>
+            <p>Your personal app platform</p>
+        </div>
+        <form id="loginForm" class="login-form">
+            <div class="form-group">
+                <label for="identifier">Email or Username</label>
+                <input type="text" id="identifier" name="identifier"
+                    placeholder="Enter your email or username"
+                    autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password" required>
+            </div>
+            <div id="errorMessage" class="error-message" style="display:none;"></div>
+            <button type="submit" class="btn-login">Sign In</button>
+        </form>
+    </div>
+    <script src="/assets/login.js"></script>
+</body>
+</html>

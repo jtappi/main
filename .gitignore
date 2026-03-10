@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit these
+.env
+.env.*
+
+# Data files with personal info
+core/data/users.json
+projects/*/src/data.json
+projects/*/src/eisenhowerMatrix_data.json
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# PM2
+.pm2/
+
+# Editor
+.vscode/
+.idea/

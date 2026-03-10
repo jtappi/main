@@ -1,0 +1,12 @@
+[
+  {
+    "id": "trackmyweek",
+    "name": "TrackMyWeek",
+    "description": "Track your daily activities, habits, and weekly patterns.",
+    "route": "/trackmyweek",
+    "port": 3001,
+    "icon": "📅",
+    "status": "active",
+    "createdAt": "2026-03-10T00:00:00.000Z"
+  }
+]
