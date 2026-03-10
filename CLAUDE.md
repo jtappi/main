@@ -5,6 +5,24 @@ Before writing any code, creating any file, or making any commit, read this docu
 
 ---
 
+## 0. Propose First, Act on Approval
+
+**Never write code, push files, or make commits until the human has explicitly approved.**
+
+For any non-trivial change:
+1. Describe what files will be changed and why.
+2. Wait for the human to say "proceed" (or equivalent).
+3. Only then execute.
+
+Exceptions — no approval needed for:
+- Reading files (`get_file_contents`, `view`)
+- Asking clarifying questions
+- Explaining a bug or describing a plan
+
+This rule exists because moving fast without alignment wastes cycles and erodes trust.
+
+---
+
 ## 1. Read Before You Write — Always
 
 Before writing tests, code, or config for any file that already exists:
@@ -77,9 +95,6 @@ cd portal && npm test
 
 # E2E (from repo root)
 cd ~/apps/main && npm run test:e2e
-
-# E2E via portal shortcut
-cd portal && npm run test:e2e   # delegates to root via 'cd .. && npm run test:e2e'
 ```
 
 **After pulling changes, install in both locations:**
@@ -120,6 +135,8 @@ cd portal && npm install               # installs jest, supertest, etc.
 - `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
 - `push_files` handles encoding correctly and supports multiple files in one commit.
+- **Exception:** `.github/workflows/*.yml` files must be created manually on the server and
+  committed by hand — both tools fail on YAML due to encoding issues.
 
 ---
 
@@ -141,6 +158,7 @@ cd portal && npm install               # installs jest, supertest, etc.
 | Playwright config | `playwright.config.js` (root) |
 | Root package.json | `package.json` (root, owns Playwright) |
 | Portal package.json | `portal/package.json` (owns Jest, supertest) |
+| CI workflow | `.github/workflows/ci.yml` |
 | This file | `CLAUDE.md` |
 
 ---
