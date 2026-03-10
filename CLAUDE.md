@@ -97,7 +97,16 @@ That failure cost multiple fix cycles and eroded confidence.
 
 ---
 
-## 9. Key File Locations
+## 9. GitHub Tool Rules
+
+- **Always use `push_files` to write file content** — never `create_or_update_file`.
+- `create_or_update_file` corrupts file content by writing literal `\n` escape sequences
+  instead of real newlines, breaking JSON and other structured files.
+- `push_files` handles encoding correctly and supports multiple files in one commit.
+
+---
+
+## 10. Key File Locations
 
 | What | Where |
 |------|-------|
@@ -116,7 +125,7 @@ That failure cost multiple fix cycles and eroded confidence.
 
 ---
 
-## 10. Before Opening a PR or Pushing to Main
+## 11. Before Opening a PR or Pushing to Main
 
 - [ ] All unit and integration tests pass: `npm test` from `portal/`
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
