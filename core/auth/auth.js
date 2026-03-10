@@ -3,59 +3,66 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 
-const USERS_FILE = path.join(__dirname, '../data/users.json');
+const DEFAULT_USERS_FILE = path.join(__dirname, '../data/users.json');
 
-function loadUsers() {
-  if (!fs.existsSync(USERS_FILE)) {
-    throw new Error('users.json not found. Copy users.template.json to users.json and configure it.');
+/**
+ * Auth module — all functions accept an optional usersFile path
+ * so tests can inject a fixture file without touching real data.
+ */
+
+function loadUsers(usersFile = DEFAULT_USERS_FILE) {
+  if (!fs.existsSync(usersFile)) {
+    throw new Error(
+      'users.json not found. Copy users.template.json to users.json and configure it.'
+    );
   }
-  return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+  return JSON.parse(fs.readFileSync(usersFile, 'utf8'));
 }
 
-function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+function saveUsers(users, usersFile = DEFAULT_USERS_FILE) {
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2), 'utf8');
 }
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-function findUser(identifier) {
-  const users = loadUsers();
+function findUser(identifier, usersFile = DEFAULT_USERS_FILE) {
+  const users = loadUsers(usersFile);
   return users.find(
     u => u.email === identifier || u.username === identifier
   ) || null;
 }
 
-function authenticate(identifier, passwordHash) {
-  const user = findUser(identifier);
+function authenticate(identifier, passwordHash, usersFile = DEFAULT_USERS_FILE) {
+  const user = findUser(identifier, usersFile);
   if (!user) return null;
   if (!user.active) return null;
   if (user.passwordHash !== passwordHash) return null;
   return user;
 }
 
-function updateLastLogin(userId) {
-  const users = loadUsers();
+function updateLastLogin(userId, usersFile = DEFAULT_USERS_FILE) {
+  const users = loadUsers(usersFile);
   const user = users.find(u => u.id === userId);
   if (user) {
     user.lastLogin = new Date().toISOString();
-    saveUsers(users);
+    saveUsers(users, usersFile);
   }
 }
 
-function getAllUsers() {
-  return loadUsers();
+function getAllUsers(usersFile = DEFAULT_USERS_FILE) {
+  return loadUsers(usersFile);
 }
 
-function getUserById(id) {
-  return loadUsers().find(u => u.id === id) || null;
+function getUserById(id, usersFile = DEFAULT_USERS_FILE) {
+  return loadUsers(usersFile).find(u => u.id === id) || null;
 }
 
-function createUser(userData) {
-  const users = loadUsers();
-  const { v4: uuidv4 } = require('uuid');
+function createUser(userData, usersFile = DEFAULT_USERS_FILE) {
+  const users = loadUsers(usersFile);
   const newUser = {
     id: uuidv4(),
     name: userData.name,
@@ -69,12 +76,12 @@ function createUser(userData) {
     createdAt: new Date().toISOString()
   };
   users.push(newUser);
-  saveUsers(users);
+  saveUsers(users, usersFile);
   return newUser;
 }
 
-function updateUser(id, updates) {
-  const users = loadUsers();
+function updateUser(id, updates, usersFile = DEFAULT_USERS_FILE) {
+  const users = loadUsers(usersFile);
   const index = users.findIndex(u => u.id === id);
   if (index === -1) return null;
   if (updates.password) {
@@ -82,25 +89,28 @@ function updateUser(id, updates) {
     delete updates.password;
   }
   users[index] = { ...users[index], ...updates };
-  saveUsers(users);
+  saveUsers(users, usersFile);
   return users[index];
 }
 
-function deleteUser(id) {
-  const users = loadUsers();
+function deleteUser(id, usersFile = DEFAULT_USERS_FILE) {
+  const users = loadUsers(usersFile);
   const filtered = users.filter(u => u.id !== id);
   if (filtered.length === users.length) return false;
-  saveUsers(filtered);
+  saveUsers(filtered, usersFile);
   return true;
 }
 
 module.exports = {
+  loadUsers,
+  saveUsers,
+  hashPassword,
+  findUser,
   authenticate,
   updateLastLogin,
   getAllUsers,
   getUserById,
   createUser,
   updateUser,
-  deleteUser,
-  hashPassword
+  deleteUser
 };

@@ -1,6 +1,6 @@
 # trackmyweek.com — Platform Specification
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Date:** 2026-03-10  
 **Status:** APPROVED — Ready to Build  
 
@@ -35,6 +35,9 @@ A self-hosted personal development portfolio and app ecosystem that serves as bo
 | Version Control | GitHub (private monorepo: jtappi/main) |
 | Runtime | Node.js |
 | Database | JSON files (migrate to MongoDB later) |
+| Unit Testing | Jest |
+| API Testing | Supertest |
+| E2E / Automation | Playwright |
 | Future | AWS, MongoDB, New Relic |
 
 ---
@@ -81,13 +84,15 @@ main/                          # Root monorepo (github.com/jtappi/main)
 ├── SPEC.md                    # This file
 ├── README.md                  # Project overview
 ├── .gitignore
+├── .env.example
 │
 ├── core/                      # Shared platform code
 │   ├── auth/
 │   │   ├── auth.js            # Login/logout/session logic
 │   │   └── middleware.js      # Auth + access control middleware
-│   └── data/                  # Shared data files
-│       ├── users.json         # All users
+│   └── data/
+│       ├── users.json         # All users (gitignored)
+│       ├── users.template.json
 │       └── projects.json      # Project registry
 │
 ├── portal/                    # Main entry point (port 3000)
@@ -99,8 +104,22 @@ main/                          # Root monorepo (github.com/jtappi/main)
 │       ├── admin.html
 │       └── assets/
 │
-└── projects/                  # All sub-projects
-    └── trackmyweek/           # Port 3001 — Activity tracker
+├── tests/                     # All tests
+│   ├── unit/                  # Unit tests (Jest)
+│   │   ├── auth.test.js
+│   │   └── middleware.test.js
+│   ├── integration/           # API integration tests (Supertest)
+│   │   └── portal.test.js
+│   ├── e2e/                   # End-to-end tests (Playwright)
+│   │   ├── login.spec.js
+│   │   ├── dashboard.spec.js
+│   │   └── admin.spec.js
+│   └── fixtures/              # Test data
+│       ├── users.fixture.json
+│       └── projects.fixture.json
+│
+└── projects/
+    └── trackmyweek/
 ```
 
 ---
@@ -262,7 +281,76 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 15. Monitoring & Observability
+## 15. Testing Strategy
+
+### Philosophy
+- Testing is **first-class** — not an afterthought
+- All server-side code ships with unit tests
+- **100% branch coverage** is the target for `core/` and `portal/server.js`
+- Line coverage is tracked and reported; gaps must be justified in writing
+- All HTML elements that are interacted with by tests carry a `data-testid` attribute
+- Code is written to be **dependency-injectable** so units can be tested in isolation
+- When unit tests are intentionally omitted, a `NO-TESTS.md` file explains why
+
+### Test Layers
+
+| Layer | Tool | What It Tests | Coverage Target |
+|-------|------|---------------|-----------------|
+| Unit | Jest | Pure functions: auth logic, middleware, helpers | 100% branch |
+| Integration | Jest + Supertest | API routes end-to-end with real HTTP | All happy + error paths |
+| E2E / Automation | Playwright | Critical user flows in a real browser | Critical flows only |
+
+### Critical Flows Covered by E2E
+1. Admin login → dashboard → launch project
+2. Admin login → admin panel → create guest → set access
+3. Admin login → admin panel → disable guest
+4. Guest login → sees only granted projects
+5. Guest attempts to access `/admin` → blocked
+6. Unauthenticated access to `/dashboard` → redirected to `/login`
+7. Logout → session destroyed → redirect to `/login`
+
+### data-testid Convention
+- Every interactive element and key display element carries `data-testid`
+- Format: `data-testid="{page}-{element}"` e.g. `data-testid="login-submit-btn"`
+- testids are **never** used for styling — CSS classes only
+- Full inventory of testids is documented in `tests/TESTIDS.md`
+
+### Test File Locations
+```
+tests/
+├── unit/
+│   ├── auth.test.js          # core/auth/auth.js
+│   └── middleware.test.js    # core/auth/middleware.js
+├── integration/
+│   └── portal.test.js        # All portal API routes
+├── e2e/
+│   ├── login.spec.js         # Login flow
+│   ├── dashboard.spec.js     # Dashboard flow
+│   └── admin.spec.js         # Admin panel flows
+├── fixtures/
+│   ├── users.fixture.json    # Test users (never real data)
+│   └── projects.fixture.json # Test projects
+└── TESTIDS.md                # Master list of all data-testids
+```
+
+### Running Tests
+```bash
+npm test              # Run all unit + integration tests
+npm run test:unit     # Unit tests only
+npm run test:coverage # With coverage report
+npm run test:e2e      # Playwright E2E tests
+```
+
+### Coverage Reporting
+- Jest generates coverage reports in `coverage/` (gitignored)
+- Coverage thresholds enforced in `jest.config.js`:
+  - Branches: 100% for `core/`
+  - Lines: 90% minimum across all files
+  - Functions: 100% for `core/`
+
+---
+
+## 16. Monitoring & Observability
 
 | Tool | Purpose |
 |------|---------|
@@ -275,23 +363,24 @@ main/                          # Root monorepo (github.com/jtappi/main)
 
 ---
 
-## 16. CI/CD Pipeline (Phase 3)
+## 17. CI/CD Pipeline (Phase 3)
 
 **Target workflow:**
 1. Push code to GitHub `main` branch
 2. GitHub Action triggers
-3. Runs tests
-4. Deploys to server
-5. Restarts affected project only
-6. Sends success/failure notification
+3. Runs `npm test` — blocks deploy on failure
+4. Runs `npm run test:coverage` — fails if below thresholds
+5. Deploys to server
+6. Restarts affected project only
+7. Sends success/failure notification
 
 ---
 
-## 17. Project Roadmap
+## 18. Project Roadmap
 
 | Phase | What We Build | Status |
 |-------|---------------|--------|
-| **Phase 1** | Portal: SSO auth, dashboard, admin panel | 🔜 Next |
+| **Phase 1** | Portal: SSO auth, dashboard, admin panel + tests | 🔨 In Progress |
 | **Phase 2** | Migrate TrackMyWeek into monorepo | ⬜ |
 | **Phase 3** | CI/CD pipeline | ⬜ |
 | **Phase 4** | First new sub-project | ⬜ |

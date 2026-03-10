@@ -1,0 +1,38 @@
+[
+  {
+    "id": "test-admin-001",
+    "name": "Test Admin",
+    "email": "admin@test.com",
+    "username": "testadmin",
+    "passwordHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "role": "admin",
+    "active": true,
+    "projectAccess": ["trackmyweek"],
+    "lastLogin": null,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "test-guest-001",
+    "name": "Test Guest",
+    "email": "guest@test.com",
+    "username": "testguest",
+    "passwordHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "role": "guest",
+    "active": true,
+    "projectAccess": ["trackmyweek"],
+    "lastLogin": null,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "test-inactive-001",
+    "name": "Inactive User",
+    "email": "inactive@test.com",
+    "username": "inactiveuser",
+    "passwordHash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "role": "guest",
+    "active": false,
+    "projectAccess": [],
+    "lastLogin": null,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]

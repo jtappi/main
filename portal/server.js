@@ -15,10 +15,14 @@ const { requireAuth, requireAdmin } = require('../core/auth/middleware');
 const app = express();
 const PORT = process.env.PORTAL_PORT || 3000;
 
-// ── Trust proxy (behind Nginx) ─────────────────────────────────────────────
+// Allow test injection of data file paths
+const PROJECTS_FILE = process.env.PROJECTS_FILE ||
+  path.join(__dirname, '../core/data/projects.json');
+
+// ── Trust proxy (behind Nginx) ───────────────────────────────────────────────
 app.set('trust proxy', 1);
 
-// ── Security headers ───────────────────────────────────────────────────────
+// ── Security headers ─────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -31,44 +35,41 @@ app.use(helmet({
   }
 }));
 
-// ── Sessions ───────────────────────────────────────────────────────────────
+// ── Sessions ──────────────────────────────────────────────────────────────────
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// ── Body parsing ───────────────────────────────────────────────────────────
+// ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ── Rate limiting on auth ──────────────────────────────────────────────────
+// ── Rate limiting on auth ─────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ───────────────────────────────────────────────────────────
+// ── Static files ──────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function loadProjects() {
-  const file = path.join(__dirname, '../core/data/projects.json');
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
 
-// ── Routes: Root ───────────────────────────────────────────────────────────
+// ── Routes: Root ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
-  if (req.session && req.session.user) {
-    return res.redirect('/dashboard');
-  }
+  if (req.session && req.session.user) return res.redirect('/dashboard');
   return res.redirect('/login');
 });
 
@@ -85,17 +86,22 @@ app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
 
-// ── Routes: Auth ───────────────────────────────────────────────────────────
+// ── Routes: Auth ──────────────────────────────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
   const { identifier, passwordHash } = req.body;
   if (!identifier || !passwordHash) {
     return res.status(400).json({ success: false, message: 'Missing credentials.' });
   }
-  const user = auth.authenticate(identifier, passwordHash);
+  const usersFile = process.env.USERS_FILE;
+  const user = usersFile
+    ? auth.authenticate(identifier, passwordHash, usersFile)
+    : auth.authenticate(identifier, passwordHash);
   if (!user) {
     return res.status(401).json({ success: false, message: 'Invalid credentials.' });
   }
-  auth.updateLastLogin(user.id);
+  usersFile
+    ? auth.updateLastLogin(user.id, usersFile)
+    : auth.updateLastLogin(user.id);
   req.session.user = {
     id: user.id,
     name: user.name,
@@ -108,9 +114,7 @@ app.post('/auth/login', authLimiter, (req, res) => {
 });
 
 app.post('/auth/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
+  req.session.destroy(() => res.json({ success: true }));
 });
 
 app.get('/auth/session', (req, res) => {
@@ -120,14 +124,17 @@ app.get('/auth/session', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ── Routes: Admin — Users ──────────────────────────────────────────────────
+// ── Routes: Admin — Users ─────────────────────────────────────────────────────
 app.get('/admin/users', requireAdmin, (req, res) => {
-  const users = auth.getAllUsers().map(u => ({
-    id: u.id, name: u.name, email: u.email,
-    username: u.username, role: u.role,
-    active: u.active, projectAccess: u.projectAccess,
-    lastLogin: u.lastLogin, createdAt: u.createdAt
-  }));
+  const usersFile = process.env.USERS_FILE;
+  const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers())
+    .map(u => ({
+      id: u.id, name: u.name, email: u.email,
+      username: u.username, role: u.role,
+      active: u.active, projectAccess: u.projectAccess,
+      lastLogin: u.lastLogin, createdAt: u.createdAt
+      // passwordHash intentionally omitted
+    }));
   res.json(users);
 });
 
@@ -136,12 +143,18 @@ app.post('/admin/users', requireAdmin, (req, res) => {
   if (!name || !email || !username || !password) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
-  const user = auth.createUser({ name, email, username, password, projectAccess });
+  const usersFile = process.env.USERS_FILE;
+  const user = usersFile
+    ? auth.createUser({ name, email, username, password, projectAccess }, usersFile)
+    : auth.createUser({ name, email, username, password, projectAccess });
   res.status(201).json(user);
 });
 
 app.put('/admin/users/:id', requireAdmin, (req, res) => {
-  const updated = auth.updateUser(req.params.id, req.body);
+  const usersFile = process.env.USERS_FILE;
+  const updated = usersFile
+    ? auth.updateUser(req.params.id, req.body, usersFile)
+    : auth.updateUser(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'User not found.' });
   res.json(updated);
 });
@@ -150,19 +163,25 @@ app.delete('/admin/users/:id', requireAdmin, (req, res) => {
   if (req.params.id === req.session.user.id) {
     return res.status(400).json({ error: 'Cannot delete your own account.' });
   }
-  const deleted = auth.deleteUser(req.params.id);
+  const usersFile = process.env.USERS_FILE;
+  const deleted = usersFile
+    ? auth.deleteUser(req.params.id, usersFile)
+    : auth.deleteUser(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'User not found.' });
   res.json({ success: true });
 });
 
 app.put('/admin/users/:id/access', requireAdmin, (req, res) => {
   const { projectAccess } = req.body;
-  const updated = auth.updateUser(req.params.id, { projectAccess });
+  const usersFile = process.env.USERS_FILE;
+  const updated = usersFile
+    ? auth.updateUser(req.params.id, { projectAccess }, usersFile)
+    : auth.updateUser(req.params.id, { projectAccess });
   if (!updated) return res.status(404).json({ error: 'User not found.' });
   res.json(updated);
 });
 
-// ── Routes: Admin — Projects ───────────────────────────────────────────────
+// ── Routes: Admin — Projects ──────────────────────────────────────────────────
 app.get('/admin/projects', requireAdmin, (req, res) => {
   res.json(loadProjects());
 });
@@ -176,7 +195,11 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json(visible);
 });
 
-// ── Start ──────────────────────────────────────────────────────────────────
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Portal running on port ${PORT}`);
-});
+// ── Export for testing ────────────────────────────────────────────────────────
+if (require.main === module) {
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`Portal running on port ${PORT}`);
+  });
+}
+
+module.exports = app;

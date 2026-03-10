@@ -7,18 +7,18 @@
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-  <header class="top-bar">
-    <div class="brand">📅 trackmyweek</div>
+  <header class="top-bar" data-testid="dashboard-header">
+    <div class="brand" data-testid="dashboard-brand">📅 trackmyweek</div>
     <div class="top-bar-right">
-      <span id="user-name" class="user-name"></span>
-      <a href="/admin" id="admin-link" class="btn btn-secondary hidden">Admin</a>
-      <button id="logout-btn" class="btn btn-outline">Logout</button>
+      <span id="user-name" data-testid="dashboard-user-name" class="user-name"></span>
+      <a href="/admin" id="admin-link" data-testid="dashboard-admin-link" class="btn btn-secondary hidden">Admin</a>
+      <button id="logout-btn" data-testid="dashboard-logout-btn" class="btn btn-outline">Logout</button>
     </div>
   </header>
   <main class="dashboard">
     <h2>My Projects</h2>
-    <div id="project-grid" class="project-grid">
-      <div class="loading">Loading projects...</div>
+    <div id="project-grid" data-testid="dashboard-project-grid" class="project-grid">
+      <div data-testid="dashboard-loading" class="loading">Loading projects...</div>
     </div>
   </main>
   <script src="/assets/dashboard.js"></script>
