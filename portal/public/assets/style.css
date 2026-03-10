@@ -122,6 +122,13 @@ a:hover { text-decoration: underline; }
 }
 .brand span { color: var(--accent); }
 
+/* Project card icon */
+.project-icon-svg {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
 /* ── Forms ──────────────────────────────────────────────────── */
 .form-group { margin-bottom: 1.1rem; }
 .form-group label {
@@ -253,7 +260,6 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: 0.65rem;
 }
-.project-icon { font-size: 1.5rem; }
 .project-name { font-size: 1rem; font-weight: 600; color: var(--text); }
 .project-desc { font-size: 0.85rem; color: var(--text-muted); flex: 1; line-height: 1.5; }
 
