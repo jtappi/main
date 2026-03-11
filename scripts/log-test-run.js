@@ -13,6 +13,10 @@
  *   GITHUB_REF_NAME   - branch name
  *   GITHUB_ACTOR      - who triggered the run
  *   GITHUB_EVENT_NAME - push | pull_request | workflow_dispatch
+ *
+ * Jest JSON field notes:
+ *   Suite path is under `testFilePath` OR `name` depending on Jest version.
+ *   Test results are under `testResults` OR `assertionResults`.
  */
 
 'use strict';
@@ -54,10 +58,16 @@ function summariseSuites(suiteList) {
   const errors = [];
 
   for (const suite of suiteList) {
-    duration_ms += suite.perfStats
-      ? (suite.perfStats.end - suite.perfStats.start)
-      : 0;
-    for (const test of suite.testResults || []) {
+    // Duration: perfStats (older Jest) or endTime/startTime directly on suite
+    if (suite.perfStats) {
+      duration_ms += (suite.perfStats.end - suite.perfStats.start);
+    } else if (suite.endTime && suite.startTime) {
+      duration_ms += (suite.endTime - suite.startTime);
+    }
+
+    // Test results: `testResults` (older Jest) or `assertionResults` (newer Jest)
+    const tests = suite.testResults || suite.assertionResults || [];
+    for (const test of tests) {
       if (test.status === 'passed') {
         passed++;
       } else if (test.status === 'failed') {
@@ -79,15 +89,16 @@ if (jestResults) {
   const buckets = { unit: [], integration: [] };
 
   for (const suite of jestResults.testResults || []) {
-    // Skip anything without a testFilePath (CI often produces these)
-    if (!suite || !suite.testFilePath) {
-      console.warn("Skipping suite with no testFilePath:", suite);
+    if (!suite) continue;
+
+    // Suite path is under `testFilePath` OR `name` depending on Jest version
+    const suitePath = suite.testFilePath || suite.name;
+    if (!suitePath) {
+      console.warn('[log-test-run] Skipping suite with no path:', JSON.stringify(suite).slice(0, 100));
       continue;
     }
 
-    const rel = suite.testFilePath
-      .replace(REPO_ROOT, '')
-      .replace(/\\/g, '/');
+    const rel = suitePath.replace(REPO_ROOT, '').replace(/\\/g, '/');
 
     if (rel.includes('/unit/')) {
       buckets.unit.push(suite);
