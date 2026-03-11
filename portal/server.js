@@ -8,6 +8,7 @@ const helmet  = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path    = require('path');
 const fs      = require('fs');
+const https   = require('https');
 
 const auth = require('../core/auth/auth');
 const { requireAuth, requireAdmin } = require('../core/auth/middleware');
@@ -20,6 +21,10 @@ const PROJECTS_FILE = process.env.PROJECTS_FILE ||
 
 const LOG_FILE = process.env.LOG_FILE ||
   path.join(__dirname, '../logs/test-runs.jsonl');
+
+// Remote log source — reads from GitHub raw when LOCAL_LOG is not set
+const GITHUB_RAW_LOG =
+  'https://raw.githubusercontent.com/jtappi/main/main/logs/test-runs.jsonl';
 
 // ── Trust proxy (behind Nginx) ───────────────────────────────────
 app.set('trust proxy', 1);
@@ -74,13 +79,29 @@ function safeUser(u) {
   return safe;
 }
 
-function loadTestRuns() {
-  if (!fs.existsSync(LOG_FILE)) return [];
-  return fs.readFileSync(LOG_FILE, 'utf8')
+function parseJsonlLines(text) {
+  return text
     .split('\n')
     .filter(Boolean)
     .map(line => { try { return JSON.parse(line); } catch { return null; } })
     .filter(Boolean);
+}
+
+// Fetch log from GitHub raw — always current, no git pull needed
+function loadTestRunsRemote() {
+  return new Promise((resolve, reject) => {
+    https.get(GITHUB_RAW_LOG, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => resolve(parseJsonlLines(data)));
+    }).on('error', reject);
+  });
+}
+
+// Fallback: read from local filesystem (used in tests via LOG_FILE env var)
+function loadTestRunsLocal() {
+  if (!fs.existsSync(LOG_FILE)) return [];
+  return parseJsonlLines(fs.readFileSync(LOG_FILE, 'utf8'));
 }
 
 // ── Routes: Root ────────────────────────────────────────────────
@@ -210,8 +231,18 @@ app.get('/api/projects', requireAuth, (req, res) => {
 
 // ── Routes: Test runs ──────────────────────────────────────────────
 app.get('/api/test-runs', requireAdmin, (req, res) => {
-  const runs = loadTestRuns();
-  res.json(runs);
+  // In test environments, LOG_FILE env var is set — use local filesystem
+  if (process.env.LOG_FILE) {
+    return res.json(loadTestRunsLocal());
+  }
+  // In production, fetch directly from GitHub so no git pull is needed
+  loadTestRunsRemote()
+    .then(runs => res.json(runs))
+    .catch(err => {
+      console.error('[api/test-runs] Failed to fetch remote log:', err.message);
+      // Fall back to local file if remote fetch fails
+      res.json(loadTestRunsLocal());
+    });
 });
 
 // ── Export for testing ───────────────────────────────────────────────
