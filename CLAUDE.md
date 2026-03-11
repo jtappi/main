@@ -180,10 +180,11 @@ cd portal && npm install
 
 ## 9. GitHub Tool Rules
 
-- **All changes go through PRs — no exceptions.** Never attempt to push directly to `main`.
-  The correct workflow is always: `create_branch` → `push_files` → `create_pull_request`.
-  Branch protection will reject direct pushes, wasting a round-trip. Always use the PR workflow
-  from the start, even for trivial or single-file changes.
+- **All human-authored changes go through PRs.** The correct workflow is always:
+  `create_branch` → `push_files` → `create_pull_request`. Never push human changes directly
+  to `main` — even though branch protection no longer enforces this, it remains our working
+  agreement. The only exception is the CI bot, which pushes log commits directly to `main`
+  via `git push origin HEAD:main` after each test run.
 - **Always use `push_files` to write file content** — never `create_or_update_file`.
   `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
@@ -246,5 +247,5 @@ cd portal && npm install
 - The logging script (`scripts/log-test-run.js`) runs in CI after every test run, pass or fail.
 - Do not gitignore anything inside `logs/`.
 - Log commits use `[skip ci]` in the message to prevent infinite CI trigger loops.
-- The log push step only runs on `push` events, not `pull_request` events, because
-  `GITHUB_TOKEN` is read-only on PR checkouts.
+- The log push step runs on `push` events only, not `pull_request`, and pushes directly
+  to `main` via `git push origin HEAD:main`. This is the one permitted direct push to main.
