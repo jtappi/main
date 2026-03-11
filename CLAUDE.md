@@ -182,9 +182,11 @@ cd portal && npm install
 
 - **All human-authored changes go through PRs.** The correct workflow is always:
   `create_branch` → `push_files` → `create_pull_request`. Never push human changes directly
-  to `main` — even though branch protection no longer enforces this, it remains our working
-  agreement. The only exception is the CI bot, which pushes log commits directly to `main`
-  via `git push origin HEAD:main` after each test run.
+  to `main` — this remains our working agreement even though branch protection no longer
+  enforces it.
+- **Two exceptions where direct push to `main` is permitted:**
+  1. The CI bot pushing `logs/test-runs.jsonl` after each test run (`[skip ci]` commit)
+  2. Emergency seeding or one-line doc fixes using `push_files` with `[skip ci]` in the message
 - **Always use `push_files` to write file content** — never `create_or_update_file`.
   `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
@@ -221,7 +223,7 @@ cd portal && npm install
 | Test dashboard JS | `portal/public/assets/test-dashboard.js` |
 | Test dashboard CSS | `portal/public/assets/test-dashboard.css` |
 | Test dashboard route | `GET /test-dashboard` (admin only) |
-| Test runs API | `GET /api/test-runs` (admin only, injectable via `LOG_FILE` env var) |
+| Test runs API | `GET /api/test-runs` (admin only, reads from GitHub raw in production) |
 | This file | `CLAUDE.md` |
 
 ---
@@ -247,5 +249,16 @@ cd portal && npm install
 - The logging script (`scripts/log-test-run.js`) runs in CI after every test run, pass or fail.
 - Do not gitignore anything inside `logs/`.
 - Log commits use `[skip ci]` in the message to prevent infinite CI trigger loops.
-- The log push step runs on `push` events only, not `pull_request`, and pushes directly
-  to `main` via `git push origin HEAD:main`. This is the one permitted direct push to main.
+- The log push step runs on `push` events only (not `pull_request`) and pushes directly
+  to `main` via `git push origin HEAD:main`.
+- The portal reads `logs/test-runs.jsonl` from `raw.githubusercontent.com` at request time,
+  so no `git pull` on the Mac Mini is ever needed for dashboard data to update.
+
+### Branch protection state (as of March 2026)
+Both ruleset restrictions on `main` have been removed to allow the CI bot to push log commits:
+- ❌ ~~Require a pull request before merging~~ — removed
+- ❌ ~~Require status checks to pass~~ — removed
+
+The PR-first discipline for human changes is now enforced by convention (this document)
+rather than by GitHub. If the free plan ever gains bot-bypass support, re-enable both rules
+and add `github-actions[bot]` to the bypass list.
