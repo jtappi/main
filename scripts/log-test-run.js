@@ -77,16 +77,32 @@ let unitSummary, integrationSummary;
 
 if (jestResults) {
   const buckets = { unit: [], integration: [] };
+
   for (const suite of jestResults.testResults || []) {
-    const rel = suite.testFilePath.replace(REPO_ROOT, '').replace(/\\/g, '/');
-    if (rel.includes('/unit/'))        buckets.unit.push(suite);
-    else if (rel.includes('/integration/')) buckets.integration.push(suite);
+    // Skip anything without a testFilePath (CI often produces these)
+    if (!suite || !suite.testFilePath) {
+      console.warn("Skipping suite with no testFilePath:", suite);
+      continue;
+    }
+
+    const rel = suite.testFilePath
+      .replace(REPO_ROOT, '')
+      .replace(/\\/g, '/');
+
+    if (rel.includes('/unit/')) {
+      buckets.unit.push(suite);
+    } else if (rel.includes('/integration/')) {
+      buckets.integration.push(suite);
+    }
   }
+
   unitSummary        = summariseSuites(buckets.unit);
   integrationSummary = summariseSuites(buckets.integration);
+
 } else {
-  unitSummary        = { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Jest results unavailable'] };
-  integrationSummary = { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Jest results unavailable'] };
+  const err = { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Jest results unavailable'] };
+  unitSummary        = err;
+  integrationSummary = err;
 }
 
 const totalPassed  = unitSummary.passed  + integrationSummary.passed;
