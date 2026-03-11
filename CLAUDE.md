@@ -32,8 +32,9 @@ When the human must run a command manually, Claude must:
 2. **Never include comments (`#`) inline with commands** in shell blocks. Comments on their
    own line are fine; inline comments after a command cause `zsh: command not found: #` errors.
 3. **Do as much as possible through GitHub tools** — `push_files`, `create_branch`,
-   `create_pull_request`, etc. Only fall back to manual commands for things that genuinely
-   cannot be done through the tools (e.g. `.github/workflows/*.yml` files due to YAML encoding).
+   `create_pull_request`, etc. This includes `.github/workflows/*.yml` files — `push_files`
+   handles these correctly. Only fall back to manual commands when GitHub tools genuinely
+   cannot accomplish the task.
 4. **Test every command block mentally** before sending it. If a command depends on state
    (current branch, file existence, env vars), make that state explicit in the block.
 
@@ -151,10 +152,8 @@ cd portal && npm install
 - `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
 - `push_files` handles encoding correctly and supports multiple files in one commit.
-- **Exception:** `.github/workflows/*.yml` files must be written via the `cat > file << 'EOF'`
-  heredoc pattern on the server and committed by hand — both tools fail on YAML due to encoding.
-- When giving the human a heredoc command, always prefix it with `git checkout <branch>` so
-  the commit lands on the correct branch.
+- `push_files` works for all file types including `.github/workflows/*.yml` — always prefer
+  it over asking the human to run manual git commands.
 
 ---
 
@@ -185,7 +184,6 @@ cd portal && npm install
 
 ## 11. Before Pushing to Main
 
-- [ ] Security review complete (see Section 0.5 of security checklist in PR #1)
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
