@@ -8,6 +8,10 @@ node_modules/
 # Data files with personal info
 core/data/users.json
 
+# TrackMyWeek runtime data — templates committed, live files gitignored
+trackmyweek/data/data.json
+trackmyweek/data/questions.json
+
 # macOS
 .DS_Store
 
