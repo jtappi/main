@@ -11,10 +11,10 @@ core/data/users.json
 # macOS
 .DS_Store
 
-# Logs
-logs/
-*.log
+# Logs — ignore generic log files but keep the structured test run log
+logs/*.log
 npm-debug.log*
+!logs/test-runs.jsonl
 
 # PM2
 .pm2/
