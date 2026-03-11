@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>trackmyweek — Test Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/test-dashboard.css">
+</head>
+<body>
+  <header class="top-bar" data-testid="test-dashboard-header">
+    <div class="brand-logo">
+      <svg class="brand-logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="18" width="90" height="77" rx="10" fill="#6b7f96"/>
+        <rect x="5" y="28" width="90" height="67" rx="8" fill="#fff"/>
+        <rect x="5" y="28" width="90" height="18" fill="#6b7f96"/>
+        <rect x="25" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
+        <rect x="65" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
+        <line x1="5" y1="60" x2="95" y2="60" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="5" y1="76" x2="95" y2="76" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="32" y1="46" x2="32" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="52" y1="46" x2="52" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <line x1="72" y1="46" x2="72" y2="92" stroke="#d0dce8" stroke-width="2"/>
+        <polyline points="22,68 34,80 58,52" stroke="#4fb8c4" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="brand">track<span>my</span>week</span>
+    </div>
+    <div class="top-bar-right">
+      <span class="user-name" data-testid="test-dashboard-user-name" id="user-name"></span>
+      <a href="/dashboard" class="btn btn-outline btn-sm">Dashboard</a>
+      <a href="/admin" class="btn btn-outline btn-sm" data-testid="test-dashboard-admin-link" id="admin-link">Admin</a>
+      <button id="logout-btn" data-testid="test-dashboard-logout-btn" class="btn btn-secondary btn-sm">Sign out</button>
+    </div>
+  </header>
+
+  <main class="td-main">
+    <div class="td-page-header">
+      <div>
+        <h2 data-testid="test-dashboard-title">Test Suite Health</h2>
+        <p class="td-subtitle">CI run history — unit &amp; integration tests</p>
+      </div>
+      <div class="td-controls">
+        <label for="days-select" class="td-label">Date range</label>
+        <select id="days-select" data-testid="test-dashboard-days-select" class="td-select">
+          <option value="7" selected>Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="0">All time</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Health indicator -->
+    <div class="td-health-row" data-testid="test-dashboard-health-row">
+      <div class="td-health-card" data-testid="test-dashboard-health-card">
+        <div class="td-health-label">Overall health</div>
+        <div class="td-health-value" id="health-pct" data-testid="test-dashboard-health-pct">—</div>
+        <div class="td-health-sub" id="health-sub"></div>
+      </div>
+      <div class="td-health-card">
+        <div class="td-health-label">Total runs</div>
+        <div class="td-health-value" id="total-runs" data-testid="test-dashboard-total-runs">—</div>
+        <div class="td-health-sub" id="runs-sub"></div>
+      </div>
+      <div class="td-health-card">
+        <div class="td-health-label">Last run</div>
+        <div class="td-health-value td-health-value--sm" id="last-run" data-testid="test-dashboard-last-run">—</div>
+        <div class="td-health-sub" id="last-run-sub"></div>
+      </div>
+      <div class="td-health-card">
+        <div class="td-health-label">Avg duration</div>
+        <div class="td-health-value" id="avg-duration" data-testid="test-dashboard-avg-duration">—</div>
+        <div class="td-health-sub">seconds</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="td-charts">
+      <div class="td-card td-card--chart">
+        <div class="td-card-header">
+          <h3>Pass / Fail Trend</h3>
+          <div class="td-legend">
+            <span class="td-legend-dot td-legend-dot--pass"></span><span>Pass</span>
+            <span class="td-legend-dot td-legend-dot--fail"></span><span>Fail</span>
+          </div>
+        </div>
+        <canvas id="chart-passfail" data-testid="test-dashboard-chart-passfail" height="180"></canvas>
+        <div class="td-no-data hidden" id="chart-passfail-empty">No runs in this period.</div>
+      </div>
+
+      <div class="td-charts-row2">
+        <div class="td-card td-card--chart">
+          <div class="td-card-header">
+            <h3>Unit Test Duration</h3>
+            <span class="td-chart-unit">seconds</span>
+          </div>
+          <canvas id="chart-unit-duration" data-testid="test-dashboard-chart-unit-duration" height="150"></canvas>
+          <div class="td-no-data hidden" id="chart-unit-duration-empty">No runs in this period.</div>
+        </div>
+        <div class="td-card td-card--chart">
+          <div class="td-card-header">
+            <h3>Integration Test Duration</h3>
+            <span class="td-chart-unit">seconds</span>
+          </div>
+          <canvas id="chart-int-duration" data-testid="test-dashboard-chart-int-duration" height="150"></canvas>
+          <div class="td-no-data hidden" id="chart-int-duration-empty">No runs in this period.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-suite breakdown -->
+    <div class="td-suite-row" data-testid="test-dashboard-suite-row">
+      <div class="td-card td-suite-card" data-testid="test-dashboard-suite-unit">
+        <div class="td-suite-label">Unit tests</div>
+        <div class="td-suite-stat" id="suite-unit-passed">—</div>
+        <div class="td-suite-desc">passed last run</div>
+        <div class="td-suite-stat td-suite-stat--fail" id="suite-unit-failed">—</div>
+        <div class="td-suite-desc">failed last run</div>
+      </div>
+      <div class="td-card td-suite-card" data-testid="test-dashboard-suite-integration">
+        <div class="td-suite-label">Integration tests</div>
+        <div class="td-suite-stat" id="suite-int-passed">—</div>
+        <div class="td-suite-desc">passed last run</div>
+        <div class="td-suite-stat td-suite-stat--fail" id="suite-int-failed">—</div>
+        <div class="td-suite-desc">failed last run</div>
+      </div>
+    </div>
+
+    <!-- Run history table -->
+    <div class="td-card" data-testid="test-dashboard-history">
+      <div class="td-card-header">
+        <h3>Run History</h3>
+        <span class="td-history-count" id="history-count"></span>
+      </div>
+      <div class="td-table-wrap">
+        <table class="data-table" id="history-table" data-testid="test-dashboard-history-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Branch</th>
+              <th>Commit</th>
+              <th>Actor</th>
+              <th>Passed</th>
+              <th>Failed</th>
+              <th>Duration</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody" data-testid="test-dashboard-history-tbody"></tbody>
+        </table>
+        <div class="td-no-data hidden" id="history-empty">No runs found for this period.</div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/assets/test-dashboard.js"></script>
+</body>
+</html>
