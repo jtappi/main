@@ -23,6 +23,25 @@ This rule exists because moving fast without alignment wastes cycles and erodes 
 
 ---
 
+## 0.5. Manual Command Rules — Zero Ambiguity
+
+When the human must run a command manually, Claude must:
+
+1. **Always include `git checkout <branch>` at the top** of any command block that requires
+   being on a specific branch. Never assume the human is already on the right branch.
+2. **Never include comments (`#`) inline with commands** in shell blocks. Comments on their
+   own line are fine; inline comments after a command cause `zsh: command not found: #` errors.
+3. **Do as much as possible through GitHub tools** — `push_files`, `create_branch`,
+   `create_pull_request`, etc. Only fall back to manual commands for things that genuinely
+   cannot be done through the tools (e.g. `.github/workflows/*.yml` files due to YAML encoding).
+4. **Test every command block mentally** before sending it. If a command depends on state
+   (current branch, file existence, env vars), make that state explicit in the block.
+
+This rule exists because ambiguous command blocks have caused branch mixups, zsh errors,
+and wasted cycles that could have been avoided entirely.
+
+---
+
 ## 1. Read Before You Write — Always
 
 Before writing tests, code, or config for any file that already exists:
@@ -90,17 +109,14 @@ This is a monorepo. Package ownership is split intentionally:
 
 **Running tests:**
 ```
-# Unit + integration (from portal/)
 cd portal && npm test
-
-# E2E (from repo root)
 cd ~/apps/main && npm run test:e2e
 ```
 
 **After pulling changes, install in both locations:**
 ```
-cd ~/apps/main && npm install          # installs @playwright/test at root
-cd portal && npm install               # installs jest, supertest, etc.
+cd ~/apps/main && npm install
+cd portal && npm install
 ```
 
 **Jest config notes:**
@@ -135,8 +151,10 @@ cd portal && npm install               # installs jest, supertest, etc.
 - `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
 - `push_files` handles encoding correctly and supports multiple files in one commit.
-- **Exception:** `.github/workflows/*.yml` files must be created manually on the server and
-  committed by hand — both tools fail on YAML due to encoding issues.
+- **Exception:** `.github/workflows/*.yml` files must be written via the `cat > file << 'EOF'`
+  heredoc pattern on the server and committed by hand — both tools fail on YAML due to encoding.
+- When giving the human a heredoc command, always prefix it with `git checkout <branch>` so
+  the commit lands on the correct branch.
 
 ---
 
@@ -159,15 +177,28 @@ cd portal && npm install               # installs jest, supertest, etc.
 | Root package.json | `package.json` (root, owns Playwright) |
 | Portal package.json | `portal/package.json` (owns Jest, supertest) |
 | CI workflow | `.github/workflows/ci.yml` |
+| Test run logs | `logs/test-runs.jsonl` (append-only, never deleted) |
+| Log script | `scripts/log-test-run.js` |
 | This file | `CLAUDE.md` |
 
 ---
 
 ## 11. Before Pushing to Main
 
+- [ ] Security review complete (see Section 0.5 of security checklist in PR #1)
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
 - [ ] No element ID changed without updating `docs/HTML_JS_CONTRACT.md`
 - [ ] All user-returning API routes use `safeUser()` — `passwordHash` never exposed
 - [ ] Style-only changes are in their own commit, separate from logic changes
+- [ ] After any `npm install` in `portal/`, run `git add portal/package-lock.json`
+
+---
+
+## 12. Log File Rules
+
+- `logs/test-runs.jsonl` is **append-only**. Never delete entries, never truncate the file.
+- It is committed to the repo and is part of permanent history.
+- The logging script (`scripts/log-test-run.js`) runs in CI after every test run, pass or fail.
+- Do not gitignore anything inside `logs/`.
