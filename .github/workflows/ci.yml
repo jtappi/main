@@ -25,7 +25,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: portal/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            portal/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -36,6 +38,9 @@ jobs:
 
       - name: Bootstrap data files
         run: cp core/data/users.template.json core/data/users.json
+
+      - name: Ensure log file exists
+        run: touch logs/test-runs.jsonl
 
       - name: Run unit & integration tests
         run: npm test -- --ci --forceExit --json --outputFile=/tmp/jest-results.json
