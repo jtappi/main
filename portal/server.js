@@ -4,65 +4,67 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const express = require('express');
 const session = require('express-session');
-const helmet = require('helmet');
+const helmet  = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
-const fs = require('fs');
+const path    = require('path');
+const fs      = require('fs');
 
 const auth = require('../core/auth/auth');
 const { requireAuth, requireAdmin } = require('../core/auth/middleware');
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORTAL_PORT || 3000;
 
-// Allow test injection of data file paths
 const PROJECTS_FILE = process.env.PROJECTS_FILE ||
   path.join(__dirname, '../core/data/projects.json');
 
-// ── Trust proxy (behind Nginx) ────────────────────────────────────────────
+const LOG_FILE = process.env.LOG_FILE ||
+  path.join(__dirname, '../logs/test-runs.jsonl');
+
+// ── Trust proxy (behind Nginx) ───────────────────────────────────
 app.set('trust proxy', 1);
 
-// ── Security headers ──────────────────────────────────────────────────
+// ── Security headers ───────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", "data:"],
       connectSrc: ["'self'"]
     }
   }
 }));
 
-// ── Sessions ───────────────────────────────────────────────────────────
+// ── Sessions ───────────────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure:   process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge:   24 * 60 * 60 * 1000
   }
 }));
 
-// ── Body parsing ──────────────────────────────────────────────────────
+// ── Body parsing ───────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ── Rate limiting on auth ─────────────────────────────────────────────────
+// ── Rate limiting on auth ─────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ────────────────────────────────────────────────────────
+// ── Static files ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────
 function loadProjects() {
   return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
@@ -72,7 +74,16 @@ function safeUser(u) {
   return safe;
 }
 
-// ── Routes: Root ──────────────────────────────────────────────────────────
+function loadTestRuns() {
+  if (!fs.existsSync(LOG_FILE)) return [];
+  return fs.readFileSync(LOG_FILE, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map(line => { try { return JSON.parse(line); } catch { return null; } })
+    .filter(Boolean);
+}
+
+// ── Routes: Root ────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.user) return res.redirect('/dashboard');
   return res.redirect('/login');
@@ -91,7 +102,11 @@ app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
 
-// ── Routes: Auth ──────────────────────────────────────────────────────────
+app.get('/test-dashboard', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
+});
+
+// ── Routes: Auth ────────────────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
   const { identifier, passwordHash } = req.body;
   if (!identifier || !passwordHash) {
@@ -108,11 +123,11 @@ app.post('/auth/login', authLimiter, (req, res) => {
     ? auth.updateLastLogin(user.id, usersFile)
     : auth.updateLastLogin(user.id);
   req.session.user = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    username: user.username,
-    role: user.role,
+    id:            user.id,
+    name:          user.name,
+    email:         user.email,
+    username:      user.username,
+    role:          user.role,
     projectAccess: user.projectAccess
   };
   return res.json({ success: true, role: user.role });
@@ -129,11 +144,10 @@ app.get('/auth/session', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ── Routes: Admin — Users ─────────────────────────────────────────────────
+// ── Routes: Admin — Users ─────────────────────────────────────────
 app.get('/admin/users', requireAdmin, (req, res) => {
   const usersFile = process.env.USERS_FILE;
-  const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers())
-    .map(safeUser);
+  const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers()).map(safeUser);
   res.json(users);
 });
 
@@ -180,21 +194,27 @@ app.put('/admin/users/:id/access', requireAdmin, (req, res) => {
   res.json(safeUser(updated));
 });
 
-// ── Routes: Admin — Projects ────────────────────────────────────────────────
+// ── Routes: Admin — Projects ─────────────────────────────────────────
 app.get('/admin/projects', requireAdmin, (req, res) => {
   res.json(loadProjects());
 });
 
 app.get('/api/projects', requireAuth, (req, res) => {
   const user = req.session.user;
-  const all = loadProjects();
+  const all  = loadProjects();
   const visible = user.role === 'admin'
     ? all
     : all.filter(p => user.projectAccess.includes(p.id) && p.status === 'active');
   res.json(visible);
 });
 
-// ── Export for testing ────────────────────────────────────────────────────────────
+// ── Routes: Test runs ──────────────────────────────────────────────
+app.get('/api/test-runs', requireAdmin, (req, res) => {
+  const runs = loadTestRuns();
+  res.json(runs);
+});
+
+// ── Export for testing ───────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Portal running on port ${PORT}`);
