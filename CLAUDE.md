@@ -23,6 +23,40 @@ This rule exists because moving fast without alignment wastes cycles and erodes 
 
 ---
 
+## 0.5. Security Review — Blocking Gate
+
+**This repo is public. Every change must be evaluated against this checklist before committing.
+If any item cannot be checked, the change must not proceed.**
+
+### Credentials & Secrets
+- [ ] No passwords, API keys, tokens, or hashes hardcoded anywhere in the code
+- [ ] No `.env`, `users.json`, or any file containing real credentials is staged or committed
+- [ ] `git status` checked to confirm no sensitive files are accidentally tracked
+- [ ] Any new file containing secrets is added to `.gitignore` before the file is created
+
+### Auth & Session
+- [ ] Session secret always comes from `process.env.SESSION_SECRET` — never hardcoded
+- [ ] `cookie.secure` always driven by `NODE_ENV === 'production'` — never hardcoded
+- [ ] `passwordHash` never returned in any API response — always use `safeUser()`
+- [ ] No new API route returns a user object without passing through `safeUser()`
+
+### Input Handling
+- [ ] All user-supplied input is validated before use
+- [ ] No user input is directly interpolated into file paths, system commands, or `eval`
+- [ ] Any new admin or auth endpoint is protected by the appropriate middleware (`requireAuth`, `requireAdmin`)
+
+### Dependencies
+- [ ] Any new `npm` dependency has been reviewed for known vulnerabilities (`npm audit`)
+- [ ] No new dependency is added without a clear reason — prefer built-in Node modules
+- [ ] Dev dependencies are never installed or required in production code paths
+
+### Out of scope for now (revisit as app grows)
+- SQL/NoSQL injection: no database yet
+- CSRF tokens: revisit when adding state-changing forms
+- Full XSS sanitization: no user-generated content rendered to other users yet
+
+---
+
 ## 1. Read Before You Write — Always
 
 Before writing tests, code, or config for any file that already exists:
@@ -165,6 +199,7 @@ cd portal && npm install               # installs jest, supertest, etc.
 
 ## 11. Before Pushing to Main
 
+- [ ] Security review checklist (Section 0.5) fully passed
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
