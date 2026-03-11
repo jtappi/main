@@ -40,7 +40,10 @@ When the human must run a command manually, Claude must:
 
 This rule exists because ambiguous command blocks have caused branch mixups, zsh errors,
 and wasted cycles that could have been avoided entirely.
-## 0.5. Security Review — Blocking Gate
+
+---
+
+## 0.6. Security Review — Blocking Gate
 
 **This repo is public. Every change must be evaluated against this checklist before committing.
 If any item cannot be checked, the change must not proceed.**
@@ -177,8 +180,12 @@ cd portal && npm install
 
 ## 9. GitHub Tool Rules
 
+- **All changes go through PRs — no exceptions.** Never attempt to push directly to `main`.
+  The correct workflow is always: `create_branch` → `push_files` → `create_pull_request`.
+  Branch protection will reject direct pushes, wasting a round-trip. Always use the PR workflow
+  from the start, even for trivial or single-file changes.
 - **Always use `push_files` to write file content** — never `create_or_update_file`.
-- `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
+  `create_or_update_file` corrupts content by writing literal `\n` escape sequences instead of
   real newlines, breaking JSON and other structured files.
 - `push_files` handles encoding correctly and supports multiple files in one commit.
 - `push_files` works for all file types including `.github/workflows/*.yml` — always prefer
@@ -209,13 +216,18 @@ cd portal && npm install
 | CI workflow | `.github/workflows/ci.yml` |
 | Test run logs | `logs/test-runs.jsonl` (append-only, never deleted) |
 | Log script | `scripts/log-test-run.js` |
+| Test dashboard page | `portal/public/test-dashboard.html` |
+| Test dashboard JS | `portal/public/assets/test-dashboard.js` |
+| Test dashboard CSS | `portal/public/assets/test-dashboard.css` |
+| Test dashboard route | `GET /test-dashboard` (admin only) |
+| Test runs API | `GET /api/test-runs` (admin only, injectable via `LOG_FILE` env var) |
 | This file | `CLAUDE.md` |
 
 ---
 
-## 11. Before Pushing to Main
+## 11. Before Merging to Main
 
-- [ ] Security review checklist (Section 0.5) fully passed
+- [ ] Security review checklist (Section 0.6) fully passed
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] `package-lock.json` exists at repo root and is committed
