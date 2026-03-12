@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+const BASE = '/trackmyweek';
 const CATEGORIES = ['Home', 'Medication', 'Bill', 'Health', 'Pain', 'Food', 'TO DO', 'Exercise'];
 
-fetch('/data')
+fetch(`${BASE}/data`)
         .then(response => response.json())
         .then(data => {
             data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -51,9 +52,9 @@ fetch('/data')
 
             const filterHandler = (event) => {
                 const cell = event.currentTarget;
-                const column = cell.parentElement.parentElement.parentElement.querySelector(`th:nth-child(${cell.cellIndex + 1})`).getAttribute('data-column');
-                const value = cell.textContent;
-                filterData(column, value);
+                const column = cell.parentElement.parentElement.parentElement
+                    .querySelector(`th:nth-child(${cell.cellIndex + 1})`).getAttribute('data-column');
+                filterData(column, cell.textContent);
             };
 
             renderTable();
@@ -61,20 +62,15 @@ fetch('/data')
             tbody.addEventListener('click', (event) => {
                 const target = event.target;
                 const index = target.getAttribute('data-index');
-                if (target.classList.contains('edit-icon'))   editRow(index);
+                if (target.classList.contains('edit-icon'))        editRow(index);
                 else if (target.classList.contains('save-icon'))   saveRow(index);
                 else if (target.classList.contains('undo-icon'))   undoRow(index);
                 else if (target.classList.contains('delete-icon')) confirmDelete(index);
             });
 
-            function getTimestampById(index) {
-                const item = data[index];
-                return item ? item.timestamp : null;
-            }
-
             function editRow(index) {
                 const row = tbody.rows[index];
-                const timestamp = new Date(getTimestampById(index));
+                const timestamp = new Date(data[index].timestamp);
                 const dateInput = document.createElement('input');
                 dateInput.type = 'datetime-local';
                 dateInput.id = 'entryDate';
@@ -87,14 +83,13 @@ fetch('/data')
                 dateInput.value = formatter.format(timestamp).replace(/\//g, '-').replace(', ', 'T');
                 row.classList.add('editing-row');
                 const categoryCell = row.cells[1];
-                const currentCategory = categoryCell.textContent;
                 const select = document.createElement('select');
                 select.className = 'form-control category-select';
                 CATEGORIES.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category;
                     option.textContent = category;
-                    if (category === currentCategory) option.selected = true;
+                    if (category === categoryCell.textContent) option.selected = true;
                     select.appendChild(option);
                 });
                 categoryCell.textContent = '';
@@ -110,31 +105,21 @@ fetch('/data')
                     row.cells[i].removeEventListener('click', filterHandler);
                 }
                 toggleIcons(row, true);
-                Array.from(tbody.rows).forEach((r, i) => { if (i !== index) r.classList.add('blur'); });
+                Array.from(tbody.rows).forEach((r, i) => { if (i !== parseInt(index)) r.classList.add('blur'); });
                 overlay.classList.remove('d-none');
             }
 
             function toISOStringEST(date) {
-                const formatter = new Intl.DateTimeFormat('en-US', {
+                return new Intl.DateTimeFormat('en-US', {
                     timeZone: 'America/New_York',
                     year: 'numeric', month: '2-digit', day: 'numeric',
                     hour: 'numeric', minute: 'numeric', second: 'numeric'
-                });
-                return formatter.format(new Date(date));
-            }
-
-            function convertDatetimeLocalToISO(val) {
-                const date = new Date(val);
-                return isNaN(date.getTime()) ? null : toISOStringEST(date);
+                }).format(new Date(date));
             }
 
             function saveRow(index) {
                 const dateInput = document.getElementById('entryDate');
                 const date = dateInput.value;
-                const day       = new Date(date).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long' });
-                const month     = new Date(date).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'long' });
-                const time      = new Date(date).toLocaleTimeString('en-US', { timeZone: 'America/New_York' });
-                const timestamp = convertDatetimeLocalToISO(dateInput.value);
                 const row = tbody.rows[index];
                 const categorySelect = row.querySelector('.category-select');
                 const updatedItem = {
@@ -143,17 +128,20 @@ fetch('/data')
                     category: categorySelect ? categorySelect.value : row.cells[1].textContent,
                     cost:     row.cells[2].innerText,
                     notes:    row.cells[3].innerText,
-                    day, month, time, timestamp
+                    day:      new Date(date).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long' }),
+                    month:    new Date(date).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'long' }),
+                    time:     new Date(date).toLocaleTimeString('en-US', { timeZone: 'America/New_York' }),
+                    timestamp: toISOStringEST(date)
                 };
-                fetch(`/data/${updatedItem.id}`, {
+                fetch(`${BASE}/data/${updatedItem.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedItem)
                 })
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(result => {
                     if (result.success) {
-                        fetch('/data').then(r => r.json()).then(freshData => {
+                        fetch(`${BASE}/data`).then(r => r.json()).then(freshData => {
                             data = freshData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                             filteredData = data;
                             renderTable();
@@ -164,9 +152,7 @@ fetch('/data')
                             overlay.classList.add('d-none');
                             showAlert('success', 'Item updated successfully');
                         });
-                    } else {
-                        showAlert('danger', 'Failed to update item');
-                    }
+                    } else { showAlert('danger', 'Failed to update item'); }
                 })
                 .catch(() => showAlert('danger', 'Failed to update item'));
             }
@@ -209,7 +195,7 @@ fetch('/data')
             let chartInstance = null;
 
             function fetchDataAndRenderChart(date) {
-                fetch('/data')
+                fetch(`${BASE}/data`)
                     .then(r => r.json())
                     .then(data => {
                         const todaysData = data
@@ -229,14 +215,11 @@ fetch('/data')
                                     data: categoryValues.map(c => uniqueCategories.indexOf(c) + 1),
                                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                     borderColor: 'rgba(75, 192, 192, 1)',
-                                    borderWidth: 1, fill: false,
-                                    pointRadius: 5, pointHoverRadius: 7
+                                    borderWidth: 1, fill: false, pointRadius: 5, pointHoverRadius: 7
                                 }]
                             },
                             options: {
-                                scales: {
-                                    y: { ticks: { callback: v => uniqueCategories[v - 1] } }
-                                },
+                                scales: { y: { ticks: { callback: v => uniqueCategories[v - 1] } } },
                                 plugins: {
                                     tooltip: {
                                         callbacks: {
@@ -249,9 +232,7 @@ fetch('/data')
                     });
             }
 
-            function getLocalDate() {
-                return new Date().toLocaleDateString('en-CA');
-            }
+            function getLocalDate() { return new Date().toLocaleDateString('en-CA'); }
 
             const chartDateInput = document.getElementById('chartDate');
             const today = getLocalDate();
@@ -260,17 +241,14 @@ fetch('/data')
             fetchDataAndRenderChart(today);
 
             function deleteRow(index) {
-                const id = filteredData[index].id;
-                fetch(`/data/${id}`, { method: 'DELETE' })
+                fetch(`${BASE}/data/${filteredData[index].id}`, { method: 'DELETE' })
                     .then(r => r.json())
                     .then(result => {
                         if (result.success) {
                             filteredData.splice(index, 1);
                             renderTable();
                             showAlert('success', 'Item deleted successfully');
-                        } else {
-                            showAlert('danger', 'Failed to delete item');
-                        }
+                        } else { showAlert('danger', 'Failed to delete item'); }
                     })
                     .catch(() => showAlert('danger', 'Failed to delete item'));
             }
@@ -289,17 +267,13 @@ fetch('/data')
                 resetBtn.textContent = 'Reset Filter';
             });
         })
-        .catch(err => {
-            console.error('Error fetching data:', err);
-        });
+        .catch(err => console.error('Error fetching data:', err));
 });
 
 document.querySelectorAll('#dataTable th').forEach(header => {
     header.addEventListener('click', () => {
-        const table = document.getElementById('dataTable');
-        const tbody = table.getElementsByTagName('tbody')[0];
-        const rows = Array.from(tbody.rows);
-        const column = header.getAttribute('data-column');
+        const tbody = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+        const rows  = Array.from(tbody.rows);
         const order = header.getAttribute('data-order') === 'asc' ? 'desc' : 'asc';
         header.setAttribute('data-order', order);
         rows.sort((a, b) => {
@@ -321,8 +295,5 @@ function showAlert(type, message) {
     alert.role = 'alert';
     alert.innerHTML = `${message}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>`;
     alertContainer.appendChild(alert);
-    setTimeout(() => {
-        alert.classList.remove('show');
-        setTimeout(() => alert.remove(), 500);
-    }, 1500);
+    setTimeout(() => { alert.classList.remove('show'); setTimeout(() => alert.remove(), 500); }, 1500);
 }
