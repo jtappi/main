@@ -12,8 +12,9 @@ const crypto     = require('crypto');
 
 const { requireAuth } = require('../core/auth/middleware');
 
-const app  = express();
-const PORT = process.env.TRACKMYWEEK_PORT || 3001;
+const app    = express();
+const PORT   = process.env.TRACKMYWEEK_PORT || 3001;
+const PREFIX = '/trackmyweek';
 
 const DATA_FILE = process.env.TMW_DATA_FILE ||
   path.join(__dirname, 'data/data.json');
@@ -66,10 +67,7 @@ app.use(helmet({
 }));
 
 // ── Rate limiting ─────────────────────────────────────────────
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000
-});
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 });
 app.use(limiter);
 
 // ── Sessions (shared secret with portal) ──────────────────────
@@ -90,7 +88,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Static files ──────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(PREFIX, express.static(path.join(__dirname, 'public')));
 
 // ── Helpers ───────────────────────────────────────────────────
 function toISOStringEST(date) {
@@ -99,28 +97,33 @@ function toISOStringEST(date) {
 }
 
 // ── Routes ────────────────────────────────────────────────────
-app.get('/', requireAuth, (req, res) => {
+app.get(PREFIX, requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
-app.get('/index.html', requireAuth, (req, res) => {
+app.get(`${PREFIX}/index.html`, requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+app.get(`${PREFIX}/view-data.html`, requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/view-data.html'));
+});
+
+app.get(`${PREFIX}/analyze-data.html`, requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/analyze-data.html'));
 });
 
 // Submit new entry
-app.post('/submit', requireAuth, (req, res) => {
+app.post(`${PREFIX}/submit`, requireAuth, (req, res) => {
   const { text, category, cost, notes, calories } = req.body;
-
   if (!text || typeof text !== 'string' || text.trim() === '') {
     return res.status(400).json({ message: 'Text is required' });
   }
   if (!category || typeof category !== 'string' || category.trim() === '') {
     return res.status(400).json({ message: 'Category is required' });
   }
-
   const sanitizedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const now = new Date();
-  const timestamp = toISOStringEST(now);
   const entry = {
     text: sanitizedText,
     category,
@@ -130,9 +133,8 @@ app.post('/submit', requireAuth, (req, res) => {
     day:   now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long' }),
     month: now.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'long' }),
     time:  now.toLocaleTimeString('en-US', { timeZone: 'America/New_York' }),
-    timestamp
+    timestamp: toISOStringEST(now)
   };
-
   fs.readFile(DATA_FILE, (err, data) => {
     if (err) return res.status(500).json({ message: 'Internal server error' });
     const jsonData = JSON.parse(data);
@@ -146,11 +148,9 @@ app.post('/submit', requireAuth, (req, res) => {
 });
 
 // Search entries
-app.get('/search', requireAuth, (req, res) => {
+app.get(`${PREFIX}/search`, requireAuth, (req, res) => {
   const query = (req.query.query || '').toLowerCase();
-  if (!query || query.trim() === '') {
-    return res.status(400).json({ message: 'Invalid query' });
-  }
+  if (!query.trim()) return res.status(400).json({ message: 'Invalid query' });
   fs.readFile(DATA_FILE, (err, data) => {
     if (err) return res.status(500).json({ message: 'Internal server error' });
     const json = JSON.parse(data);
@@ -163,7 +163,7 @@ app.get('/search', requireAuth, (req, res) => {
 });
 
 // Get all data
-app.get('/data', requireAuth, (req, res) => {
+app.get(`${PREFIX}/data`, requireAuth, (req, res) => {
   fs.readFile(DATA_FILE, (err, data) => {
     if (err) return res.status(500).json({ message: 'Internal server error' });
     res.json(JSON.parse(data));
@@ -171,7 +171,7 @@ app.get('/data', requireAuth, (req, res) => {
 });
 
 // Top items
-app.get('/top-items', requireAuth, (req, res) => {
+app.get(`${PREFIX}/top-items`, requireAuth, (req, res) => {
   fs.readFile(DATA_FILE, (err, data) => {
     if (err) return res.status(500).json({ error: 'Internal Server Error' });
     const json = JSON.parse(data);
@@ -200,7 +200,7 @@ app.get('/top-items', requireAuth, (req, res) => {
 });
 
 // Update entry
-app.put('/data/:id', requireAuth, (req, res) => {
+app.put(`${PREFIX}/data/:id`, requireAuth, (req, res) => {
   const id = parseInt(req.params.id);
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -216,7 +216,7 @@ app.put('/data/:id', requireAuth, (req, res) => {
 });
 
 // Delete entry
-app.delete('/data/:id', requireAuth, (req, res) => {
+app.delete(`${PREFIX}/data/:id`, requireAuth, (req, res) => {
   const id = parseInt(req.params.id);
   fs.readFile(DATA_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -233,10 +233,10 @@ app.delete('/data/:id', requireAuth, (req, res) => {
 
 // ── Questions routes ──────────────────────────────────────────
 const questionsController = require('./controllers/questions.controller');
-app.get('/questions',        requireAuth, questionsController.getQuestions);
-app.post('/questions',       requireAuth, questionsController.saveQuestion);
-app.put('/questions/:id',    requireAuth, questionsController.updateAnswer);
-app.delete('/questions/:id', requireAuth, questionsController.deleteQuestion);
+app.get(`${PREFIX}/questions`,        requireAuth, questionsController.getQuestions);
+app.post(`${PREFIX}/questions`,       requireAuth, questionsController.saveQuestion);
+app.put(`${PREFIX}/questions/:id`,    requireAuth, questionsController.updateAnswer);
+app.delete(`${PREFIX}/questions/:id`, requireAuth, questionsController.deleteQuestion);
 
 // ── Start ─────────────────────────────────────────────────────
 if (require.main === module) {

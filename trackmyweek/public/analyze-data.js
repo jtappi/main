@@ -1,19 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
-    fetch('/data')
+    const BASE = '/trackmyweek';
+
+    fetch(`${BASE}/data`)
         .then(response => response.json())
         .then(data => { analyzeData(data); })
         .catch(error => console.error('Error fetching data:', error));
 
-    const categoryTableHeaders = document.querySelectorAll('#category-counts-table th');
-    categoryTableHeaders.forEach((header, index) => {
+    document.querySelectorAll('#category-counts-table th').forEach((header, index) => {
         header.addEventListener('click', () => sortTable('category-counts-table', index));
     });
-
-    const textTableHeaders = document.querySelectorAll('#text-counts-table th');
-    textTableHeaders.forEach((header, index) => {
+    document.querySelectorAll('#text-counts-table th').forEach((header, index) => {
         header.addEventListener('click', () => sortTable('text-counts-table', index));
     });
-
     document.getElementById('categoryTitle').addEventListener('click', () => toggleTableVisibility('category-counts-table'));
     document.getElementById('nameTitle').addEventListener('click',     () => toggleTableVisibility('text-counts-table'));
 
@@ -60,13 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = table.tBodies[0];
         const rows  = Array.from(tbody.rows);
         const isAsc = table.getAttribute('data-sort-asc') === 'true';
-        const dir   = isAsc ? 1 : -1;
         rows.sort((a, b) => {
             const aText = a.cells[columnIndex].textContent.trim();
             const bText = b.cells[columnIndex].textContent.trim();
-            return !isNaN(aText) && !isNaN(bText)
-                ? dir * (aText - bText)
-                : dir * aText.localeCompare(bText);
+            return (isAsc ? 1 : -1) * (!isNaN(aText) && !isNaN(bText)
+                ? aText - bText
+                : aText.localeCompare(bText));
         });
         rows.forEach(row => tbody.appendChild(row));
         table.setAttribute('data-sort-asc', !isAsc);
