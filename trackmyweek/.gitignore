@@ -1,0 +1,12 @@
+# Runtime data files — never commit these
+data/data.json
+data/categories.json
+data/reports.json
+data/questions.json
+
+# Client build output
+client/dist/
+client/node_modules/
+
+# Server dependencies
+node_modules/
