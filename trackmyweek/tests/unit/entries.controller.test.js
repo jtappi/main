@@ -21,10 +21,9 @@ jest.mock('../../lib/data', () => ({
 }));
 
 const data = require('../../lib/data');
-const app  = require('../../server');
+const app  = require('./testApp');
 
 beforeEach(() => {
-  // Reset to a clean set of entries before each test
   mockData.entries = [
     {
       id:        1,
