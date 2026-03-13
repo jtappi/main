@@ -1,24 +1,14 @@
-'use strict';
-
 /**
- * server.js — TrackMyWeek Express app.
+ * server.js — TrackMyWeek Express server.
  *
- * Mounted at /trackmyweek on port 3001.
- * Auth is enforced by requireAuth on every route — the portal session
- * cookie is shared across all apps in this monorepo.
- *
- * In development (NODE_ENV=development), auth is bypassed so you can
- * run the server locally without a portal session.
- *
- * Static client files are served from client/dist/ (populated by Phase 3
- * Vite build). Until then, a 404 on / is expected and harmless.
+ * Mount point: / (root) because trackmyweek.com is the dedicated domain.
+ * In development (NODE_ENV=development) the requireAuth middleware is
+ * bypassed so you can test without credentials.
  */
 
 const path    = require('path');
 const express = require('express');
 const cors    = require('cors');
-
-const { requireAuth } = require('../core/auth/middleware');
 
 const entriesController    = require('./controllers/entries.controller');
 const categoriesController = require('./controllers/categories.controller');
@@ -26,69 +16,46 @@ const reportsController    = require('./controllers/reports.controller');
 const questionsController  = require('./controllers/questions.controller');
 const prebuiltController   = require('./controllers/prebuilt.controller');
 
-const app    = express();
-const PREFIX = '/trackmyweek';
-const PORT   = process.env.TRACKMYWEEK_PORT || 3001;
-const IS_DEV = process.env.NODE_ENV === 'development';
+// Auth middleware — bypassed in development
+let requireAuth;
+try {
+  requireAuth = require('../core/auth/middleware');
+} catch {
+  requireAuth = (_req, _res, next) => next();
+}
+if (process.env.NODE_ENV === 'development') {
+  requireAuth = (_req, _res, next) => next();
+}
 
-// ---------------------------------------------------------------------------
-// Middleware
-// ---------------------------------------------------------------------------
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Serve built React client (populated after `npm run build` in client/)
-app.use(
-  PREFIX,
-  express.static(path.join(__dirname, 'client', 'dist'))
-);
+// ---------------------------------------------------------------------------
+// API routes — all under /api (no /trackmyweek prefix)
+// ---------------------------------------------------------------------------
+app.use('/api/entries',    requireAuth, entriesController);
+app.use('/api/categories', requireAuth, categoriesController);
+app.use('/api/reports',    requireAuth, reportsController);
+app.use('/api/questions',  requireAuth, questionsController);
+app.use('/api/prebuilt',   requireAuth, prebuiltController);
 
 // ---------------------------------------------------------------------------
-// Auth — all API routes require a valid portal session.
-// Bypassed in development so the server can run without the portal.
+// Serve the built React SPA
 // ---------------------------------------------------------------------------
+const DIST = path.join(__dirname, 'client', 'dist');
+app.use(express.static(DIST));
 
-if (!IS_DEV) {
-  app.use(`${PREFIX}/api`, requireAuth);
-} else {
-  console.log('[dev] Auth bypass enabled — requireAuth is NOT enforced');
-}
-
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
-
-app.use(`${PREFIX}/api/entries`,    entriesController);
-app.use(`${PREFIX}/api/categories`, categoriesController);
-app.use(`${PREFIX}/api/reports`,    reportsController);
-app.use(`${PREFIX}/api/questions`,  questionsController);
-app.use(`${PREFIX}/api/prebuilt`,   prebuiltController);
-
-// ---------------------------------------------------------------------------
-// SPA fallback — serve index.html for any non-API route under PREFIX
-// (React Router handles client-side navigation)
-// ---------------------------------------------------------------------------
-
-app.get(`${PREFIX}/*`, (req, res) => {
-  const indexPath = path.join(__dirname, 'client', 'dist', 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      res.status(404).json({ error: 'Client not built yet. Run: cd client && npm run build' });
-    }
-  });
+// All non-API routes — hand off to React Router
+app.get('*', (req, res) => {
+  res.sendFile(path.join(DIST, 'index.html'));
 });
 
-// ---------------------------------------------------------------------------
-// Start
-// ---------------------------------------------------------------------------
-
+const PORT = process.env.PORT || 3001;
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`TrackMyWeek running at http://localhost:${PORT}${PREFIX}`);
-    if (IS_DEV) {
-      console.log('[dev] NODE_ENV=development — auth is bypassed');
-    }
+    console.log(`TrackMyWeek running on http://localhost:${PORT}`);
   });
 }
 
