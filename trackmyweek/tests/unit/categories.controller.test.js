@@ -15,11 +15,11 @@ jest.mock('../../lib/data', () => ({
 }));
 
 const data = require('../../lib/data');
-const app  = require('../../server');
+const app  = require('./testApp');
 
 const BASE_CATS = [
-  { id: 1, name: 'Food',       icon: '🍎', color: '#2ecc71', createdAt: new Date().toISOString() },
-  { id: 2, name: 'Medications',icon: '💊', color: '#3498db', createdAt: new Date().toISOString() },
+  { id: 1, name: 'Food',        icon: '🍎', color: '#2ecc71', createdAt: new Date().toISOString() },
+  { id: 2, name: 'Medications', icon: '💊', color: '#3498db', createdAt: new Date().toISOString() },
 ];
 
 beforeEach(() => {
@@ -87,7 +87,6 @@ describe('PUT /trackmyweek/api/categories/:id', () => {
       .send({ name: 'Nutrition', icon: '🥗', color: '#2ecc71' });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Nutrition');
-    // Entries with old name should have been updated
     const entriesWithOldName = mockData.entries.filter((e) => e.category === 'Food');
     expect(entriesWithOldName.length).toBe(0);
   });

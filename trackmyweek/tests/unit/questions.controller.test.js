@@ -12,14 +12,14 @@ jest.mock('../../lib/data', () => ({
 }));
 
 const data = require('../../lib/data');
-const app  = require('../../server');
+const app  = require('./testApp');
 
 const NOW = new Date().toISOString();
 
 beforeEach(() => {
   mockData.questions = [
-    { id: 1, question: 'How am I doing?',  answer: null,    createdAt: NOW, answeredAt: null },
-    { id: 2, question: 'What went well?',  answer: 'A lot', createdAt: NOW, answeredAt: NOW },
+    { id: 1, question: 'How am I doing?', answer: null,    createdAt: NOW, answeredAt: null },
+    { id: 2, question: 'What went well?', answer: 'A lot', createdAt: NOW, answeredAt: NOW },
   ];
   data.readFile.mockImplementation(async (key) =>
     JSON.parse(JSON.stringify(mockData[key] || []))
