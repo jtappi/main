@@ -181,9 +181,9 @@ cd portal && npm install
 ## 9. GitHub Tool Rules
 
 - **All human-authored changes go through PRs.** The correct workflow is always:
-  `create_branch` → `push_files` → `create_pull_request`. Never push human changes directly
-  to `main` — this remains our working agreement even though branch protection no longer
-  enforces it.
+  `create_branch` → `push_files` → `create_pull_request`. **All three steps must happen
+  in the same turn.** Never push a branch without immediately opening the PR — a branch
+  without a PR is invisible to the human and will be forgotten.
 - **Two exceptions where direct push to `main` is permitted:**
   1. The CI bot pushing `logs/test-runs.jsonl` after each test run (`[skip ci]` commit)
   2. Emergency seeding or one-line doc fixes using `push_files` with `[skip ci]` in the message
@@ -224,6 +224,10 @@ cd portal && npm install
 | Test dashboard CSS | `portal/public/assets/test-dashboard.css` |
 | Test dashboard route | `GET /test-dashboard` (admin only) |
 | Test runs API | `GET /api/test-runs` (admin only, reads from GitHub raw in production) |
+| TrackMyWeek server | `trackmyweek/server.js` |
+| TrackMyWeek data (gitignored) | `trackmyweek/data/data.json` |
+| TrackMyWeek questions (gitignored) | `trackmyweek/data/questions.json` |
+| TrackMyWeek data template | `trackmyweek/data/data.template.json` |
 | This file | `CLAUDE.md` |
 
 ---
@@ -262,3 +266,30 @@ Both ruleset restrictions on `main` have been removed to allow the CI bot to pus
 The PR-first discipline for human changes is now enforced by convention (this document)
 rather than by GitHub. If the free plan ever gains bot-bypass support, re-enable both rules
 and add `github-actions[bot]` to the bypass list.
+
+---
+
+## 13. App Deployment — Data File Rules
+
+Several apps store runtime data in gitignored JSON files. These files are **never overwritten
+during a deploy** unless the file is confirmed to not exist yet.
+
+**Template files** (committed, safe to copy as seed):
+- `trackmyweek/data/data.template.json` → seeds `trackmyweek/data/data.json` on first deploy only
+- `trackmyweek/data/questions.template.json` → seeds `trackmyweek/data/questions.json` on first deploy only
+
+**Safe first-deploy pattern** (only copies if the live file does not already exist):
+```bash
+[ -f trackmyweek/data/data.json ]      || cp trackmyweek/data/data.template.json trackmyweek/data/data.json
+[ -f trackmyweek/data/questions.json ] || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
+```
+
+**Never** instruct the human to run a bare `cp template → live` without the existence check.
+Doing so silently destroys live user data.
+
+When migrating an app from another repo, always check if live data exists at the old location
+and instruct the human to copy it over **before** starting the app for the first time:
+```bash
+ls <old-repo>/src/data.json
+cp <old-repo>/src/data.json trackmyweek/data/data.json
+```

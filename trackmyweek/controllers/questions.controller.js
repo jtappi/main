@@ -1,80 +1,116 @@
-const fs   = require('fs').promises;
-const path = require('path');
+'use strict';
 
-const questionsPath = process.env.TMW_QUESTIONS_FILE ||
-  path.join(__dirname, '../data/questions.json');
+/**
+ * questions.controller.js
+ *
+ * GET    /api/questions        — list all, unanswered first
+ * POST   /api/questions        — create question
+ * PUT    /api/questions/:id    — update text or answer
+ * DELETE /api/questions/:id    — delete question
+ */
 
-const getQuestions = async (req, res) => {
-  try {
-    const data = await fs.readFile(questionsPath, 'utf8');
-    res.json(JSON.parse(data));
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      res.json([]);
-    } else {
-      res.status(500).json({ error: 'Failed to load questions' });
-    }
+const express = require('express');
+const router  = express.Router();
+const {
+  readQuestions,
+  writeQuestions,
+  nextTimestampId,
+} = require('../lib/data');
+
+// ---------------------------------------------------------------------------
+// GET /api/questions
+// ---------------------------------------------------------------------------
+
+router.get('/', (req, res) => {
+  const questions = readQuestions();
+
+  // Unanswered first, then by createdAt descending
+  questions.sort((a, b) => {
+    if (!a.answer && b.answer)  return -1;
+    if (a.answer  && !b.answer) return  1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  res.json(questions);
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/questions
+// ---------------------------------------------------------------------------
+
+router.post('/', (req, res) => {
+  const { question } = req.body;
+
+  if (!question || !question.trim()) {
+    return res.status(400).json({ error: 'question text is required' });
   }
-};
 
-const saveQuestion = async (req, res) => {
-  try {
-    const { question } = req.body;
-    const newQuestion = {
-      id:           Date.now(),
-      question,
-      answer:       null,
-      creationDate: new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }),
-      answeredDate: null
-    };
-    let questions = [];
-    try {
-      const data = await fs.readFile(questionsPath, 'utf8');
-      questions = JSON.parse(data);
-    } catch (_) { /* file missing on first run */ }
-    questions.push(newQuestion);
-    await fs.writeFile(questionsPath, JSON.stringify(questions, null, 2));
-    res.json(newQuestion);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to save question' });
+  const questions   = readQuestions();
+  const now         = new Date().toISOString();
+  const newQuestion = {
+    id:          nextTimestampId(),
+    question:    question.trim(),
+    answer:      null,
+    createdAt:   now,
+    answeredAt:  null,
+  };
+
+  questions.push(newQuestion);
+  writeQuestions(questions);
+
+  res.status(201).json(newQuestion);
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/questions/:id
+// ---------------------------------------------------------------------------
+
+router.put('/:id', (req, res) => {
+  const id        = parseInt(req.params.id, 10);
+  const questions = readQuestions();
+  const index     = questions.findIndex((q) => q.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Question not found' });
   }
-};
 
-const updateAnswer = async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { question, answer } = req.body;
-    const data = await fs.readFile(questionsPath, 'utf8');
-    const questions = JSON.parse(data);
-    const idx = questions.findIndex(q => q.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Question not found' });
-    if (question && question !== questions[idx].question) {
-      questions[idx].question = question;
-    }
-    if (answer !== undefined) {
-      questions[idx].answer = answer;
-      questions[idx].answeredDate = answer.trim().length > 0
-        ? new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
-        : null;
-    }
-    await fs.writeFile(questionsPath, JSON.stringify(questions, null, 2));
-    res.json(questions[idx]);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update question/answer' });
+  const { question, answer } = req.body;
+  const existing             = questions[index];
+
+  const wasAnswered  = !!existing.answer;
+  const nowAnswered  = answer !== undefined ? !!answer : wasAnswered;
+
+  questions[index] = {
+    ...existing,
+    ...(question !== undefined && { question: question.trim() }),
+    ...(answer   !== undefined && { answer: answer ? answer.trim() : null }),
+    answeredAt:
+      nowAnswered && !wasAnswered
+        ? new Date().toISOString()
+        : existing.answeredAt,
+  };
+
+  writeQuestions(questions);
+  res.json(questions[index]);
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/questions/:id
+// ---------------------------------------------------------------------------
+
+router.delete('/:id', (req, res) => {
+  const id        = parseInt(req.params.id, 10);
+  const questions = readQuestions();
+  const index     = questions.findIndex((q) => q.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Question not found' });
   }
-};
 
-const deleteQuestion = async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const data = await fs.readFile(questionsPath, 'utf8');
-    let questions = JSON.parse(data);
-    questions = questions.filter(q => q.id !== id);
-    await fs.writeFile(questionsPath, JSON.stringify(questions, null, 2));
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete question' });
-  }
-};
+  questions.splice(index, 1);
+  writeQuestions(questions);
 
-module.exports = { getQuestions, saveQuestion, updateAnswer, deleteQuestion };
+  res.json({ deleted: id });
+});
+
+module.exports = router;

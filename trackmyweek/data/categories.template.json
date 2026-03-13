@@ -1,0 +1,10 @@
+[
+  { "id": 1, "name": "Food",        "icon": "🍽️",  "color": "#e67e22", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 2, "name": "Medications", "icon": "💊",  "color": "#3498db", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 3, "name": "Health",      "icon": "🩺",  "color": "#2ecc71", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 4, "name": "Mood",        "icon": "😊",  "color": "#9b59b6", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 5, "name": "Money",       "icon": "💰",  "color": "#f1c40f", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 6, "name": "Tasks",       "icon": "✅",  "color": "#1abc9c", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 7, "name": "Exercise",    "icon": "🏃",  "color": "#e74c3c", "createdAt": "2026-01-01T00:00:00" },
+  { "id": 8, "name": "Hygiene",     "icon": "🚿",  "color": "#34495e", "createdAt": "2026-01-01T00:00:00" }
+]
