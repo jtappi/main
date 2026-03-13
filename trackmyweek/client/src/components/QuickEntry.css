@@ -1,0 +1,77 @@
+.quick-entry {
+  margin-bottom: var(--space-lg);
+}
+
+.quick-entry-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.quick-entry-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.quick-entry-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  cursor: pointer;
+  width: 100%;
+}
+
+.quick-entry-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+}
+
+.quick-entry-btn--success {
+  border-color: var(--color-success);
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.quick-entry-btn--error {
+  border-color: var(--color-danger);
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.quick-entry-icon {
+  font-size: 1rem;
+  width: 1.4rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.quick-entry-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-entry-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* Mobile — larger tap targets */
+@media (max-width: 768px) {
+  .quick-entry-btn {
+    padding: var(--space-md);
+    font-size: 1rem;
+  }
+}
