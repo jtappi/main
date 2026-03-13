@@ -16,7 +16,6 @@ export default function PieChart({ labels, values, colors }) {
   const data = {
     labels,
     datasets: [{
-      data,
       data:            values,
       backgroundColor: colors || defaultColors.slice(0, labels.length),
       borderColor:     '#0f1117',
