@@ -7,6 +7,9 @@
  * Auth is enforced by requireAuth on every route — the portal session
  * cookie is shared across all apps in this monorepo.
  *
+ * In development (NODE_ENV=development), auth is bypassed so you can
+ * run the server locally without a portal session.
+ *
  * Static client files are served from client/dist/ (populated by Phase 3
  * Vite build). Until then, a 404 on / is expected and harmless.
  */
@@ -26,6 +29,7 @@ const prebuiltController   = require('./controllers/prebuilt.controller');
 const app    = express();
 const PREFIX = '/trackmyweek';
 const PORT   = process.env.TRACKMYWEEK_PORT || 3001;
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -41,10 +45,15 @@ app.use(
 );
 
 // ---------------------------------------------------------------------------
-// Auth — all API routes require a valid portal session
+// Auth — all API routes require a valid portal session.
+// Bypassed in development so the server can run without the portal.
 // ---------------------------------------------------------------------------
 
-app.use(`${PREFIX}/api`, requireAuth);
+if (!IS_DEV) {
+  app.use(`${PREFIX}/api`, requireAuth);
+} else {
+  console.log('[dev] Auth bypass enabled — requireAuth is NOT enforced');
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -77,6 +86,9 @@ app.get(`${PREFIX}/*`, (req, res) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`TrackMyWeek running at http://localhost:${PORT}${PREFIX}`);
+    if (IS_DEV) {
+      console.log('[dev] NODE_ENV=development — auth is bypassed');
+    }
   });
 }
 
