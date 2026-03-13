@@ -22,7 +22,7 @@ jest.mock('../../lib/data', () => ({
 }));
 
 const data = require('../../lib/data');
-const app  = require('../../server');
+const app  = require('./testApp');
 
 beforeEach(() => {
   mockData.reports = [
