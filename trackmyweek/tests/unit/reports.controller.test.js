@@ -1,52 +1,28 @@
-/**
- * Integration tests — /trackmyweek/api/reports
- */
+'use strict';
 
-const request = require('supertest');
-
-const mockData = {
-  entries:    [
-    { id: 1, text: 'Run',   category: 'Exercise', notes: '', timestamp: new Date().toISOString() },
-    { id: 2, text: 'Apple', category: 'Food',     notes: '', timestamp: new Date().toISOString() },
-  ],
-  categories: [
-    { id: 1, name: 'Exercise', icon: '🏃', color: '#2ecc71', createdAt: new Date().toISOString() },
-    { id: 2, name: 'Food',     icon: '🍎', color: '#e74c3c', createdAt: new Date().toISOString() },
-  ],
-  reports: [],
-};
-
-jest.mock('../../lib/data', () => ({
-  readFile:  jest.fn(async (key) => JSON.parse(JSON.stringify(mockData[key] || []))),
-  writeFile: jest.fn(async (key, val) => { mockData[key] = val; }),
-}));
-
-const data = require('../../lib/data');
-const app  = require('./testApp');
+const request           = require('supertest');
+const { app, mockData } = require('./testApp');
+const data              = require('../../lib/data');
 
 beforeEach(() => {
-  mockData.reports = [
-    {
-      id: 1,
-      name: 'My first report',
-      chartType: 'bar',
-      measure: 'count',
-      groupBy: 'category',
-      filterCategories: [],
-      dateRange: '7days',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+  mockData.data = [
+    { id: 1, text: 'Run',   category: 'Exercise', notes: '', timestamp: new Date().toISOString() },
+    { id: 2, text: 'Apple', category: 'Food',     notes: '', timestamp: new Date().toISOString() },
   ];
-  data.readFile.mockImplementation(async (key) =>
-    JSON.parse(JSON.stringify(mockData[key] || []))
-  );
-  data.writeFile.mockImplementation(async (key, val) => { mockData[key] = val; });
+  mockData.categories = [
+    { id: 1, name: 'Exercise', icon: '🏃', color: '#2ecc71', createdAt: new Date().toISOString() },
+    { id: 2, name: 'Food',     icon: '🍎', color: '#e74c3c', createdAt: new Date().toISOString() },
+  ];
+  mockData.reports = [{
+    id: 1, name: 'My first report', chartType: 'bar', measure: 'count',
+    groupBy: 'category', filterCategories: [], dateRange: 'alltime',
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  }];
+  data.readEntries.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.data)));
+  data.readCategories.mockImplementation(() => JSON.parse(JSON.stringify(mockData.categories)));
+  data.readReports.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.reports)));
+  data.writeReports.mockImplementation((arr) => { mockData.reports = arr; });
 });
-
-// ---------------------------------------------------------------------------
-// GET /reports/schema
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/reports/schema', () => {
   test('returns schema with required keys', async () => {
@@ -60,10 +36,6 @@ describe('GET /trackmyweek/api/reports/schema', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// GET /reports
-// ---------------------------------------------------------------------------
-
 describe('GET /trackmyweek/api/reports', () => {
   test('returns array of reports', async () => {
     const res = await request(app).get('/trackmyweek/api/reports');
@@ -73,22 +45,12 @@ describe('GET /trackmyweek/api/reports', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /reports
-// ---------------------------------------------------------------------------
-
 describe('POST /trackmyweek/api/reports', () => {
   test('creates report and returns 201', async () => {
     const res = await request(app)
       .post('/trackmyweek/api/reports')
-      .send({
-        name: 'New report',
-        chartType: 'pie',
-        measure: 'count',
-        groupBy: 'category',
-        filterCategories: [],
-        dateRange: '30days',
-      });
+      .send({ name: 'New report', chartType: 'pie', measure: 'count',
+              groupBy: 'category', filterCategories: [], dateRange: '30days' });
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('New report');
     expect(res.body.id).toBeDefined();
@@ -101,10 +63,6 @@ describe('POST /trackmyweek/api/reports', () => {
     expect(res.status).toBe(400);
   });
 });
-
-// ---------------------------------------------------------------------------
-// GET /reports/:id/data
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/reports/:id/data', () => {
   test('returns labels and values arrays', async () => {
@@ -119,10 +77,6 @@ describe('GET /trackmyweek/api/reports/:id/data', () => {
     expect(res.status).toBe(404);
   });
 });
-
-// ---------------------------------------------------------------------------
-// PUT /reports/:id
-// ---------------------------------------------------------------------------
 
 describe('PUT /trackmyweek/api/reports/:id', () => {
   test('updates report name', async () => {
@@ -140,10 +94,6 @@ describe('PUT /trackmyweek/api/reports/:id', () => {
     expect(res.status).toBe(404);
   });
 });
-
-// ---------------------------------------------------------------------------
-// DELETE /reports/:id
-// ---------------------------------------------------------------------------
 
 describe('DELETE /trackmyweek/api/reports/:id', () => {
   test('deletes report and returns 200', async () => {

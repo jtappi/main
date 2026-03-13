@@ -1,13 +1,9 @@
-/**
- * Unit tests — lib/dateUtils.js
- *
- * Tests resolveDateRange() and deriveFields() without any I/O.
- */
+'use strict';
 
 const { resolveDateRange, deriveFields } = require('../../lib/dateUtils');
 
-// Pin "now" so date calculations are deterministic.
-// 2026-03-13T12:00:00.000Z = noon UTC = 7 AM EST (UTC-5)
+// Pin "now" to a fixed point so date calculations are deterministic.
+// 2026-03-13T12:00:00.000Z = noon UTC
 const FIXED_NOW = new Date('2026-03-13T12:00:00.000Z');
 
 beforeAll(() => {
@@ -18,10 +14,6 @@ beforeAll(() => {
 afterAll(() => {
   jest.useRealTimers();
 });
-
-// ---------------------------------------------------------------------------
-// resolveDateRange
-// ---------------------------------------------------------------------------
 
 describe('resolveDateRange()', () => {
   test('returns null for alltime', () => {
@@ -39,55 +31,50 @@ describe('resolveDateRange()', () => {
   });
 
   test('today — start is midnight local time of current day', () => {
-    const result = resolveDateRange('today');
-    expect(result).not.toBeNull();
-    const { start, end } = result;
+    const { start, end } = resolveDateRange('today');
     expect(start.getHours()).toBe(0);
     expect(start.getMinutes()).toBe(0);
     expect(start.getFullYear()).toBe(2026);
-    expect(start.getMonth()).toBe(2); // March = 2
+    expect(start.getMonth()).toBe(2);
     expect(start.getDate()).toBe(13);
     expect(end.getTime()).toBeGreaterThanOrEqual(FIXED_NOW.getTime());
   });
 
-  test('7days — start is ~7 days before now', () => {
+  // The diff from midnight-N-days-ago to "now" (noon UTC) will always be
+  // between N days and N+1 days because "now" is partway through today.
+  // We assert the range is >= N and < N+1.
+  test('7days — start is 7 days before now', () => {
     const { start, end } = resolveDateRange('7days');
     const diffDays = (end - start) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeGreaterThanOrEqual(6.9);
-    expect(diffDays).toBeLessThanOrEqual(7.1);
+    expect(diffDays).toBeGreaterThanOrEqual(7);
+    expect(diffDays).toBeLessThan(8);
   });
 
-  test('30days — diff is ~30 days', () => {
+  test('30days — diff is between 30 and 31 days', () => {
     const { start, end } = resolveDateRange('30days');
     const diffDays = (end - start) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeGreaterThanOrEqual(29.9);
-    expect(diffDays).toBeLessThanOrEqual(30.1);
+    expect(diffDays).toBeGreaterThanOrEqual(30);
+    expect(diffDays).toBeLessThan(31);
   });
 
-  test('90days — diff is ~90 days', () => {
+  test('90days — diff is between 90 and 91 days', () => {
     const { start, end } = resolveDateRange('90days');
     const diffDays = (end - start) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeGreaterThanOrEqual(89.9);
-    expect(diffDays).toBeLessThanOrEqual(90.1);
+    expect(diffDays).toBeGreaterThanOrEqual(90);
+    expect(diffDays).toBeLessThan(91);
   });
 });
 
-// ---------------------------------------------------------------------------
-// deriveFields
-// ---------------------------------------------------------------------------
-
 describe('deriveFields()', () => {
-  // 2026-03-11T09:30:00.000Z = Wednesday 9:30 AM UTC
   const TS_WEDNESDAY_MORNING = '2026-03-11T09:30:00.000Z';
-  // 2026-03-13T19:45:00.000Z = Friday 7:45 PM UTC
   const TS_FRIDAY_EVENING    = '2026-03-13T19:45:00.000Z';
 
-  test('returns an object with expected keys', () => {
+  test('returns an object with all expected keys', () => {
     const result = deriveFields(TS_WEDNESDAY_MORNING);
     expect(result).toHaveProperty('date');
-    expect(result).toHaveProperty('dayOfWeek');
     expect(result).toHaveProperty('hour');
     expect(result).toHaveProperty('timeOfDay');
+    expect(result).toHaveProperty('dayOfWeek');
     expect(result).toHaveProperty('month');
     expect(result).toHaveProperty('week');
   });
@@ -105,11 +92,9 @@ describe('deriveFields()', () => {
   });
 
   test('timeOfDay is one of morning/afternoon/evening/night', () => {
-    const buckets = new Set(['morning', 'afternoon', 'evening', 'night']);
-    const { timeOfDay: t1 } = deriveFields(TS_WEDNESDAY_MORNING);
-    const { timeOfDay: t2 } = deriveFields(TS_FRIDAY_EVENING);
-    expect(buckets.has(t1)).toBe(true);
-    expect(buckets.has(t2)).toBe(true);
+    const valid = new Set(['morning', 'afternoon', 'evening', 'night']);
+    expect(valid.has(deriveFields(TS_WEDNESDAY_MORNING).timeOfDay)).toBe(true);
+    expect(valid.has(deriveFields(TS_FRIDAY_EVENING).timeOfDay)).toBe(true);
   });
 
   test('dayOfWeek is a non-empty string', () => {
@@ -124,9 +109,8 @@ describe('deriveFields()', () => {
     expect(month.length).toBeGreaterThan(0);
   });
 
-  test('week is a string matching YYYY-WNN', () => {
+  test('week matches YYYY-WNN format', () => {
     const { week } = deriveFields(TS_WEDNESDAY_MORNING);
-    expect(typeof week).toBe('string');
     expect(week).toMatch(/^\d{4}-W\d{2}$/);
   });
 });
