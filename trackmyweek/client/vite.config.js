@@ -8,6 +8,8 @@ import react from '@vitejs/plugin-react';
  *   Express mount point so the SPA works when served from the portal.
  * - proxy: during `npm run dev`, API calls are forwarded to the Express
  *   server running on port 3001 so you don't need to build to test.
+ * - outDir: 'dist' puts the production build at client/dist/, which is
+ *   exactly where server.js expects to find it.
  */
 export default defineConfig({
   plugins: [react()],
@@ -25,7 +27,7 @@ export default defineConfig({
   },
 
   build: {
-    outDir: '../public/dist',
+    outDir: 'dist',
     emptyOutDir: true,
   },
 });
