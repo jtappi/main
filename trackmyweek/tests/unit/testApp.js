@@ -3,26 +3,34 @@
 /**
  * testApp.js — shared test helper.
  *
- * trackmyweek/server.js now exports an Express router (not a full app),
- * so it can be mounted inside the portal and share its session.
+ * trackmyweek/server.js exports an Express router (not a full app).
+ * For supertest integration tests we need a real Express app.
  *
- * For supertest integration tests we need a real Express app. This helper
- * wraps the router in a minimal app with:
- *   - express.json() body parsing
- *   - the trackmyweek router mounted at /trackmyweek
+ * This helper:
+ *   1. Mocks core/auth/middleware so requireAuth is a pass-through.
+ *      (The real middleware redirects to /login because there's no session
+ *      in the Jest environment — all tests would get 302 without this.)
+ *   2. Wraps the trackmyweek router in a minimal Express app mounted at
+ *      /trackmyweek so all test URLs (/trackmyweek/api/...) still work.
  *
  * Usage in every controller test:
- *
  *   const app = require('./testApp');
- *   // then use app with supertest exactly as before
+ *   // use with supertest exactly as before
  */
+
+// Must be called BEFORE requiring server.js so the mock is in place
+// when server.js calls require('../core/auth/middleware').
+jest.mock('../../../core/auth/middleware', () => ({
+  requireAuth:          (_req, _res, next) => next(),
+  requireAdmin:         (_req, _res, next) => next(),
+  requireProjectAccess: () => (_req, _res, next) => next(),
+}));
 
 const express = require('express');
 
 function createTestApp() {
   const app = express();
   app.use(express.json());
-  // Mount at /trackmyweek so all test URLs (/trackmyweek/api/...) still work
   app.use('/trackmyweek', require('../../server'));
   return app;
 }

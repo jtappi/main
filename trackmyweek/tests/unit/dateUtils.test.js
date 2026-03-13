@@ -6,7 +6,8 @@
 
 const { resolveDateRange, deriveFields } = require('../../lib/dateUtils');
 
-// Pin "now" so date calculations are deterministic
+// Pin "now" so date calculations are deterministic.
+// 2026-03-13T12:00:00.000Z = noon UTC = 7 AM EST (UTC-5)
 const FIXED_NOW = new Date('2026-03-13T12:00:00.000Z');
 
 beforeAll(() => {
@@ -33,39 +34,41 @@ describe('resolveDateRange()', () => {
     expect(resolveDateRange(undefined)).toBeNull();
   });
 
-  test('today — start is midnight UTC of current day', () => {
+  test('unknown key falls back to null', () => {
+    expect(resolveDateRange('banana')).toBeNull();
+  });
+
+  test('today — start is midnight local time of current day', () => {
     const result = resolveDateRange('today');
     expect(result).not.toBeNull();
     const { start, end } = result;
-    expect(start.getUTCHours()).toBe(0);
-    expect(start.getUTCMinutes()).toBe(0);
-    expect(start.getUTCFullYear()).toBe(2026);
-    expect(start.getUTCMonth()).toBe(2); // March = 2
-    expect(start.getUTCDate()).toBe(13);
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
+    expect(start.getFullYear()).toBe(2026);
+    expect(start.getMonth()).toBe(2); // March = 2
+    expect(start.getDate()).toBe(13);
     expect(end.getTime()).toBeGreaterThanOrEqual(FIXED_NOW.getTime());
   });
 
   test('7days — start is ~7 days before now', () => {
     const { start, end } = resolveDateRange('7days');
-    const diffMs = end.getTime() - start.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeCloseTo(7, 0);
+    const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBeGreaterThanOrEqual(6.9);
+    expect(diffDays).toBeLessThanOrEqual(7.1);
   });
 
   test('30days — diff is ~30 days', () => {
     const { start, end } = resolveDateRange('30days');
     const diffDays = (end - start) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeCloseTo(30, 0);
+    expect(diffDays).toBeGreaterThanOrEqual(29.9);
+    expect(diffDays).toBeLessThanOrEqual(30.1);
   });
 
   test('90days — diff is ~90 days', () => {
     const { start, end } = resolveDateRange('90days');
     const diffDays = (end - start) / (1000 * 60 * 60 * 24);
-    expect(diffDays).toBeCloseTo(90, 0);
-  });
-
-  test('unknown key falls back to null', () => {
-    expect(resolveDateRange('banana')).toBeNull();
+    expect(diffDays).toBeGreaterThanOrEqual(89.9);
+    expect(diffDays).toBeLessThanOrEqual(90.1);
   });
 });
 
@@ -74,8 +77,10 @@ describe('resolveDateRange()', () => {
 // ---------------------------------------------------------------------------
 
 describe('deriveFields()', () => {
-  const TS_WEDNESDAY_MORNING = '2026-03-11T09:30:00.000Z'; // Wednesday
-  const TS_FRIDAY_EVENING    = '2026-03-13T19:45:00.000Z'; // Friday
+  // 2026-03-11T09:30:00.000Z = Wednesday 9:30 AM UTC
+  const TS_WEDNESDAY_MORNING = '2026-03-11T09:30:00.000Z';
+  // 2026-03-13T19:45:00.000Z = Friday 7:45 PM UTC
+  const TS_FRIDAY_EVENING    = '2026-03-13T19:45:00.000Z';
 
   test('returns an object with expected keys', () => {
     const result = deriveFields(TS_WEDNESDAY_MORNING);
@@ -94,11 +99,12 @@ describe('deriveFields()', () => {
 
   test('hour is a number 0-23', () => {
     const { hour } = deriveFields(TS_WEDNESDAY_MORNING);
+    expect(typeof hour).toBe('number');
     expect(hour).toBeGreaterThanOrEqual(0);
     expect(hour).toBeLessThanOrEqual(23);
   });
 
-  test('timeOfDay buckets are one of expected values', () => {
+  test('timeOfDay is one of morning/afternoon/evening/night', () => {
     const buckets = new Set(['morning', 'afternoon', 'evening', 'night']);
     const { timeOfDay: t1 } = deriveFields(TS_WEDNESDAY_MORNING);
     const { timeOfDay: t2 } = deriveFields(TS_FRIDAY_EVENING);
@@ -118,9 +124,9 @@ describe('deriveFields()', () => {
     expect(month.length).toBeGreaterThan(0);
   });
 
-  test('week is a string matching YYYY-WNN or similar', () => {
+  test('week is a string matching YYYY-WNN', () => {
     const { week } = deriveFields(TS_WEDNESDAY_MORNING);
     expect(typeof week).toBe('string');
-    expect(week.length).toBeGreaterThan(0);
+    expect(week).toMatch(/^\d{4}-W\d{2}$/);
   });
 });
