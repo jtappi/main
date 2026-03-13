@@ -1,0 +1,218 @@
+/* Overlay */
+.builder-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Panel */
+.builder-panel {
+  width: 480px;
+  max-width: 100vw;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.builder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.builder-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Step dots */
+.builder-steps {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.builder-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.builder-step-dot--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.builder-step-dot--done {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Body */
+.builder-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+.builder-step-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-md);
+}
+
+/* Chart type grid */
+.chart-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.chart-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: var(--space-md);
+  background: var(--color-surface-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.chart-type-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.chart-type-btn--selected {
+  border-color: var(--color-primary);
+  background: rgba(108, 99, 255, 0.1);
+}
+
+.chart-type-icon {
+  font-size: 1.4rem;
+}
+
+.chart-type-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chart-type-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* Option list (measure, groupBy, dateRange) */
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  transition: border-color 0.15s;
+}
+
+.option-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.option-btn--selected {
+  border-color: var(--color-primary);
+  background: rgba(108, 99, 255, 0.1);
+}
+
+/* Category filter */
+.filter-cat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.filter-cat-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Name input */
+.builder-name-input {
+  font-size: 1rem;
+  margin-bottom: var(--space-md);
+}
+
+.builder-summary {
+  padding: var(--space-md);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+/* Footer */
+.builder-footer {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .builder-panel {
+    width: 100vw;
+  }
+  .chart-type-grid {
+    grid-template-columns: 1fr;
+  }
+}

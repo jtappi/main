@@ -1,0 +1,57 @@
+.report-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.report-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.report-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.report-card-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.report-card-btn {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.report-date-select {
+  width: auto;
+  font-size: 0.85rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.report-card-chart {
+  height: 260px;
+  position: relative;
+}
+
+.report-card-chart--pivot {
+  height: auto;
+}
+
+.report-card-meta {
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+
+.delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
