@@ -10,13 +10,12 @@ import Questions from './pages/Questions';
 /**
  * App.jsx — root component.
  *
- * All routes are nested under /trackmyweek/ to match the Express mount point.
- * The basename prop on BrowserRouter ensures React Router strips the prefix
- * from every path match.
+ * basename="/" because trackmyweek.com is the root domain.
+ * Routes are clean: /log, /view, /reports, /categories, /questions.
  */
 export default function App() {
   return (
-    <BrowserRouter basename="/trackmyweek">
+    <BrowserRouter basename="/">
       <div className="app">
         <Navigation />
         <main className="main-content">
