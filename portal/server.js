@@ -26,10 +26,10 @@ const LOG_FILE = process.env.LOG_FILE ||
 const GITHUB_RAW_LOG =
   'https://raw.githubusercontent.com/jtappi/main/main/logs/test-runs.jsonl';
 
-// ── Trust proxy (behind Nginx) ───────────────────────────────────
+// ── Trust proxy (behind Nginx) ─────────────────────────────────
 app.set('trust proxy', 1);
 
-// ── Security headers ───────────────────────────────────────────
+// ── Security headers ───────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -42,7 +42,7 @@ app.use(helmet({
   }
 }));
 
-// ── Sessions ───────────────────────────────────────────────────
+// ── Sessions ──────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
@@ -55,21 +55,21 @@ app.use(session({
   }
 }));
 
-// ── Body parsing ───────────────────────────────────────────────
+// ── Body parsing ──────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ── Rate limiting on auth ─────────────────────────────────────────
+// ── Rate limiting on auth ───────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ────────────────────────────────────────────────
+// ── Static files ───────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ──────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────
 function loadProjects() {
   return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
@@ -104,7 +104,7 @@ function loadTestRunsLocal() {
   return parseJsonlLines(fs.readFileSync(LOG_FILE, 'utf8'));
 }
 
-// ── Routes: Root ────────────────────────────────────────────────
+// ── Routes: Root ───────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.user) return res.redirect('/dashboard');
   return res.redirect('/login');
@@ -127,7 +127,7 @@ app.get('/test-dashboard', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
 
-// ── Routes: Auth ────────────────────────────────────────────────
+// ── Routes: Auth ───────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
   const { identifier, passwordHash } = req.body;
   if (!identifier || !passwordHash) {
@@ -165,7 +165,7 @@ app.get('/auth/session', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ── Routes: Admin — Users ─────────────────────────────────────────
+// ── Routes: Admin — Users ───────────────────────────────────
 app.get('/admin/users', requireAdmin, (req, res) => {
   const usersFile = process.env.USERS_FILE;
   const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers()).map(safeUser);
@@ -215,7 +215,7 @@ app.put('/admin/users/:id/access', requireAdmin, (req, res) => {
   res.json(safeUser(updated));
 });
 
-// ── Routes: Admin — Projects ─────────────────────────────────────────
+// ── Routes: Admin — Projects ───────────────────────────────────
 app.get('/admin/projects', requireAdmin, (req, res) => {
   res.json(loadProjects());
 });
@@ -229,23 +229,23 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json(visible);
 });
 
-// ── Routes: Test runs ──────────────────────────────────────────────
+// ── Routes: Test runs ───────────────────────────────────────
 app.get('/api/test-runs', requireAdmin, (req, res) => {
-  // In test environments, LOG_FILE env var is set — use local filesystem
   if (process.env.LOG_FILE) {
     return res.json(loadTestRunsLocal());
   }
-  // In production, fetch directly from GitHub so no git pull is needed
   loadTestRunsRemote()
     .then(runs => res.json(runs))
     .catch(err => {
       console.error('[api/test-runs] Failed to fetch remote log:', err.message);
-      // Fall back to local file if remote fetch fails
       res.json(loadTestRunsLocal());
     });
 });
 
-// ── Export for testing ───────────────────────────────────────────────
+// ── Mount TrackMyWeek app (shares session automatically) ──────────────
+app.use('/trackmyweek', require('../trackmyweek/server'));
+
+// ── Export for testing ─────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Portal running on port ${PORT}`);
