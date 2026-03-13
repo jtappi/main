@@ -1,0 +1,38 @@
+.pivot-table-wrap {
+  overflow-x: auto;
+}
+
+.pivot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.pivot-table th,
+.pivot-table td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pivot-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
+.pivot-table tbody tr:hover {
+  background: var(--color-surface-2);
+}
+
+.pivot-table tfoot td {
+  border-top: 2px solid var(--color-border);
+  border-bottom: none;
+}
+
+.pivot-pct {
+  color: var(--color-text-muted);
+}
