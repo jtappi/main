@@ -1,0 +1,43 @@
+/* ============================================================
+   LogEntry page layout
+   Desktop: sidebar (quick-entry) left, form right
+   Mobile:  quick-entry first (top), form below
+   ============================================================ */
+
+.log-entry-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-areas: 'sidebar main';
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.log-entry-sidebar {
+  grid-area: sidebar;
+  position: sticky;
+  top: var(--space-xl);
+}
+
+.log-entry-main {
+  grid-area: main;
+  max-width: 540px;
+}
+
+/* Mobile — stack vertically, quick-entry on top */
+@media (max-width: 768px) {
+  .log-entry-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'sidebar'
+      'main';
+    gap: var(--space-md);
+  }
+
+  .log-entry-sidebar {
+    position: static;
+  }
+
+  .log-entry-main {
+    max-width: 100%;
+  }
+}
