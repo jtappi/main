@@ -4,22 +4,24 @@ import react from '@vitejs/plugin-react';
 /**
  * Vite config for TrackMyWeek client.
  *
- * - base: '/trackmyweek/' ensures all asset paths are relative to the
- *   Express mount point so the SPA works when served from the portal.
- * - proxy: during `npm run dev`, API calls are forwarded to the Express
- *   server running on port 3001 so you don't need to build to test.
- * - outDir: 'dist' puts the production build at client/dist/, which is
- *   exactly where server.js expects to find it.
+ * base: '/' because trackmyweek.com IS the root domain — no subdirectory
+ * prefix needed. Change to '/trackmyweek/' if ever mounted under a portal.
+ *
+ * proxy: during `npm run dev`, API calls to /api/* are forwarded to
+ * the Express server on port 3001.
+ *
+ * outDir: 'dist' — production build lands at client/dist/, where
+ * server.js serves it as static files.
  */
 export default defineConfig({
   plugins: [react()],
 
-  base: '/trackmyweek/',
+  base: '/',
 
   server: {
     port: 5173,
     proxy: {
-      '/trackmyweek/api': {
+      '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       },

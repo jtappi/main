@@ -5,10 +5,9 @@
  *   - Every function is async and returns parsed JSON.
  *   - HTTP errors throw an Error with the server's error message.
  *   - No component ever calls fetch() directly — always use this module.
- *   - The base prefix matches the Express mount point.
  */
 
-const BASE = '/trackmyweek/api';
+const BASE = '/api';
 
 async function request(method, path, body) {
   const opts = {
