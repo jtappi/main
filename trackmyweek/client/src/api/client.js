@@ -1,13 +1,11 @@
 /**
  * client.js — all fetch calls to the TrackMyWeek Express API.
  *
- * Rules:
- *   - Every function is async and returns parsed JSON.
- *   - HTTP errors throw an Error with the server's error message.
- *   - No component ever calls fetch() directly — always use this module.
+ * BASE matches the nginx location block: /trackmyweek/api.
+ * No component ever calls fetch() directly — always use this module.
  */
 
-const BASE = '/api';
+const BASE = '/trackmyweek/api';
 
 async function request(method, path, body) {
   const opts = {

@@ -10,12 +10,12 @@ import Questions from './pages/Questions';
 /**
  * App.jsx — root component.
  *
- * basename="/" because trackmyweek.com is the root domain.
- * Routes are clean: /log, /view, /reports, /categories, /questions.
+ * basename="/trackmyweek" matches the nginx location block and Vite base.
+ * React Router strips the prefix from every path match internally.
  */
 export default function App() {
   return (
-    <BrowserRouter basename="/">
+    <BrowserRouter basename="/trackmyweek">
       <div className="app">
         <Navigation />
         <main className="main-content">
