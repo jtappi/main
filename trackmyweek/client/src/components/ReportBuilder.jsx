@@ -113,7 +113,13 @@ export default function ReportBuilder({ open, onClose, onSaved, editReport }) {
       <div className="builder-panel" data-testid="report-builder">
         <div className="builder-header">
           <h2 className="builder-title">{editReport ? 'Edit Report' : 'New Report'}</h2>
-          <button className="btn btn-ghost" onClick={handleClose}>✕</button>
+          <button
+            className="btn btn-ghost"
+            onClick={handleClose}
+            data-testid="builder-close"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Step indicators */}
