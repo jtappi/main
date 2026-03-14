@@ -160,14 +160,18 @@ router.get('/:id/data', (req, res) => {
 // ---------------------------------------------------------------------------
 
 function runReport(report) {
-  const { start, end }    = resolveDateRange(report.dateRange);
-  let entries             = readEntries();
+  // resolveDateRange returns null for 'alltime' — null means no date filter
+  const range   = resolveDateRange(report.dateRange);
+  let entries   = readEntries();
 
-  // Date filter
-  entries = entries.filter((e) => {
-    const ts = new Date(e.timestamp);
-    return ts >= start && ts <= end;
-  });
+  // Date filter — only applied when a range is specified
+  if (range) {
+    const { start, end } = range;
+    entries = entries.filter((e) => {
+      const ts = new Date(e.timestamp);
+      return ts >= start && ts <= end;
+    });
+  }
 
   // Category filter
   if (report.filterCategories && report.filterCategories.length > 0) {
@@ -181,10 +185,9 @@ function runReport(report) {
     groups[key] = (groups[key] || 0) + 1;
   }
 
-  const totalDays = Math.max(
-    1,
-    Math.ceil((end - start) / (1000 * 60 * 60 * 24))
-  );
+  const totalDays = range
+    ? Math.max(1, Math.ceil((range.end - range.start) / (1000 * 60 * 60 * 24)))
+    : 1;
 
   const labels = Object.keys(groups).sort();
   const values = labels.map((label) => {
