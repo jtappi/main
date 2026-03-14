@@ -11,6 +11,23 @@ const DATE_RANGE_OPTIONS = [
   { value: '90days',  label: 'Last 90 days' },
 ];
 
+// ---------------------------------------------------------------------------
+// Timezone helpers
+// ---------------------------------------------------------------------------
+
+// Convert a UTC ISO string to the local datetime-local input format (YYYY-MM-DDTHH:MM).
+// The datetime-local input has no timezone concept — it displays whatever string
+// it receives literally. We must convert from UTC to local wall-clock time before
+// populating the input, otherwise the displayed time is off by the user's UTC offset.
+function toLocalDatetimeInput(isoString) {
+  const d   = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, '0');
+  return [
+    d.getFullYear(), '-', pad(d.getMonth() + 1), '-', pad(d.getDate()),
+    'T', pad(d.getHours()), ':', pad(d.getMinutes()),
+  ].join('');
+}
+
 export default function ViewData() {
   const [entries, setEntries]       = useState([]);
   const [categories, setCategories] = useState([]);
@@ -69,7 +86,10 @@ export default function ViewData() {
   // ---------------------------------------------------------------------------
 
   function startEdit(id, field, value) {
-    setEditing({ id, field, value });
+    // For timestamp fields, convert the stored UTC ISO string to local time so
+    // the datetime-local input displays the correct wall-clock time.
+    const editValue = field === 'timestamp' ? toLocalDatetimeInput(value) : value;
+    setEditing({ id, field, value: editValue });
   }
 
   function cancelEdit() {
@@ -80,9 +100,18 @@ export default function ViewData() {
     if (!editing) return;
     const { id, field, value } = editing;
     const original = entries.find((e) => e.id === id);
-    if (!original || original[field] === value) { cancelEdit(); return; }
+    if (!original) { cancelEdit(); return; }
+
+    // For timestamp, convert the local datetime-local string back to a UTC ISO
+    // string before comparing or sending to the server.
+    const sendValue = field === 'timestamp'
+      ? new Date(value).toISOString()
+      : value;
+
+    if (original[field] === sendValue) { cancelEdit(); return; }
+
     try {
-      const updated = await updateEntry(id, { [field]: value });
+      const updated = await updateEntry(id, { [field]: sendValue });
       setEntries((prev) => prev.map((e) => e.id === id ? updated : e));
     } catch (err) {
       setError(err.message);
@@ -140,8 +169,8 @@ export default function ViewData() {
           <input
             autoFocus
             type="datetime-local"
-            value={editing.value.slice(0, 16)}
-            onChange={(e) => setEditing((ed) => ({ ...ed, value: e.target.value + ':00' }))}
+            value={editing.value}
+            onChange={(e) => setEditing((ed) => ({ ...ed, value: e.target.value }))}
             onBlur={commitEdit}
             onKeyDown={handleKeyDown}
             className="edit-input"
