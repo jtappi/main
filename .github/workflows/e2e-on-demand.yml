@@ -12,6 +12,10 @@ on:
           - all
           - portal
           - trackmyweek
+      test:
+        description: 'Optional: file path or grep pattern for a single test (e.g. tests/e2e/login.spec.js or "login page")'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -102,8 +106,10 @@ jobs:
       - name: Run portal E2E tests
         id: portal-e2e
         if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'portal' }}
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/portal-e2e-results.json
         run: |
-          npx playwright test --reporter=list --reporter=json --output=/tmp/portal-e2e-results.json
+          npx playwright test ${{ github.event.inputs.test }} --reporter=list --reporter=json
           echo "exit_code=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
@@ -111,7 +117,7 @@ jobs:
         id: tmw-e2e
         if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'trackmyweek' }}
         run: |
-          npx playwright test --config=trackmyweek/client/playwright.ci.config.js
+          npx playwright test ${{ github.event.inputs.test }} --config=trackmyweek/client/playwright.ci.config.js
           echo "exit_code=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
@@ -135,7 +141,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash -- logs/test-runs.jsonl
           git pull --rebase origin main
+          git stash pop
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log on-demand E2E results [skip ci]"
           git push origin HEAD:main
