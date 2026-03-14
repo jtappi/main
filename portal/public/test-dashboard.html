@@ -47,6 +47,12 @@
         <select id="project-select" data-testid="test-dashboard-project-select" class="td-select">
           <option value="all" selected>All projects</option>
         </select>
+        <label for="type-select" class="td-label">Type</label>
+        <select id="type-select" data-testid="test-dashboard-type-select" class="td-select">
+          <option value="all" selected>All types</option>
+          <option value="jest">Jest</option>
+          <option value="e2e">E2E</option>
+        </select>
         <label for="days-select" class="td-label">Date range</label>
         <select id="days-select" data-testid="test-dashboard-days-select" class="td-select">
           <option value="7" selected>Last 7 days</option>
@@ -112,6 +118,14 @@
           </div>
           <canvas id="chart-int-duration" data-testid="test-dashboard-chart-int-duration" height="150"></canvas>
           <div class="td-no-data hidden" id="chart-int-duration-empty">No runs in this period.</div>
+        </div>
+        <div class="td-card td-card--chart">
+          <div class="td-card-header">
+            <h3>E2E Test Duration</h3>
+            <span class="td-chart-unit">seconds</span>
+          </div>
+          <canvas id="chart-e2e-duration" data-testid="test-dashboard-chart-e2e-duration" height="150"></canvas>
+          <div class="td-no-data hidden" id="chart-e2e-duration-empty">No E2E runs in this period.</div>
         </div>
       </div>
     </div>
