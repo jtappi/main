@@ -2,55 +2,79 @@
  * global-setup.js — CI auth setup for TrackMyWeek E2E tests.
  *
  * The trackmyweek app is mounted inside the portal and protected by
- * requireAuth. Without an active session every API call returns 401
- * and the UI shows "Failed to fetch" / "Could not load categories".
+ * requireAuth. Without an active session every API call returns 401.
  *
  * This setup:
- *  1. Launches a temporary browser context.
- *  2. Logs in as the e2e-admin user via POST /auth/login (the same
- *     endpoint the portal login page uses).
- *  3. Saves the resulting session cookie to a storageState file.
- *  4. All specs then load that storageState so every page.goto()
- *     starts with a valid authenticated session.
+ *  1. Seeds the e2e-tmw test user directly into users.json via auth.js.
+ *     We cannot rely on the portal E2E suite having left the user behind
+ *     because portal's global-teardown.js removes all e2e-* users when
+ *     the portal suite finishes — which runs before this suite starts.
+ *  2. Launches a temporary browser context and POSTs to /auth/login.
+ *  3. Saves the resulting session cookie to .auth-state.json.
+ *  4. All specs load that storageState so every page.goto() starts
+ *     with a valid authenticated session.
  *
- * The e2e-admin user is seeded by the portal's own global-setup.js
- * which runs before the portal E2E suite. We rely on that user already
- * existing in users.json when this runs. CI starts the portal E2E
- * suite first, which calls the portal global-setup, then runs the
- * trackmyweek suite — so the user is guaranteed to be present.
- *
- * Credentials (stable, defined in tests/e2e/global-setup.js at repo root):
- *   username : e2e-admin
- *   password : e2epassword
+ * Teardown: global-teardown.js removes the seeded user after the run.
  */
 
 import { chromium } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import crypto from 'crypto';
+import { createRequire } from 'module';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const require    = createRequire(import.meta.url);
+const auth       = require('../../../../core/auth/auth');
+const USERS_FILE = path.join(__dirname, '../../../../core/data/users.json');
+
 export const STORAGE_STATE = path.join(__dirname, '.auth-state.json');
 
+const TEST_USER = {
+  id:            'e2e-tmw-001',
+  name:          'E2E TrackMyWeek',
+  email:         'e2e-tmw@test.local',
+  username:      'e2e-tmw',
+  password:      'e2epassword',
+  role:          'admin',
+  projectAccess: ['trackmyweek'],
+};
+
 export default async function globalSetup() {
-  const browser = await chromium.launch();
-  const context = await browser.newContext();
-  const page    = await context.newPage();
+  // ── 1. Seed test user ───────────────────────────────────────────────
+  const users    = auth.loadUsers(USERS_FILE);
+  const existing = users.findIndex(u => u.id === TEST_USER.id);
+  if (existing !== -1) users.splice(existing, 1);
 
-  // Hash the password the same way the portal does (SHA-256 hex)
-  const passwordHash = crypto
-    .createHash('sha256')
-    .update('e2epassword')
-    .digest('hex');
+  users.push({
+    id:            TEST_USER.id,
+    name:          TEST_USER.name,
+    email:         TEST_USER.email,
+    username:      TEST_USER.username,
+    passwordHash:  auth.hashPassword(TEST_USER.password),
+    role:          TEST_USER.role,
+    active:        true,
+    projectAccess: TEST_USER.projectAccess,
+    lastLogin:     null,
+    createdAt:     new Date().toISOString(),
+  });
+  auth.saveUsers(users, USERS_FILE);
+  console.log('[TMW E2E setup] Test user seeded:', TEST_USER.username);
 
-  // POST to the portal login endpoint directly — faster than UI login
+  // ── 2. Log in and save session state ────────────────────────────────
+  const browser  = await chromium.launch();
+  const context  = await browser.newContext();
+  const page     = await context.newPage();
+
+  const passwordHash = auth.hashPassword(TEST_USER.password);
+
   const response = await page.request.post('http://localhost:3000/auth/login', {
-    data: { identifier: 'e2e-admin', passwordHash },
+    data:    { identifier: TEST_USER.username, passwordHash },
     headers: { 'Content-Type': 'application/json' },
   });
 
   if (!response.ok()) {
     const body = await response.text();
+    await browser.close();
     throw new Error(
       `[TMW E2E setup] Login failed: ${response.status()} ${body}`
     );
@@ -58,14 +82,13 @@ export default async function globalSetup() {
 
   const body = await response.json();
   if (!body.success) {
+    await browser.close();
     throw new Error(
       `[TMW E2E setup] Login returned success=false: ${JSON.stringify(body)}`
     );
   }
 
-  // Save cookies + localStorage so specs can reuse the session
   await context.storageState({ path: STORAGE_STATE });
   console.log('[TMW E2E setup] Auth state saved to', STORAGE_STATE);
-
   await browser.close();
 }
