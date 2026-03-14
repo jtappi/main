@@ -77,6 +77,118 @@ If any item cannot be checked, the change must not proceed.**
 
 ---
 
+## 0.7. Verify Repo State Before Acting — No Assumptions
+
+**This is a hard rule that exists because stale assumptions have caused wasted cycles and
+misleading instructions.**
+
+### Always verify before stating facts about the repo
+
+Claude must **read files from GitHub** before making any claim about what is or isn't in
+the repo. Memory from earlier in a conversation becomes stale the moment the human merges
+a PR, pushes a commit, or runs a command. The following are the most dangerous assumptions:
+
+1. **PR status** — Never say "you have N open PRs" or list specific open PRs without calling
+   `list_pull_requests` first. PRs may have been merged or closed since the last check.
+
+2. **File contents** — Never say a file "contains X" or "is missing Y" without reading it
+   first with `get_file_contents`. File contents change with every merge.
+
+3. **Package versions and lock files** — Never assume a `package-lock.json` exists, is
+   current, or contains a specific dependency without reading the directory listing first.
+
+4. **CI sequencing and job state** — Never state that "Job A runs before Job B" or that
+   "Step X leaves state Y behind" without reading the current `ci.yml`. CI workflows change.
+   When reasoning about what state exists at each step of a CI job, trace through the actual
+   YAML step-by-step — do not assume based on intent or a remembered earlier version.
+
+5. **Merge order instructions** — Never give merge order instructions for multiple PRs without
+   first calling `list_pull_requests` to confirm which PRs are actually still open. Instructions
+   to merge already-merged PRs are confusing and erode trust.
+
+### The rule in one sentence
+If Claude has not read it from GitHub in this turn, Claude does not know it — call the tool.
+
+---
+
+## 0.8. CI Workflow Rules — Correctness Over Speed
+
+Changes to `.github/workflows/ci.yml` carry outsized risk because a mistake blocks every
+subsequent PR. Claude must follow these rules when writing or modifying CI:
+
+1. **Read `ci.yml` from GitHub before every edit.** Never modify CI from memory. Always
+   call `get_file_contents` on the current file first, even if CI was edited earlier in
+   the same session.
+
+2. **Trace job sequencing explicitly.** Before writing any step that depends on state
+   created by a previous step (files on disk, seeded data, running processes), trace the
+   entire job from the checkout step forward to confirm that state actually exists at
+   that point. Write this trace in the proposal, not just the conclusion.
+
+3. **`continue-on-error: true` must always be paired with an explicit fail step.**
+   Using `continue-on-error: true` without capturing the exit code and checking it at
+   the end of the job causes failing tests to report as passing. This is always wrong.
+   The correct pattern is:
+   - Add `id:` to the step
+   - Capture exit code: `echo "exit_code=$?" >> $GITHUB_OUTPUT`
+   - Add a final `if: always()` step that reads the saved codes and exits 1 if any failed
+
+4. **Cache keys must be explicit and correct.** Playwright browser caches must be keyed
+   on the Playwright version (via `hashFiles('package-lock.json')`). A wrong cache key
+   causes either stale browser binaries or unnecessary re-downloads every run.
+
+5. **E2E jobs that start a server must always stop it.** Any step that starts a background
+   process must save its PID and have a corresponding cleanup step with `if: always()`.
+   A leaked server process can cause port conflicts on subsequent runs.
+
+6. **Test all shell commands for zsh/bash compatibility.** The CI runner uses bash.
+   Never use zsh-specific syntax. Never put inline `#` comments after commands.
+
+---
+
+## 0.9. E2E Test Setup Rules — Playwright in CI
+
+Playwright E2E tests in this repo run against a live portal server in CI. These rules
+exist because auth and sequencing failures have broken every E2E run that ignored them.
+
+1. **Each test suite owns its own test users.** Never rely on another suite's setup or
+   teardown to leave users behind. The portal E2E `global-teardown.js` removes all
+   `e2e-*` users when it finishes. Any suite that runs after must seed its own users.
+
+2. **Each suite's global-setup must seed users AND verify login.** The setup must:
+   - Write the test user directly to `users.json` via `auth.js` (not via the API)
+   - Attempt the actual login POST and throw if it fails
+   - Save the `storageState` to a file
+   This catches credential or sequencing bugs immediately rather than letting every
+   spec fail silently with 401 errors.
+
+3. **Each suite must have a matching global-teardown.** The teardown must remove only
+   the users seeded by that suite's setup, identified by a stable unique ID prefix
+   (e.g. `e2e-tmw-001`). Never remove users by username pattern — use the stable ID.
+
+4. **`storageState` must be set in the config's `use` block**, not per-spec. If it is
+   not set globally, specs that navigate to protected routes will get 401s and render
+   error states instead of data.
+
+5. **`@playwright/test` must not be in `trackmyweek/client/package.json` devDependencies.**
+   The root `package.json` owns `@playwright/test`. Installing it inside a sub-package
+   creates two conflicting instances and causes `test.describe() called here` errors.
+   All E2E specs resolve Playwright from the root `node_modules`.
+
+6. **The CI-only Playwright config (`playwright.ci.config.js`) is separate from the
+   local dev config (`playwright.config.js`).** The CI config:
+   - Points `baseURL` at the portal (`http://localhost:3000/trackmyweek`), not Vite
+   - Has no `webServer` block (CI starts the server manually)
+   - Includes `globalSetup`, `globalTeardown`, and `storageState`
+   - Outputs JSON to `/tmp/` for the dashboard log script
+   Never merge these two configs.
+
+7. **Playwright browser binaries must be cached in CI.** Use `actions/cache@v4` keyed
+   on `hashFiles('package-lock.json')`. On a cache hit, run `install-deps` only (not
+   the full `install --with-deps`). This saves ~50-60s per run.
+
+---
+
 ## 1. Read Before You Write — Always
 
 Before writing tests, code, or config for any file that already exists:
@@ -193,15 +305,19 @@ This is a monorepo. Package ownership is split intentionally:
 | Package | Owner | Why |
 |---------|-------|-----|
 | `jest`, `supertest` | `portal/package.json` | Run from `portal/`; resolve modules via `modulePaths` |
-| `@playwright/test` | root `package.json` | E2E specs live in `tests/e2e/` at root; Playwright must be installed where specs are |
-| `playwright.config.js` | repo root | Co-located with root `package.json` and `tests/` |
-| `jest`, `supertest` | `trackmyweek/package.json` | TrackMyWeek unit/integration tests run from `trackmyweek/` |
+| `@playwright/test` | root `package.json` **only** | Single source of truth — never add to sub-packages |
+| `playwright.config.js` | repo root | Portal E2E specs; co-located with root `package.json` |
+| `playwright.ci.config.js` | `trackmyweek/client/` | CI-only config for TrackMyWeek E2E |
+| `jest`, `supertest` | `trackmyweek/package.json` | TrackMyWeek unit/integration tests |
+| Vite, React, chart.js | `trackmyweek/client/package.json` | Client build only — no Playwright here |
 
-**Both lock files must always exist in the repo:**
-- `package-lock.json` — root, generated by running `npm install` at repo root
-- `portal/package-lock.json` — portal, generated by running `npm install` in `portal/`
+**Lock files — all four must exist in the repo:**
+- `package-lock.json` — root
+- `portal/package-lock.json` — portal
+- `trackmyweek/package-lock.json` — trackmyweek server
+- `trackmyweek/client/package-lock.json` — trackmyweek client
 
-If either is missing, CI will fail with `npm ci` errors. After any `npm install` in either
+If any is missing, CI will fail with `npm ci` errors. After any `npm install` in any
 location, immediately commit the resulting lock file.
 
 **Running tests:**
@@ -211,11 +327,12 @@ cd trackmyweek && npm test
 cd ~/apps/main && npm run test:e2e
 ```
 
-**After pulling changes, install in both locations:**
+**After pulling changes, install in all locations:**
 ```
 cd ~/apps/main && npm install
 cd portal && npm install
 cd trackmyweek && npm install
+cd trackmyweek/client && npm install
 ```
 
 ---
@@ -254,6 +371,9 @@ cd trackmyweek && npm install
 - `push_files` handles encoding correctly and supports multiple files in one commit.
 - `push_files` works for all file types including `.github/workflows/*.yml` — always prefer
   it over asking the human to run manual git commands.
+- **Before giving any instructions about PRs, always call `list_pull_requests` first.**
+  Never reference PR numbers or merge order from memory — the human may have already
+  merged or closed them.
 
 ---
 
@@ -268,15 +388,23 @@ cd trackmyweek && npm install
 | Projects data | `core/data/projects.json` |
 | Unit tests | `tests/unit/` |
 | Integration tests | `tests/integration/` |
-| E2E tests | `tests/e2e/` |
+| E2E tests (portal) | `tests/e2e/` |
+| E2E tests (trackmyweek) | `trackmyweek/client/tests/e2e/` |
 | Test fixtures (read-only) | `tests/fixtures/` |
 | data-testid inventory | `tests/TESTIDS.md` |
 | HTML/JS element contract | `docs/HTML_JS_CONTRACT.md` |
-| Playwright config | `playwright.config.js` (root) |
-| Root package.json | `package.json` (root, owns Playwright) |
+| Deploy guide | `docs/DEPLOY.md` |
+| Playwright config (portal, local) | `playwright.config.js` (root) |
+| Playwright config (trackmyweek, CI) | `trackmyweek/client/playwright.ci.config.js` |
+| Playwright config (trackmyweek, local) | `trackmyweek/client/playwright.config.js` |
+| Root package.json | `package.json` (root, owns @playwright/test) |
 | Root package-lock.json | `package-lock.json` (must exist in repo) |
 | Portal package.json | `portal/package.json` (owns Jest, supertest) |
 | Portal package-lock.json | `portal/package-lock.json` (must exist in repo) |
+| TrackMyWeek server package.json | `trackmyweek/package.json` |
+| TrackMyWeek server package-lock.json | `trackmyweek/package-lock.json` (must exist in repo) |
+| TrackMyWeek client package.json | `trackmyweek/client/package.json` (Vite + React only, no Playwright) |
+| TrackMyWeek client package-lock.json | `trackmyweek/client/package-lock.json` (must exist in repo) |
 | CI workflow | `.github/workflows/ci.yml` |
 | Test run logs | `logs/test-runs.jsonl` (append-only, never deleted) |
 | Log script | `scripts/log-test-run.js` |
@@ -303,6 +431,8 @@ cd trackmyweek && npm install
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] `package-lock.json` exists at repo root and is committed
 - [ ] `portal/package-lock.json` exists and is committed
+- [ ] `trackmyweek/package-lock.json` exists and is committed
+- [ ] `trackmyweek/client/package-lock.json` exists and is committed
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
 - [ ] No element ID changed without updating `docs/HTML_JS_CONTRACT.md`
 - [ ] All user-returning API routes use `safeUser()` — `passwordHash` never exposed
@@ -317,12 +447,18 @@ cd trackmyweek && npm install
 - `logs/test-runs.jsonl` is **append-only**. Never delete entries, never truncate the file.
 - It is committed to the repo and is part of permanent history.
 - The logging script (`scripts/log-test-run.js`) runs in CI after every test run, pass or fail.
+- The script requires a `--project=<slug>` flag. Every CI log step must pass this flag.
 - Do not gitignore anything inside `logs/`.
 - Log commits use `[skip ci]` in the message to prevent infinite CI trigger loops.
 - The log push step runs on `push` events only (not `pull_request`) and pushes directly
   to `main` via `git push origin HEAD:main`.
 - The portal reads `logs/test-runs.jsonl` from `raw.githubusercontent.com` at request time,
   so no `git pull` on the Mac Mini is ever needed for dashboard data to update.
+
+### Adding a new project to the test dashboard
+1. Add a CI step: `npm test -- --ci --forceExit --json --outputFile=/tmp/<name>-jest-results.json`
+2. Add a log step: `node scripts/log-test-run.js /tmp/<name>-jest-results.json --project=<name>`
+The dashboard discovers new projects automatically from the data — no dashboard code changes needed.
 
 ### Branch protection state (as of March 2026)
 Both ruleset restrictions on `main` have been removed to allow the CI bot to push log commits:
@@ -359,3 +495,26 @@ and instruct the human to copy it over **before** starting the app for the first
 ls <old-repo>/src/data.json
 cp <old-repo>/src/data.json trackmyweek/data/data.json
 ```
+
+---
+
+## 14. Client Build Rules — TrackMyWeek
+
+`trackmyweek/client/dist/` is gitignored and must be built locally after every pull that
+changes client source files. The portal serves this directory as static files — without it
+the app returns a 404.
+
+**Rebuild required when any of these change:**
+- `trackmyweek/client/src/**`
+- `trackmyweek/client/index.html`
+- `trackmyweek/client/vite.config.js`
+
+**Rebuild NOT required for server-side changes** (controllers, lib, portal).
+
+**Build command:**
+```bash
+cd ~/apps/main/trackmyweek/client
+npm run build
+```
+
+See `docs/DEPLOY.md` for the full deploy workflow.
