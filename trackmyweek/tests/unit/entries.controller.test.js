@@ -1,8 +1,8 @@
 'use strict';
 
-const request       = require('supertest');
+const request           = require('supertest');
 const { app, mockData } = require('./testApp');
-const data          = require('../../lib/data');
+const data              = require('../../lib/data');
 
 beforeEach(() => {
   mockData.data = [
@@ -95,12 +95,13 @@ describe('DELETE /trackmyweek/api/entries/:id', () => {
 });
 
 describe('GET /trackmyweek/api/entries/autocomplete', () => {
-  test('returns matches for query', async () => {
+  // autocomplete returns an array of strings, not objects
+  test('returns matching strings for query', async () => {
     const res = await request(app)
       .get('/trackmyweek/api/entries/autocomplete?q=ibu');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.some((e) => e.text.toLowerCase().includes('ibu'))).toBe(true);
+    expect(res.body.some((s) => s.toLowerCase().includes('ibu'))).toBe(true);
   });
 
   test('returns empty array for no match', async () => {
