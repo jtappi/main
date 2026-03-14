@@ -2,14 +2,15 @@
 /**
  * scripts/log-test-run.js
  *
- * Reads Jest JSON output and appends a structured log entry to logs/test-runs.jsonl.
- * Called by CI after tests run (pass or fail), once per project.
+ * Reads test output and appends a structured log entry to logs/test-runs.jsonl.
+ * Called by CI after tests run (pass or fail), once per project per test type.
  *
  * Usage:
- *   node scripts/log-test-run.js <path-to-jest-json> --project=<name>
+ *   node scripts/log-test-run.js <path-to-json> --project=<slug> [--type=jest|e2e]
  *
- * The --project flag is required. It tags the log entry so the dashboard can
- * filter by project. Use a short lowercase slug: portal, trackmyweek, etc.
+ * --project  Required. Short lowercase slug: portal, trackmyweek, etc.
+ * --type     Optional. 'jest' (default) or 'e2e' (Playwright JSON output).
+ *
  * Adding a new project requires no dashboard code changes — it appears
  * automatically in the project filter once a run is logged.
  *
@@ -18,10 +19,6 @@
  *   GITHUB_REF_NAME   - branch name
  *   GITHUB_ACTOR      - who triggered the run
  *   GITHUB_EVENT_NAME - push | pull_request | workflow_dispatch
- *
- * Jest JSON field notes:
- *   Suite path is under `testFilePath` OR `name` depending on Jest version.
- *   Test results are under `testResults` OR `assertionResults`.
  */
 
 'use strict';
@@ -33,40 +30,42 @@ const crypto = require('crypto');
 // ---------------------------------------------------------------------------
 // Parse args
 // ---------------------------------------------------------------------------
-const args = process.argv.slice(2);
-const jestJsonPath = args.find(a => !a.startsWith('--'));
-const projectArg   = args.find(a => a.startsWith('--project='));
-const project      = projectArg ? projectArg.split('=')[1].trim() : 'unknown';
+const args       = process.argv.slice(2);
+const jsonPath   = args.find(a => !a.startsWith('--'));
+const projectArg = args.find(a => a.startsWith('--project='));
+const typeArg    = args.find(a => a.startsWith('--type='));
+const project    = projectArg ? projectArg.split('=')[1].trim() : 'unknown';
+const runType    = typeArg    ? typeArg.split('=')[1].trim()    : 'jest';
 
 if (project === 'unknown') {
   console.warn('[log-test-run] WARNING: no --project flag provided. Entry will be tagged "unknown".');
-  console.warn('[log-test-run] Usage: node scripts/log-test-run.js <jest-json> --project=<name>');
+  console.warn('[log-test-run] Usage: node scripts/log-test-run.js <json> --project=<slug> [--type=jest|e2e]');
 }
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const LOG_FILE  = path.join(REPO_ROOT, 'logs', 'test-runs.jsonl');
 
 // ---------------------------------------------------------------------------
-// Parse Jest JSON — degrade gracefully if missing or malformed
+// Load JSON file — degrade gracefully if missing or malformed
 // ---------------------------------------------------------------------------
-let jestResults = null;
+let rawResults = null;
 
-if (!jestJsonPath) {
-  console.warn('[log-test-run] No jest results path provided — logging error entry.');
-} else if (!fs.existsSync(jestJsonPath)) {
-  console.warn(`[log-test-run] Jest results file not found: ${jestJsonPath} — logging error entry.`);
+if (!jsonPath) {
+  console.warn('[log-test-run] No results path provided — logging error entry.');
+} else if (!fs.existsSync(jsonPath)) {
+  console.warn(`[log-test-run] Results file not found: ${jsonPath} — logging error entry.`);
 } else {
   try {
-    jestResults = JSON.parse(fs.readFileSync(jestJsonPath, 'utf8'));
+    rawResults = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
   } catch (err) {
-    console.warn(`[log-test-run] Failed to parse Jest JSON: ${err.message} — logging error entry.`);
+    console.warn(`[log-test-run] Failed to parse JSON: ${err.message} — logging error entry.`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Categorise suites into unit vs integration
+// Jest parser — categorises suites into unit vs integration
 // ---------------------------------------------------------------------------
-function summariseSuites(suiteList) {
+function summariseJestSuites(suiteList) {
   if (!suiteList || suiteList.length === 0) {
     return { status: 'skip', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: [] };
   }
@@ -98,42 +97,104 @@ function summariseSuites(suiteList) {
   return { status: failed > 0 ? 'fail' : 'pass', passed, failed, skipped, duration_ms, errors };
 }
 
-let unitSummary, integrationSummary;
+// ---------------------------------------------------------------------------
+// Playwright parser — flattens suites[].specs[].tests[].results[]
+// ---------------------------------------------------------------------------
+function summarisePlaywright(pw) {
+  if (!pw || !pw.suites) {
+    return { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Playwright results unavailable'] };
+  }
 
-if (jestResults) {
-  const buckets = { unit: [], integration: [] };
+  let passed = 0, failed = 0, skipped = 0, duration_ms = 0;
+  const errors = [];
 
-  for (const suite of jestResults.testResults || []) {
-    if (!suite) continue;
+  // Playwright JSON: top-level suites = files; nested suites = describe blocks
+  function walkSuite(suite) {
+    for (const spec of suite.specs || []) {
+      for (const test of spec.tests || []) {
+        // Each test can have multiple results (retries) — use the last one
+        const results = test.results || [];
+        const last    = results[results.length - 1];
+        if (!last) continue;
 
-    const suitePath = suite.testFilePath || suite.name;
-    if (!suitePath) {
-      console.warn('[log-test-run] Skipping suite with no path:', JSON.stringify(suite).slice(0, 100));
-      continue;
+        duration_ms += last.duration || 0;
+
+        if (test.status === 'expected') {
+          passed++;
+        } else if (test.status === 'skipped' || test.status === 'pending') {
+          skipped++;
+        } else {
+          failed++;
+          const msg = (last.errors || []).map(e => e.message || '').join(' ').slice(0, 300);
+          errors.push({ test: spec.title, message: msg || test.status });
+        }
+      }
     }
-
-    const rel = suitePath.replace(REPO_ROOT, '').replace(/\\/g, '/');
-
-    if (rel.includes('/unit/')) {
-      buckets.unit.push(suite);
-    } else if (rel.includes('/integration/')) {
-      buckets.integration.push(suite);
+    for (const child of suite.suites || []) {
+      walkSuite(child);
     }
   }
 
-  unitSummary        = summariseSuites(buckets.unit);
-  integrationSummary = summariseSuites(buckets.integration);
+  for (const suite of pw.suites) {
+    walkSuite(suite);
+  }
 
-} else {
-  const err = { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Jest results unavailable'] };
-  unitSummary        = err;
-  integrationSummary = err;
+  return { status: failed > 0 ? 'fail' : 'pass', passed, failed, skipped, duration_ms, errors };
 }
 
-const totalPassed  = unitSummary.passed  + integrationSummary.passed;
-const totalFailed  = unitSummary.failed  + integrationSummary.failed;
-const totalSkipped = unitSummary.skipped + integrationSummary.skipped;
-const totalMs      = unitSummary.duration_ms + integrationSummary.duration_ms;
+// ---------------------------------------------------------------------------
+// Build the suites object and totals based on --type
+// ---------------------------------------------------------------------------
+let suites, totalPassed, totalFailed, totalSkipped, totalMs, overall;
+
+if (runType === 'e2e') {
+  const e2eSummary = rawResults ? summarisePlaywright(rawResults) : {
+    status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0,
+    errors: ['Playwright results unavailable']
+  };
+
+  suites       = { e2e: e2eSummary };
+  totalPassed  = e2eSummary.passed;
+  totalFailed  = e2eSummary.failed;
+  totalSkipped = e2eSummary.skipped;
+  totalMs      = e2eSummary.duration_ms;
+  overall      = !rawResults ? 'error' : totalFailed > 0 ? 'fail' : 'pass';
+
+  console.log(`[log-test-run] e2e: ${e2eSummary.passed}p/${e2eSummary.failed}f/${e2eSummary.skipped}s`);
+
+} else {
+  // Jest mode (default)
+  let unitSummary, integrationSummary;
+
+  if (rawResults) {
+    const buckets = { unit: [], integration: [] };
+
+    for (const suite of rawResults.testResults || []) {
+      if (!suite) continue;
+      const suitePath = suite.testFilePath || suite.name;
+      if (!suitePath) continue;
+      const rel = suitePath.replace(REPO_ROOT, '').replace(/\\/g, '/');
+      if      (rel.includes('/unit/'))        buckets.unit.push(suite);
+      else if (rel.includes('/integration/')) buckets.integration.push(suite);
+    }
+
+    unitSummary        = summariseJestSuites(buckets.unit);
+    integrationSummary = summariseJestSuites(buckets.integration);
+  } else {
+    const err = { status: 'error', passed: 0, failed: 0, skipped: 0, duration_ms: 0, errors: ['Jest results unavailable'] };
+    unitSummary        = err;
+    integrationSummary = err;
+  }
+
+  suites       = { unit: unitSummary, integration: integrationSummary };
+  totalPassed  = unitSummary.passed  + integrationSummary.passed;
+  totalFailed  = unitSummary.failed  + integrationSummary.failed;
+  totalSkipped = unitSummary.skipped + integrationSummary.skipped;
+  totalMs      = unitSummary.duration_ms + integrationSummary.duration_ms;
+  overall      = !rawResults ? 'error' : totalFailed > 0 ? 'fail' : 'pass';
+
+  console.log(`[log-test-run] unit: ${unitSummary.passed}p/${unitSummary.failed}f  integration: ${integrationSummary.passed}p/${integrationSummary.failed}f`);
+}
 
 // ---------------------------------------------------------------------------
 // Build and append log entry
@@ -142,26 +203,23 @@ const entry = {
   runId:       crypto.randomUUID(),
   timestamp:   new Date().toISOString(),
   project,
+  runType,
   trigger:     process.env.GITHUB_EVENT_NAME || 'manual',
-  branch:      process.env.GITHUB_REF_NAME  || 'unknown',
+  branch:      process.env.GITHUB_REF_NAME   || 'unknown',
   commit:      (process.env.GITHUB_SHA || 'unknown').slice(0, 7),
-  actor:       process.env.GITHUB_ACTOR     || 'unknown',
-  suites: {
-    unit:        unitSummary,
-    integration: integrationSummary
-  },
-  overall:     !jestResults ? 'error' : totalFailed > 0 ? 'fail' : 'pass',
+  actor:       process.env.GITHUB_ACTOR      || 'unknown',
+  suites,
+  overall,
   totalPassed,
   totalFailed,
   totalSkipped,
-  duration_ms: totalMs
+  duration_ms: totalMs,
 };
 
 try {
   fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
   fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n', 'utf8');
-  console.log(`[log-test-run] project=${project} run=${entry.runId} overall=${entry.overall}`);
-  console.log(`[log-test-run] unit: ${unitSummary.passed}p/${unitSummary.failed}f  integration: ${integrationSummary.passed}p/${integrationSummary.failed}f`);
+  console.log(`[log-test-run] project=${project} type=${runType} run=${entry.runId} overall=${entry.overall}`);
 } catch (err) {
   console.error('[log-test-run] Failed to write log entry:', err.message);
   process.exit(1);

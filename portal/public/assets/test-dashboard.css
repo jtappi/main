@@ -193,7 +193,7 @@
   margin-bottom: 0.25rem;
 }
 
-/* ── Project badge ─────────────────────────────────────────── */
+/* ── Project & type badges ────────────────────────────────────── */
 .td-project-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;
@@ -204,6 +204,19 @@
   color: var(--accent);
   white-space: nowrap;
 }
+
+.td-type-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 0.3rem;
+  letter-spacing: 0.03em;
+}
+.td-type-badge--jest { background: #e8f0f7; color: #4a6080; }
+.td-type-badge--e2e  { background: #f0eaff; color: #6c3fc8; }
 
 /* ── History table ─────────────────────────────────────────── */
 .td-table-wrap { overflow-x: auto; }
