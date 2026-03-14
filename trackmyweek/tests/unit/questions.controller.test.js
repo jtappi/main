@@ -1,18 +1,8 @@
-/**
- * Integration tests — /trackmyweek/api/questions
- */
+'use strict';
 
-const request = require('supertest');
-
-const mockData = { questions: [] };
-
-jest.mock('../../lib/data', () => ({
-  readFile:  jest.fn(async (key) => JSON.parse(JSON.stringify(mockData[key] || []))),
-  writeFile: jest.fn(async (key, val) => { mockData[key] = val; }),
-}));
-
-const data = require('../../lib/data');
-const app  = require('./testApp');
+const request           = require('supertest');
+const { app, mockData } = require('./testApp');
+const data              = require('../../lib/data');
 
 const NOW = new Date().toISOString();
 
@@ -21,15 +11,9 @@ beforeEach(() => {
     { id: 1, question: 'How am I doing?', answer: null,    createdAt: NOW, answeredAt: null },
     { id: 2, question: 'What went well?', answer: 'A lot', createdAt: NOW, answeredAt: NOW },
   ];
-  data.readFile.mockImplementation(async (key) =>
-    JSON.parse(JSON.stringify(mockData[key] || []))
-  );
-  data.writeFile.mockImplementation(async (key, val) => { mockData[key] = val; });
+  data.readQuestions.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.questions)));
+  data.writeQuestions.mockImplementation((arr) => { mockData.questions = arr; });
 });
-
-// ---------------------------------------------------------------------------
-// GET /questions
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/questions', () => {
   test('returns 200 with array', async () => {
@@ -44,10 +28,6 @@ describe('GET /trackmyweek/api/questions', () => {
     expect(res.body[0].answer).toBeNull();
   });
 });
-
-// ---------------------------------------------------------------------------
-// POST /questions
-// ---------------------------------------------------------------------------
 
 describe('POST /trackmyweek/api/questions', () => {
   test('creates question and returns 201', async () => {
@@ -67,10 +47,6 @@ describe('POST /trackmyweek/api/questions', () => {
     expect(res.status).toBe(400);
   });
 });
-
-// ---------------------------------------------------------------------------
-// PUT /questions/:id
-// ---------------------------------------------------------------------------
 
 describe('PUT /trackmyweek/api/questions/:id', () => {
   test('sets answer and answeredAt', async () => {
@@ -97,10 +73,6 @@ describe('PUT /trackmyweek/api/questions/:id', () => {
     expect(res.status).toBe(404);
   });
 });
-
-// ---------------------------------------------------------------------------
-// DELETE /questions/:id
-// ---------------------------------------------------------------------------
 
 describe('DELETE /trackmyweek/api/questions/:id', () => {
   test('deletes question and returns 200', async () => {

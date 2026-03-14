@@ -1,56 +1,22 @@
-/**
- * Integration tests — /trackmyweek/api/entries
- *
- * Uses supertest to fire real HTTP requests against the Express app.
- * Stubs lib/data.js so no files are read or written to disk.
- */
+'use strict';
 
-const request = require('supertest');
-
-// --- Stub data layer before requiring the app ---
-const mockData = {
-  entries:    [],
-  categories: [
-    { id: 1, name: 'Health', icon: '❤️', color: '#e74c3c', createdAt: new Date().toISOString() },
-  ],
-};
-
-jest.mock('../../lib/data', () => ({
-  readFile:  jest.fn(async (key) => JSON.parse(JSON.stringify(mockData[key] || []))),
-  writeFile: jest.fn(async () => {}),
-}));
-
-const data = require('../../lib/data');
-const app  = require('./testApp');
+const request       = require('supertest');
+const { app, mockData } = require('./testApp');
+const data          = require('../../lib/data');
 
 beforeEach(() => {
-  mockData.entries = [
-    {
-      id:        1,
-      text:      'Took ibuprofen',
-      category:  'Health',
-      notes:     '600mg',
-      timestamp: '2026-03-13T09:00:00.000Z',
-    },
-    {
-      id:        2,
-      text:      'Morning run',
-      category:  'Exercise',
-      notes:     '',
-      timestamp: '2026-03-13T07:30:00.000Z',
-    },
+  mockData.data = [
+    { id: 1, text: 'Took ibuprofen', category: 'Health',   notes: '600mg', timestamp: '2026-03-13T09:00:00.000Z' },
+    { id: 2, text: 'Morning run',    category: 'Exercise',  notes: '',      timestamp: '2026-03-13T07:30:00.000Z' },
   ];
-  data.readFile.mockImplementation(async (key) =>
-    JSON.parse(JSON.stringify(mockData[key] || []))
-  );
-  data.writeFile.mockImplementation(async (key, val) => {
-    mockData[key] = val;
-  });
+  mockData.categories = [
+    { id: 1, name: 'Health',   icon: '❤️', color: '#e74c3c', createdAt: new Date().toISOString() },
+    { id: 2, name: 'Exercise', icon: '🏃', color: '#2ecc71', createdAt: new Date().toISOString() },
+  ];
+  data.readEntries.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.data)));
+  data.writeEntries.mockImplementation((arr) => { mockData.data = arr; });
+  data.readCategories.mockImplementation(() => JSON.parse(JSON.stringify(mockData.categories)));
 });
-
-// ---------------------------------------------------------------------------
-// GET /entries
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/entries', () => {
   test('returns 200 with array of entries', async () => {
@@ -69,10 +35,6 @@ describe('GET /trackmyweek/api/entries', () => {
     expect(entry).toHaveProperty('timestamp');
   });
 });
-
-// ---------------------------------------------------------------------------
-// POST /entries
-// ---------------------------------------------------------------------------
 
 describe('POST /trackmyweek/api/entries', () => {
   test('creates an entry and returns 201', async () => {
@@ -101,10 +63,6 @@ describe('POST /trackmyweek/api/entries', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /entries/:id
-// ---------------------------------------------------------------------------
-
 describe('PUT /trackmyweek/api/entries/:id', () => {
   test('updates text field and returns updated entry', async () => {
     const res = await request(app)
@@ -123,10 +81,6 @@ describe('PUT /trackmyweek/api/entries/:id', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// DELETE /entries/:id
-// ---------------------------------------------------------------------------
-
 describe('DELETE /trackmyweek/api/entries/:id', () => {
   test('deletes entry and returns 200', async () => {
     const res = await request(app).delete('/trackmyweek/api/entries/1');
@@ -139,10 +93,6 @@ describe('DELETE /trackmyweek/api/entries/:id', () => {
     expect(res.status).toBe(404);
   });
 });
-
-// ---------------------------------------------------------------------------
-// GET /entries/autocomplete
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/entries/autocomplete', () => {
   test('returns matches for query', async () => {
@@ -160,10 +110,6 @@ describe('GET /trackmyweek/api/entries/autocomplete', () => {
     expect(res.body).toEqual([]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// GET /entries/quickentry
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/entries/quickentry', () => {
   test('returns an array', async () => {
