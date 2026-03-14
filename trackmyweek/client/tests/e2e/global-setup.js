@@ -5,7 +5,7 @@
  * requireAuth. Without an active session every API call returns 401.
  *
  * This setup:
- *  1. Seeds the e2e-admin test user directly into users.json via auth.js.
+ *  1. Seeds the e2e-tmw test user directly into users.json via auth.js.
  *     We cannot rely on the portal E2E suite having left the user behind
  *     because portal's global-teardown.js removes all e2e-* users when
  *     the portal suite finishes — which runs before this suite starts.
@@ -14,7 +14,7 @@
  *  4. All specs load that storageState so every page.goto() starts
  *     with a valid authenticated session.
  *
- * Teardown: removes the seeded user at the end of the run.
+ * Teardown: global-teardown.js removes the seeded user after the run.
  */
 
 import { chromium } from '@playwright/test';
@@ -41,21 +41,21 @@ const TEST_USER = {
 
 export default async function globalSetup() {
   // ── 1. Seed test user ───────────────────────────────────────────────
-  const users   = auth.loadUsers(USERS_FILE);
+  const users    = auth.loadUsers(USERS_FILE);
   const existing = users.findIndex(u => u.id === TEST_USER.id);
   if (existing !== -1) users.splice(existing, 1);
 
   users.push({
-    id:           TEST_USER.id,
-    name:         TEST_USER.name,
-    email:        TEST_USER.email,
-    username:     TEST_USER.username,
-    passwordHash: auth.hashPassword(TEST_USER.password),
-    role:         TEST_USER.role,
-    active:       true,
+    id:            TEST_USER.id,
+    name:          TEST_USER.name,
+    email:         TEST_USER.email,
+    username:      TEST_USER.username,
+    passwordHash:  auth.hashPassword(TEST_USER.password),
+    role:          TEST_USER.role,
+    active:        true,
     projectAccess: TEST_USER.projectAccess,
-    lastLogin:    null,
-    createdAt:    new Date().toISOString(),
+    lastLogin:     null,
+    createdAt:     new Date().toISOString(),
   });
   auth.saveUsers(users, USERS_FILE);
   console.log('[TMW E2E setup] Test user seeded:', TEST_USER.username);
