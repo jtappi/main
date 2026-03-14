@@ -40,9 +40,13 @@
     <div class="td-page-header">
       <div>
         <h2 data-testid="test-dashboard-title">Test Suite Health</h2>
-        <p class="td-subtitle">CI run history — unit &amp; integration tests</p>
+        <p class="td-subtitle" id="td-subtitle">CI run history &mdash; all projects</p>
       </div>
       <div class="td-controls">
+        <label for="project-select" class="td-label">Project</label>
+        <select id="project-select" data-testid="test-dashboard-project-select" class="td-select">
+          <option value="all" selected>All projects</option>
+        </select>
         <label for="days-select" class="td-label">Date range</label>
         <select id="days-select" data-testid="test-dashboard-days-select" class="td-select">
           <option value="7" selected>Last 7 days</option>
@@ -58,22 +62,22 @@
     <div class="td-health-row" data-testid="test-dashboard-health-row">
       <div class="td-health-card" data-testid="test-dashboard-health-card">
         <div class="td-health-label">Overall health</div>
-        <div class="td-health-value" id="health-pct" data-testid="test-dashboard-health-pct">—</div>
+        <div class="td-health-value" id="health-pct" data-testid="test-dashboard-health-pct">&mdash;</div>
         <div class="td-health-sub" id="health-sub"></div>
       </div>
       <div class="td-health-card">
         <div class="td-health-label">Total runs</div>
-        <div class="td-health-value" id="total-runs" data-testid="test-dashboard-total-runs">—</div>
+        <div class="td-health-value" id="total-runs" data-testid="test-dashboard-total-runs">&mdash;</div>
         <div class="td-health-sub" id="runs-sub"></div>
       </div>
       <div class="td-health-card">
         <div class="td-health-label">Last run</div>
-        <div class="td-health-value td-health-value--sm" id="last-run" data-testid="test-dashboard-last-run">—</div>
+        <div class="td-health-value td-health-value--sm" id="last-run" data-testid="test-dashboard-last-run">&mdash;</div>
         <div class="td-health-sub" id="last-run-sub"></div>
       </div>
       <div class="td-health-card">
         <div class="td-health-label">Avg duration</div>
-        <div class="td-health-value" id="avg-duration" data-testid="test-dashboard-avg-duration">—</div>
+        <div class="td-health-value" id="avg-duration" data-testid="test-dashboard-avg-duration">&mdash;</div>
         <div class="td-health-sub">seconds</div>
       </div>
     </div>
@@ -113,21 +117,8 @@
     </div>
 
     <!-- Per-suite breakdown -->
-    <div class="td-suite-row" data-testid="test-dashboard-suite-row">
-      <div class="td-card td-suite-card" data-testid="test-dashboard-suite-unit">
-        <div class="td-suite-label">Unit tests</div>
-        <div class="td-suite-stat" id="suite-unit-passed">—</div>
-        <div class="td-suite-desc">passed last run</div>
-        <div class="td-suite-stat td-suite-stat--fail" id="suite-unit-failed">—</div>
-        <div class="td-suite-desc">failed last run</div>
-      </div>
-      <div class="td-card td-suite-card" data-testid="test-dashboard-suite-integration">
-        <div class="td-suite-label">Integration tests</div>
-        <div class="td-suite-stat" id="suite-int-passed">—</div>
-        <div class="td-suite-desc">passed last run</div>
-        <div class="td-suite-stat td-suite-stat--fail" id="suite-int-failed">—</div>
-        <div class="td-suite-desc">failed last run</div>
-      </div>
+    <div class="td-suite-row" id="suite-row" data-testid="test-dashboard-suite-row">
+      <!-- populated dynamically per project -->
     </div>
 
     <!-- Run history table -->
@@ -141,6 +132,7 @@
           <thead>
             <tr>
               <th>Status</th>
+              <th>Project</th>
               <th>Date</th>
               <th>Branch</th>
               <th>Commit</th>
