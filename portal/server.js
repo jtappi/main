@@ -48,7 +48,10 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure:   process.env.NODE_ENV === 'production',
+    // secure:true requires HTTPS. In CI the server runs over plain HTTP, so
+    // we must disable it when CI=true even though NODE_ENV=production is set.
+    // In real production (NODE_ENV=production, no CI env var) secure stays true.
+    secure:   process.env.NODE_ENV === 'production' && !process.env.CI,
     httpOnly: true,
     sameSite: 'lax',
     maxAge:   24 * 60 * 60 * 1000
