@@ -1,6 +1,6 @@
 'use strict';
 
-const { resolveDateRange, deriveFields } = require('../../lib/dateUtils');
+const { resolveDateRange, deriveFields, toLocalDatetimeInput } = require('../../lib/dateUtils');
 
 // Pin "now" to a fixed point so date calculations are deterministic.
 // 2026-03-13T12:00:00.000Z = noon UTC
@@ -112,5 +112,60 @@ describe('deriveFields()', () => {
   test('week matches YYYY-WNN format', () => {
     const { week } = deriveFields(TS_WEDNESDAY_MORNING);
     expect(week).toMatch(/^\d{4}-W\d{2}$/);
+  });
+});
+
+describe('toLocalDatetimeInput()', () => {
+  // These tests use Jest fake timers (already set above) and rely on the
+  // Node process timezone. The assertions are written timezone-agnostically:
+  // rather than asserting a specific hour value (which varies by offset),
+  // we assert the round-trip property — converting a UTC ISO string to
+  // a local input value and back must yield the same UTC instant.
+
+  test('returns a string matching YYYY-MM-DDTHH:MM format', () => {
+    const result = toLocalDatetimeInput('2026-03-14T21:00:00.000Z');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  });
+
+  test('round-trip: converting to local input and back yields the original UTC instant', () => {
+    const original = '2026-03-14T21:00:00.000Z';
+    const localStr = toLocalDatetimeInput(original);
+    // new Date(localStr) interprets as local time, .toISOString() converts to UTC.
+    // The result must match the original UTC instant (ignoring seconds/ms).
+    const roundTripped = new Date(localStr).toISOString();
+    // Compare up to minutes — datetime-local has no seconds precision.
+    expect(roundTripped.slice(0, 16)).toBe(original.slice(0, 16).replace('Z', '').slice(0, 16));
+    expect(new Date(roundTripped).getTime()).toBe(new Date(original).getTime());
+  });
+
+  test('result hour reflects local time, not UTC', () => {
+    // Pick a UTC timestamp where UTC hour != local hour in any non-UTC timezone.
+    const utcTs = '2026-03-14T21:30:00.000Z';
+    const localStr = toLocalDatetimeInput(utcTs);
+    // The local hour embedded in the string must equal what Date gives us locally.
+    const d = new Date(utcTs);
+    const expectedLocalHour = String(d.getHours()).padStart(2, '0');
+    const embeddedHour = localStr.slice(11, 13);
+    expect(embeddedHour).toBe(expectedLocalHour);
+  });
+
+  test('result minutes match the original timestamp minutes', () => {
+    const utcTs = '2026-03-14T21:47:00.000Z';
+    const localStr = toLocalDatetimeInput(utcTs);
+    const embeddedMinutes = localStr.slice(14, 16);
+    expect(embeddedMinutes).toBe('47');
+  });
+
+  test('handles midnight UTC correctly', () => {
+    const result = toLocalDatetimeInput('2026-03-14T00:00:00.000Z');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    // Round-trip must be exact.
+    expect(new Date(result).getTime()).toBe(new Date('2026-03-14T00:00:00.000Z').getTime());
+  });
+
+  test('handles end-of-day UTC correctly', () => {
+    const result = toLocalDatetimeInput('2026-03-14T23:59:00.000Z');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    expect(new Date(result).getTime()).toBe(new Date('2026-03-14T23:59:00.000Z').getTime());
   });
 });
