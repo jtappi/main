@@ -1,21 +1,8 @@
-/**
- * Integration tests — /trackmyweek/api/categories
- */
+'use strict';
 
-const request = require('supertest');
-
-const mockData = {
-  entries:    [],
-  categories: [],
-};
-
-jest.mock('../../lib/data', () => ({
-  readFile:  jest.fn(async (key) => JSON.parse(JSON.stringify(mockData[key] || []))),
-  writeFile: jest.fn(async (key, val) => { mockData[key] = val; }),
-}));
-
-const data = require('../../lib/data');
-const app  = require('./testApp');
+const request           = require('supertest');
+const { app, mockData } = require('./testApp');
+const data              = require('../../lib/data');
 
 const BASE_CATS = [
   { id: 1, name: 'Food',        icon: '🍎', color: '#2ecc71', createdAt: new Date().toISOString() },
@@ -24,19 +11,15 @@ const BASE_CATS = [
 
 beforeEach(() => {
   mockData.categories = JSON.parse(JSON.stringify(BASE_CATS));
-  mockData.entries    = [
+  mockData.data = [
     { id: 1, text: 'Salad', category: 'Food',        notes: '', timestamp: new Date().toISOString() },
     { id: 2, text: 'Ibu',   category: 'Medications', notes: '', timestamp: new Date().toISOString() },
   ];
-  data.readFile.mockImplementation(async (key) =>
-    JSON.parse(JSON.stringify(mockData[key] || []))
-  );
-  data.writeFile.mockImplementation(async (key, val) => { mockData[key] = val; });
+  data.readCategories.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.categories)));
+  data.writeCategories.mockImplementation((arr) => { mockData.categories = arr; });
+  data.readEntries.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.data)));
+  data.writeEntries.mockImplementation((arr) => { mockData.data = arr; });
 });
-
-// ---------------------------------------------------------------------------
-// GET /categories
-// ---------------------------------------------------------------------------
 
 describe('GET /trackmyweek/api/categories', () => {
   test('returns 200 with array', async () => {
@@ -46,10 +29,6 @@ describe('GET /trackmyweek/api/categories', () => {
     expect(res.body.length).toBe(2);
   });
 });
-
-// ---------------------------------------------------------------------------
-// POST /categories
-// ---------------------------------------------------------------------------
 
 describe('POST /trackmyweek/api/categories', () => {
   test('creates category and returns 201', async () => {
@@ -76,10 +55,6 @@ describe('POST /trackmyweek/api/categories', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// PUT /categories/:id
-// ---------------------------------------------------------------------------
-
 describe('PUT /trackmyweek/api/categories/:id', () => {
   test('renames category and cascades to entries', async () => {
     const res = await request(app)
@@ -87,7 +62,7 @@ describe('PUT /trackmyweek/api/categories/:id', () => {
       .send({ name: 'Nutrition', icon: '🥗', color: '#2ecc71' });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Nutrition');
-    const entriesWithOldName = mockData.entries.filter((e) => e.category === 'Food');
+    const entriesWithOldName = mockData.data.filter((e) => e.category === 'Food');
     expect(entriesWithOldName.length).toBe(0);
   });
 
@@ -99,12 +74,8 @@ describe('PUT /trackmyweek/api/categories/:id', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// DELETE /categories/:id
-// ---------------------------------------------------------------------------
-
 describe('DELETE /trackmyweek/api/categories/:id', () => {
-  test('deletes category, leaves entries uncategorised by default', async () => {
+  test('deletes category and returns 200', async () => {
     const res = await request(app).delete('/trackmyweek/api/categories/1');
     expect(res.status).toBe(200);
     const remaining = mockData.categories.find((c) => c.id === 1);
@@ -112,9 +83,8 @@ describe('DELETE /trackmyweek/api/categories/:id', () => {
   });
 
   test('reassigns entries when reassignTo is provided', async () => {
-    await request(app)
-      .delete('/trackmyweek/api/categories/1?reassignTo=Medications');
-    const reassigned = mockData.entries.filter((e) => e.category === 'Medications');
+    await request(app).delete('/trackmyweek/api/categories/1?reassignTo=Medications');
+    const reassigned = mockData.data.filter((e) => e.category === 'Medications');
     expect(reassigned.length).toBeGreaterThanOrEqual(1);
   });
 
