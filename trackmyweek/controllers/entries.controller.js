@@ -49,20 +49,31 @@ router.get('/autocomplete', (req, res) => {
 // ---------------------------------------------------------------------------
 // GET /api/entries/quickentry
 // Top 5 most frequently logged entry texts, newest-weighted.
+// Returns { text, category, count } — category is the most recently used
+// category for that text, required so the client can POST it back directly.
 // ---------------------------------------------------------------------------
 
 router.get('/quickentry', (req, res) => {
   const entries = readEntries();
-  const counts  = {};
+
+  // Track count and most-recent category per text.
+  // Entries are stored newest-first, so the first time we see a text
+  // is already the most recent occurrence.
+  const counts   = {};
+  const category = {};
 
   for (const entry of entries) {
-    counts[entry.text] = (counts[entry.text] || 0) + 1;
+    if (!counts[entry.text]) {
+      counts[entry.text]   = 0;
+      category[entry.text] = entry.category;
+    }
+    counts[entry.text]++;
   }
 
   const top5 = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([text, count]) => ({ text, count }));
+    .map(([text, count]) => ({ text, category: category[text], count }));
 
   res.json(top5);
 });
