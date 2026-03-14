@@ -186,6 +186,24 @@ jobs:
             kill $(cat /tmp/portal.pid) || true
           fi
 
+      - name: Log portal E2E results
+        if: always()
+        run: node scripts/log-test-run.js /tmp/portal-e2e-results.json --project=portal --type=e2e
+
+      - name: Log trackmyweek E2E results
+        if: always()
+        run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
+
+      - name: Commit and push E2E log
+        if: ${{ always() && github.event_name == 'push' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add logs/test-runs.jsonl
+          git diff --staged --quiet || git commit -m "chore: log E2E test run results [skip ci]"
+          git push origin HEAD:main
+
       - name: Upload portal Playwright report
         if: always()
         uses: actions/upload-artifact@v4
