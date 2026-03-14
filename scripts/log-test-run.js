@@ -3,10 +3,15 @@
  * scripts/log-test-run.js
  *
  * Reads Jest JSON output and appends a structured log entry to logs/test-runs.jsonl.
- * Called by CI after tests run (pass or fail).
+ * Called by CI after tests run (pass or fail), once per project.
  *
  * Usage:
- *   node scripts/log-test-run.js <path-to-jest-json>
+ *   node scripts/log-test-run.js <path-to-jest-json> --project=<name>
+ *
+ * The --project flag is required. It tags the log entry so the dashboard can
+ * filter by project. Use a short lowercase slug: portal, trackmyweek, etc.
+ * Adding a new project requires no dashboard code changes — it appears
+ * automatically in the project filter once a run is logged.
  *
  * Environment variables read:
  *   GITHUB_SHA        - commit hash
@@ -25,9 +30,21 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 
-const jestJsonPath = process.argv[2];
-const REPO_ROOT    = path.resolve(__dirname, '..');
-const LOG_FILE     = path.join(REPO_ROOT, 'logs', 'test-runs.jsonl');
+// ---------------------------------------------------------------------------
+// Parse args
+// ---------------------------------------------------------------------------
+const args = process.argv.slice(2);
+const jestJsonPath = args.find(a => !a.startsWith('--'));
+const projectArg   = args.find(a => a.startsWith('--project='));
+const project      = projectArg ? projectArg.split('=')[1].trim() : 'unknown';
+
+if (project === 'unknown') {
+  console.warn('[log-test-run] WARNING: no --project flag provided. Entry will be tagged "unknown".');
+  console.warn('[log-test-run] Usage: node scripts/log-test-run.js <jest-json> --project=<name>');
+}
+
+const REPO_ROOT = path.resolve(__dirname, '..');
+const LOG_FILE  = path.join(REPO_ROOT, 'logs', 'test-runs.jsonl');
 
 // ---------------------------------------------------------------------------
 // Parse Jest JSON — degrade gracefully if missing or malformed
@@ -58,14 +75,12 @@ function summariseSuites(suiteList) {
   const errors = [];
 
   for (const suite of suiteList) {
-    // Duration: perfStats (older Jest) or endTime/startTime directly on suite
     if (suite.perfStats) {
       duration_ms += (suite.perfStats.end - suite.perfStats.start);
     } else if (suite.endTime && suite.startTime) {
       duration_ms += (suite.endTime - suite.startTime);
     }
 
-    // Test results: `testResults` (older Jest) or `assertionResults` (newer Jest)
     const tests = suite.testResults || suite.assertionResults || [];
     for (const test of tests) {
       if (test.status === 'passed') {
@@ -91,7 +106,6 @@ if (jestResults) {
   for (const suite of jestResults.testResults || []) {
     if (!suite) continue;
 
-    // Suite path is under `testFilePath` OR `name` depending on Jest version
     const suitePath = suite.testFilePath || suite.name;
     if (!suitePath) {
       console.warn('[log-test-run] Skipping suite with no path:', JSON.stringify(suite).slice(0, 100));
@@ -127,6 +141,7 @@ const totalMs      = unitSummary.duration_ms + integrationSummary.duration_ms;
 const entry = {
   runId:       crypto.randomUUID(),
   timestamp:   new Date().toISOString(),
+  project,
   trigger:     process.env.GITHUB_EVENT_NAME || 'manual',
   branch:      process.env.GITHUB_REF_NAME  || 'unknown',
   commit:      (process.env.GITHUB_SHA || 'unknown').slice(0, 7),
@@ -145,7 +160,7 @@ const entry = {
 try {
   fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
   fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n', 'utf8');
-  console.log(`[log-test-run] Logged run ${entry.runId} — overall: ${entry.overall}`);
+  console.log(`[log-test-run] project=${project} run=${entry.runId} overall=${entry.overall}`);
   console.log(`[log-test-run] unit: ${unitSummary.passed}p/${unitSummary.failed}f  integration: ${integrationSummary.passed}p/${integrationSummary.failed}f`);
 } catch (err) {
   console.error('[log-test-run] Failed to write log entry:', err.message);

@@ -56,16 +56,20 @@ jobs:
         run: touch logs/test-runs.jsonl
 
       - name: Run portal unit & integration tests
-        run: npm test -- --ci --forceExit --json --outputFile=/tmp/jest-results.json
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/portal-jest-results.json
         working-directory: portal
 
       - name: Run trackmyweek unit tests
-        run: npm test -- --ci --forceExit
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/trackmyweek-jest-results.json
         working-directory: trackmyweek
 
-      - name: Log test run results
+      - name: Log portal test run results
         if: always()
-        run: node scripts/log-test-run.js /tmp/jest-results.json
+        run: node scripts/log-test-run.js /tmp/portal-jest-results.json --project=portal
+
+      - name: Log trackmyweek test run results
+        if: always()
+        run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
       - name: Commit and push test log
         if: ${{ always() && github.event_name == 'push' }}

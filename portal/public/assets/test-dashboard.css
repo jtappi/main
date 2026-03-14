@@ -31,6 +31,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex-wrap: wrap;
 }
 .td-label {
   font-size: 0.8rem;
@@ -151,11 +152,8 @@
 /* ── Suite breakdown ───────────────────────────────────────── */
 .td-suite-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1rem;
-}
-@media (max-width: 640px) {
-  .td-suite-row { grid-template-columns: 1fr; }
 }
 .td-suite-card {
   display: flex;
@@ -168,20 +166,43 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
+.td-suite-sub {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.5rem;
+  margin-bottom: 0.1rem;
+}
+.td-suite-sub--mt { margin-top: 1rem; }
 .td-suite-stat {
   font-size: 2rem;
   font-weight: 600;
-  color: #2a9e70;
+  color: var(--text);
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
+.td-suite-stat--good { color: #2a9e70; }
 .td-suite-stat--fail { color: var(--danger); }
 .td-suite-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Project badge ─────────────────────────────────────────── */
+.td-project-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 /* ── History table ─────────────────────────────────────────── */
