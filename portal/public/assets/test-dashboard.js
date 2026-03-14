@@ -4,6 +4,7 @@
 let allRuns  = [];
 let days     = 7;
 let project  = 'all';
+let runType  = 'all';
 
 // ── Boot ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,6 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('project-select').addEventListener('change', e => {
     project = e.target.value;
+    updateSubtitle();
+    render();
+  });
+  document.getElementById('type-select').addEventListener('change', e => {
+    runType = e.target.value;
     updateSubtitle();
     render();
   });
@@ -86,15 +92,16 @@ function formatProjectName(slug) {
 
 function updateSubtitle() {
   const el = document.getElementById('td-subtitle');
-  el.textContent = project === 'all'
-    ? 'CI run history \u2014 all projects'
-    : `CI run history \u2014 ${formatProjectName(project)}`;
+  const projLabel = project === 'all' ? 'all projects' : formatProjectName(project);
+  const typeLabel = runType === 'all' ? '' : ` \u2014 ${runType === 'e2e' ? 'E2E' : 'Jest'} only`;
+  el.textContent = `CI run history \u2014 ${projLabel}${typeLabel}`;
 }
 
 // ── Filter ─────────────────────────────────────────────────────
 function filteredRuns() {
   let runs = allRuns;
   if (project !== 'all') runs = runs.filter(r => r.project === project);
+  if (runType !== 'all') runs = runs.filter(r => r.runType === runType);
   if (!days) return [...runs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
@@ -115,6 +122,7 @@ function render() {
   renderPassFailChart(runs);
   renderDurationChart('chart-unit-duration', 'chart-unit-duration-empty', runs, 'unit');
   renderDurationChart('chart-int-duration',  'chart-int-duration-empty',  runs, 'integration');
+  renderDurationChart('chart-e2e-duration',  'chart-e2e-duration-empty',  runs, 'e2e');
   renderSuiteBreakdown(runs);
   renderHistory(runs);
 }
@@ -178,19 +186,27 @@ function renderPassFailChart(runs) {
 }
 
 // ── Duration line chart ─────────────────────────────────────────
+// Works for any suite key: 'unit', 'integration', or 'e2e'.
+// E2E runs are logged with runType='e2e' and suites.e2e; Jest runs use
+// suites.unit / suites.integration. We filter to only the runs that
+// actually carry data for the requested key so mixed views stay clean.
 function renderDurationChart(canvasId, emptyId, runs, suiteKey) {
   const canvas = document.getElementById(canvasId);
   const empty  = document.getElementById(emptyId);
+
+  // For e2e key: only look at e2e-type runs. For unit/integration: only jest runs.
+  const relevantType = suiteKey === 'e2e' ? 'e2e' : 'jest';
   const withData = runs
-    .filter(r => r.suites && r.suites[suiteKey] && r.suites[suiteKey].duration_ms > 0)
+    .filter(r => r.runType === relevantType && r.suites && r.suites[suiteKey] && r.suites[suiteKey].duration_ms > 0)
     .slice().reverse();
+
   if (!withData.length) {
     canvas.classList.add('hidden'); empty.classList.remove('hidden'); return;
   }
   canvas.classList.remove('hidden'); empty.classList.add('hidden');
   const labels = withData.map(r => new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
   const values = withData.map(r => parseFloat((r.suites[suiteKey].duration_ms / 1000).toFixed(2)));
-  drawLineChart(canvas, labels, values, '#4fb8c4');
+  drawLineChart(canvas, labels, values, suiteKey === 'e2e' ? '#f0a04b' : '#4fb8c4');
 }
 
 // ── Suite breakdown ─────────────────────────────────────────────
@@ -201,13 +217,27 @@ function renderSuiteBreakdown(runs) {
   container.innerHTML = '';
   if (!runs.length) return;
 
+  // When the type filter is active, only show the relevant suite type.
+  // When 'all', show whatever data exists for the project.
   const projectsInView = project === 'all'
     ? [...new Set(runs.map(r => r.project))].sort()
     : [project];
 
   for (const proj of projectsInView) {
-    const lastJest = latestRunOfType(runs, proj, 'jest');
-    const lastE2e  = latestRunOfType(runs, proj, 'e2e');
+    // Pull from the full unfiltered-by-type runs so suite cards always
+    // show the latest known state even when filtered to a single type.
+    const allRunsForProj = allRuns.filter(r => {
+      if (r.project !== proj) return false;
+      if (days) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        if (new Date(r.timestamp) < cutoff) return false;
+      }
+      return true;
+    });
+
+    const lastJest = latestRunOfType(allRunsForProj, proj, 'jest');
+    const lastE2e  = latestRunOfType(allRunsForProj, proj, 'e2e');
     if (!lastJest && !lastE2e) continue;
 
     const u   = lastJest?.suites?.unit        || {};
@@ -216,25 +246,27 @@ function renderSuiteBreakdown(runs) {
 
     const suiteRows = [];
 
-    suiteRows.push(`
-      <div class="td-suite-sub">Unit</div>
-      <div class="td-suite-stat ${(u.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${u.passed ?? '\u2014'}</div>
-      <div class="td-suite-desc">passed last run</div>
-      <div class="td-suite-stat td-suite-stat--fail">${u.failed ?? '\u2014'}</div>
-      <div class="td-suite-desc">failed last run</div>
-    `);
-
-    if (int.status && int.status !== 'skip') {
+    if (runType === 'all' || runType === 'jest') {
       suiteRows.push(`
-        <div class="td-suite-sub td-suite-sub--mt">Integration</div>
-        <div class="td-suite-stat ${(int.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${int.passed ?? '\u2014'}</div>
+        <div class="td-suite-sub">Unit</div>
+        <div class="td-suite-stat ${(u.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${u.passed ?? '\u2014'}</div>
         <div class="td-suite-desc">passed last run</div>
-        <div class="td-suite-stat td-suite-stat--fail">${int.failed ?? '\u2014'}</div>
+        <div class="td-suite-stat td-suite-stat--fail">${u.failed ?? '\u2014'}</div>
         <div class="td-suite-desc">failed last run</div>
       `);
+
+      if (int.status && int.status !== 'skip') {
+        suiteRows.push(`
+          <div class="td-suite-sub td-suite-sub--mt">Integration</div>
+          <div class="td-suite-stat ${(int.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${int.passed ?? '\u2014'}</div>
+          <div class="td-suite-desc">passed last run</div>
+          <div class="td-suite-stat td-suite-stat--fail">${int.failed ?? '\u2014'}</div>
+          <div class="td-suite-desc">failed last run</div>
+        `);
+      }
     }
 
-    if (e2e.status && e2e.status !== 'skip') {
+    if ((runType === 'all' || runType === 'e2e') && e2e.status && e2e.status !== 'skip') {
       suiteRows.push(`
         <div class="td-suite-sub td-suite-sub--mt">E2E</div>
         <div class="td-suite-stat ${(e2e.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${e2e.passed ?? '\u2014'}</div>
@@ -243,6 +275,8 @@ function renderSuiteBreakdown(runs) {
         <div class="td-suite-desc">failed last run</div>
       `);
     }
+
+    if (!suiteRows.length) continue;
 
     const card = document.createElement('div');
     card.className      = 'td-card td-suite-card';
