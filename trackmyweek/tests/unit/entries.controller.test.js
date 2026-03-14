@@ -95,7 +95,6 @@ describe('DELETE /trackmyweek/api/entries/:id', () => {
 });
 
 describe('GET /trackmyweek/api/entries/autocomplete', () => {
-  // autocomplete returns an array of strings, not objects
   test('returns matching strings for query', async () => {
     const res = await request(app)
       .get('/trackmyweek/api/entries/autocomplete?q=ibu');
@@ -122,5 +121,45 @@ describe('GET /trackmyweek/api/entries/quickentry', () => {
   test('returns at most 5 entries', async () => {
     const res = await request(app).get('/trackmyweek/api/entries/quickentry');
     expect(res.body.length).toBeLessThanOrEqual(5);
+  });
+
+  test('each item includes text, category, and count', async () => {
+    const res = await request(app).get('/trackmyweek/api/entries/quickentry');
+    expect(res.status).toBe(200);
+    for (const item of res.body) {
+      expect(item).toHaveProperty('text');
+      expect(item).toHaveProperty('category');
+      expect(item).toHaveProperty('count');
+      expect(typeof item.category).toBe('string');
+      expect(item.category.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('category returned by quickentry can be used to POST a new entry (round-trip)', async () => {
+    // Step 1 — seed multiple entries so quickentry has data to rank
+    mockData.data = [
+      { id: 1, text: 'Took ibuprofen', category: 'Health',   notes: '', timestamp: '2026-03-13T09:00:00.000Z' },
+      { id: 2, text: 'Took ibuprofen', category: 'Health',   notes: '', timestamp: '2026-03-13T08:00:00.000Z' },
+      { id: 3, text: 'Morning run',    category: 'Exercise', notes: '', timestamp: '2026-03-13T07:30:00.000Z' },
+    ];
+    data.readEntries.mockImplementation(() => JSON.parse(JSON.stringify(mockData.data)));
+
+    // Step 2 — fetch quickentry
+    const quickRes = await request(app).get('/trackmyweek/api/entries/quickentry');
+    expect(quickRes.status).toBe(200);
+    expect(quickRes.body.length).toBeGreaterThan(0);
+
+    // Step 3 — take the top item and POST it back exactly as the client would
+    const topItem = quickRes.body[0];
+    expect(topItem.category).toBeDefined();
+
+    const postRes = await request(app)
+      .post('/trackmyweek/api/entries')
+      .send({ text: topItem.text, category: topItem.category });
+
+    // Step 4 — must be 201, not 400
+    expect(postRes.status).toBe(201);
+    expect(postRes.body.text).toBe(topItem.text);
+    expect(postRes.body.category).toBe(topItem.category);
   });
 });
