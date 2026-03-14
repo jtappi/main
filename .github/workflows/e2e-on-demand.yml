@@ -1,0 +1,170 @@
+name: E2E Tests (On Demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Which E2E suite to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - portal
+          - trackmyweek
+
+permissions:
+  contents: write
+
+jobs:
+  e2e-on-demand:
+    name: E2E On Demand (${{ github.event.inputs.suite }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            portal/package-lock.json
+            trackmyweek/package-lock.json
+            trackmyweek/client/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install portal dependencies
+        run: npm ci
+        working-directory: portal
+
+      - name: Install trackmyweek dependencies
+        run: npm ci
+        working-directory: trackmyweek
+
+      - name: Install trackmyweek client dependencies
+        run: npm ci
+        working-directory: trackmyweek/client
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Bootstrap data files
+        run: cp core/data/users.template.json core/data/users.json
+
+      - name: Bootstrap trackmyweek data files
+        run: |
+          [ -f trackmyweek/data/data.json ]       || cp trackmyweek/data/data.template.json trackmyweek/data/data.json
+          [ -f trackmyweek/data/categories.json ] || cp trackmyweek/data/categories.template.json trackmyweek/data/categories.json
+          [ -f trackmyweek/data/reports.json ]    || cp trackmyweek/data/reports.template.json trackmyweek/data/reports.json
+          [ -f trackmyweek/data/questions.json ]  || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
+
+      - name: Build trackmyweek client
+        run: npm run build
+        working-directory: trackmyweek/client
+
+      - name: Start portal server
+        run: |
+          SESSION_SECRET=ci-e2e-secret NODE_ENV=production node portal/server.js &
+          echo $! > /tmp/portal.pid
+
+      - name: Wait for portal to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/login > /dev/null 2>&1; then
+              echo "Portal ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Portal did not start in 30s" && exit 1
+
+      - name: Run portal E2E tests
+        id: portal-e2e
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'portal' }}
+        run: |
+          npx playwright test --reporter=list --reporter=json --output=/tmp/portal-e2e-results.json
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Run trackmyweek E2E tests
+        id: tmw-e2e
+        if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'trackmyweek' }}
+        run: |
+          npx playwright test --config=trackmyweek/client/playwright.ci.config.js
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Stop portal server
+        if: always()
+        run: |
+          if [ -f /tmp/portal.pid ]; then
+            kill $(cat /tmp/portal.pid) || true
+          fi
+
+      - name: Log portal E2E results
+        if: ${{ always() && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'portal') }}
+        run: node scripts/log-test-run.js /tmp/portal-e2e-results.json --project=on-demand --type=e2e
+
+      - name: Log trackmyweek E2E results
+        if: ${{ always() && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'trackmyweek') }}
+        run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=on-demand --type=e2e
+
+      - name: Commit and push on-demand E2E log
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add logs/test-runs.jsonl
+          git diff --staged --quiet || git commit -m "chore: log on-demand E2E results [skip ci]"
+          git push origin HEAD:main
+
+      - name: Upload portal Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-portal-on-demand
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload trackmyweek Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-trackmyweek-on-demand
+          path: trackmyweek/client/playwright-report-tmw/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Fail if any E2E tests failed
+        if: always()
+        run: |
+          PORTAL_EXIT="${{ steps.portal-e2e.outputs.exit_code }}"
+          TMW_EXIT="${{ steps.tmw-e2e.outputs.exit_code }}"
+          if [ "$PORTAL_EXIT" != "0" ] || [ "$TMW_EXIT" != "0" ]; then
+            echo "E2E tests failed — portal exit: ${PORTAL_EXIT:-n/a}  trackmyweek exit: ${TMW_EXIT:-n/a}"
+            exit 1
+          fi
+          echo "All E2E tests passed"

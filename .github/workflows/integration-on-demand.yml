@@ -1,0 +1,91 @@
+name: Integration Tests (On Demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Which project to test'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - portal
+          - trackmyweek
+
+permissions:
+  contents: write
+
+jobs:
+  integration-on-demand:
+    name: Integration On Demand (${{ github.event.inputs.project }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            portal/package-lock.json
+            trackmyweek/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install portal dependencies
+        run: npm ci
+        working-directory: portal
+
+      - name: Install trackmyweek dependencies
+        run: npm ci
+        working-directory: trackmyweek
+
+      - name: Bootstrap data files
+        run: cp core/data/users.template.json core/data/users.json
+
+      - name: Bootstrap trackmyweek data files
+        run: |
+          [ -f trackmyweek/data/data.json ]       || cp trackmyweek/data/data.template.json trackmyweek/data/data.json
+          [ -f trackmyweek/data/categories.json ] || cp trackmyweek/data/categories.template.json trackmyweek/data/categories.json
+          [ -f trackmyweek/data/reports.json ]    || cp trackmyweek/data/reports.template.json trackmyweek/data/reports.json
+          [ -f trackmyweek/data/questions.json ]  || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
+
+      - name: Ensure log file exists
+        run: touch logs/test-runs.jsonl
+
+      - name: Run portal tests
+        if: ${{ github.event.inputs.project == 'all' || github.event.inputs.project == 'portal' }}
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/portal-jest-results.json
+        working-directory: portal
+
+      - name: Run trackmyweek tests
+        if: ${{ github.event.inputs.project == 'all' || github.event.inputs.project == 'trackmyweek' }}
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/trackmyweek-jest-results.json
+        working-directory: trackmyweek
+
+      - name: Log portal results
+        if: ${{ always() && (github.event.inputs.project == 'all' || github.event.inputs.project == 'portal') }}
+        run: node scripts/log-test-run.js /tmp/portal-jest-results.json --project=on-demand
+
+      - name: Log trackmyweek results
+        if: ${{ always() && (github.event.inputs.project == 'all' || github.event.inputs.project == 'trackmyweek') }}
+        run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=on-demand
+
+      - name: Commit and push on-demand integration log
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add logs/test-runs.jsonl
+          git diff --staged --quiet || git commit -m "chore: log on-demand integration results [skip ci]"
+          git push origin HEAD:main
