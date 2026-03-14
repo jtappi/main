@@ -37,15 +37,30 @@ jobs:
         run: npm ci
         working-directory: portal
 
+      - name: Install trackmyweek dependencies
+        run: npm install
+        working-directory: trackmyweek
+
       - name: Bootstrap data files
         run: cp core/data/users.template.json core/data/users.json
+
+      - name: Bootstrap trackmyweek data files
+        run: |
+          [ -f trackmyweek/data/data.json ]       || cp trackmyweek/data/data.template.json trackmyweek/data/data.json
+          [ -f trackmyweek/data/categories.json ] || cp trackmyweek/data/categories.template.json trackmyweek/data/categories.json
+          [ -f trackmyweek/data/reports.json ]    || cp trackmyweek/data/reports.template.json trackmyweek/data/reports.json
+          [ -f trackmyweek/data/questions.json ]  || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
 
       - name: Ensure log file exists
         run: touch logs/test-runs.jsonl
 
-      - name: Run unit & integration tests
+      - name: Run portal unit & integration tests
         run: npm test -- --ci --forceExit --json --outputFile=/tmp/jest-results.json
         working-directory: portal
+
+      - name: Run trackmyweek unit tests
+        run: npm test -- --ci --forceExit
+        working-directory: trackmyweek
 
       - name: Log test run results
         if: always()
