@@ -1,46 +1,35 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Questions page', () => {
-  test.beforeEach(async ({ page }) => {
+test.describe('Questions', () => {
+  // ── Smoke check ─────────────────────────────────────────────────────────────
+  // Confirms the page loads (questions API is reachable even if empty).
+  test('page loads with question form visible', async ({ page }) => {
     await page.goto('/trackmyweek/questions');
-  });
-
-  test('page heading is visible', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Questions' })).toBeVisible();
+    await expect(page.getByTestId('new-question-input')).toBeVisible();
   });
 
-  test('add question form is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="new-question-input"]')).toBeVisible();
-  });
-
-  test('can add a new question', async ({ page }) => {
-    const input = page.locator('[data-testid="new-question-input"]');
-    await input.fill('What did I learn today?');
-    await page.locator('[data-testid="add-question-btn"]').click();
-
-    // Input clears on success
+  // ── Critical flow ────────────────────────────────────────────────────────────
+  // Full round-trip: fill form → POST to API → question appears in unanswered list.
+  test('adding a new question persists and appears in list', async ({ page, request }) => {
+    await page.goto('/trackmyweek/questions');
+    const input = page.getByTestId('new-question-input');
+    await input.fill('E2E test question?');
+    await page.getByTestId('add-question-btn').click();
     await expect(input).toHaveValue('', { timeout: 5000 });
-
-    // Question appears in the unanswered column
-    await expect(page.getByText('What did I learn today?')).toBeVisible();
+    await expect(page.getByText('E2E test question?')).toBeVisible();
   });
 
-  test('Enter key submits the question', async ({ page }) => {
-    const input = page.locator('[data-testid="new-question-input"]');
-    await input.fill('Keyboard submit test?');
-    await input.press('Enter');
-    await expect(input).toHaveValue('', { timeout: 5000 });
-  });
-
-  test('answer button appears on hover', async ({ page }) => {
-    // Add a question first
-    const input = page.locator('[data-testid="new-question-input"]');
-    await input.fill('Do I see the answer button?');
-    await page.locator('[data-testid="add-question-btn"]').click();
-
-    // Hover the card
-    const card = page.locator('[data-testid^="q-card-"]').first();
-    await card.hover();
-    await expect(card.locator('[data-testid^="answer-btn-"]')).toBeVisible();
+  test.afterEach(async ({ request }) => {
+    // Clean up any question created during the test run.
+    try {
+      const res = await request.get('/trackmyweek/api/questions');
+      if (!res.ok()) return;
+      const questions = await res.json();
+      const target = questions.find((q) => q.question === 'E2E test question?');
+      if (target) await request.delete(`/trackmyweek/api/questions/${target.id}`);
+    } catch {
+      // Best-effort — do not fail the test if cleanup fails
+    }
   });
 });

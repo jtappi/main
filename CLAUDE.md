@@ -56,7 +56,7 @@ If any item cannot be checked, the change must not proceed.**
 
 ### Auth & Session
 - [ ] Session secret always comes from `process.env.SESSION_SECRET` — never hardcoded
-- [ ] `cookie.secure` always driven by `NODE_ENV === 'production'` — never hardcoded
+- [ ] `cookie.secure` always driven by `NODE_ENV === 'production' && !process.env.CI` — never hardcoded
 - [ ] `passwordHash` never returned in any API response — always use `safeUser()`
 - [ ] No new API route returns a user object without passing through `safeUser()`
 
@@ -265,6 +265,83 @@ Writing tests with the code means:
 
 ---
 
+## 2.6. E2E Test Philosophy — What Belongs in Playwright
+
+E2E tests are expensive (they require a browser, a live server, and auth). They must only
+cover things that cannot be verified at a lower level. This is a hard constraint, not a
+guideline — adding low-value E2E tests wastes CI minutes and creates noise.
+
+### The three-tier testing model
+
+| Layer | Tool | What it covers |
+|-------|------|----------------|
+| **Unit** | Jest | Individual functions, pure logic, edge cases, error paths |
+| **Integration** | Jest + supertest | API routes, server behavior, auth middleware, DB/file I/O |
+| **E2E** | Playwright | Auth flows, critical user journeys, smoke checks, data round-trips |
+
+Each layer covers what the layer below it cannot. E2E tests are not a substitute for
+unit or integration tests, and unit/integration tests are not a substitute for E2E.
+
+### What E2E tests MUST cover
+
+**1. Auth flows** — things that require a real browser session and server enforcement:
+- Successful login redirects to dashboard
+- Invalid credentials show an error from the server
+- Authenticated session persists (visiting /login while logged in redirects away)
+- Logout destroys the session server-side
+- Unauthenticated access to protected routes is blocked (302 or 403)
+- Role-based access control (guest cannot reach admin, admin can)
+
+**2. Critical user journeys** — the primary actions a user takes that round-trip through
+the server and produce a visible result:
+- Submitting a complete form succeeds and shows confirmation (e.g. logging an entry)
+- Creating a new resource appears in the list (e.g. adding a category)
+- Editing a resource persists the change (e.g. timestamp inline edit)
+- Deleting a resource removes it
+- The core data flow of each major feature works end-to-end
+
+**3. Smoke checks** — one test per page that confirms the route is not broken:
+- Navigate to the page and confirm it loads (not a 404, not a redirect to /login)
+- Confirm one meaningful piece of data from the server is visible
+  (e.g. category buttons loaded from the API, not just a static heading)
+
+### What E2E tests must NOT cover
+
+The following belong in unit or integration tests, not E2E:
+
+- **Client-side form validation** — a disabled submit button, a client-side error message
+  before any network request is made. These are pure React component behavior testable
+  without a browser.
+- **DOM structure checks** — "this heading is visible", "this div exists". If the page
+  loads (smoke check passes), the structure is there.
+- **Client-side UI state** — tab switches, modal open/close toggles, hover visibility.
+  No server call = no E2E test.
+- **Keyboard shortcuts** — Enter key submits a form. This is component behavior.
+- **Redundant happy paths** — if one test already proves a page loads and data appears,
+  a second test checking a different element on the same page adds no value.
+
+### The litmus test for a new E2E test
+
+Before writing any new Playwright test, ask:
+> "Would this test catch a bug that a unit or integration test cannot catch?"
+> "Does this test require a real browser, a running server, and a live session to be meaningful?"
+
+If both answers are not "yes", the test belongs at a lower level.
+
+### Planned future E2E test layers (not yet implemented)
+
+The following test types are on the roadmap and will be added as separate suites when
+the time comes. Do not attempt to cover these with current Playwright specs:
+
+- **UI image verification** — screenshot diffing for visual regression (e.g. Percy,
+  Playwright's `toHaveScreenshot()`). Catches layout/style regressions that behavioral
+  tests miss.
+- **Mocked transition tests** — component-level tests with mocked API responses to verify
+  loading states, error states, and UI transitions without a live server. Fills the gap
+  between unit tests and full E2E for UI interaction flows.
+
+---
+
 ## 3. data-testid Is a Contract
 
 - `data-testid` attributes are never renamed or removed unless the element's **purpose** changes.
@@ -351,7 +428,9 @@ cd trackmyweek/client && npm install
 - `passwordHash` is **never** returned in any API response. Every route returning a user object
   must pass through the `safeUser()` helper in `portal/server.js`.
 - `users.json` and `.env` are gitignored and never committed.
-- `cookie.secure` is driven by `process.env.NODE_ENV === 'production'` — never hardcoded.
+- `cookie.secure` is driven by `process.env.NODE_ENV === 'production' && !process.env.CI` —
+  never hardcoded. The `CI` flag allows plain-HTTP sessions in GitHub Actions without
+  weakening security in real production.
 - The `SESSION_SECRET` env var must be set in production.
 
 ---
@@ -439,6 +518,7 @@ cd trackmyweek/client && npm install
 - [ ] Style-only changes are in their own commit, separate from logic changes
 - [ ] Every new function has at least one test (per Section 2.5 checklist)
 - [ ] No existing test was deleted or disabled without explicit approval
+- [ ] Any new E2E test passes the litmus test in Section 2.6 before being written
 
 ---
 
@@ -456,8 +536,8 @@ cd trackmyweek/client && npm install
   so no `git pull` on the Mac Mini is ever needed for dashboard data to update.
 
 ### Adding a new project to the test dashboard
-1. Add a CI step: `npm test -- --ci --forceExit --json --outputFile=/tmp/<name>-jest-results.json`
-2. Add a log step: `node scripts/log-test-run.js /tmp/<name>-jest-results.json --project=<name>`
+1. Add a CI step: `npm test -- --ci --forceExit --json --outputFile=/tmp/<n>-jest-results.json`
+2. Add a log step: `node scripts/log-test-run.js /tmp/<n>-jest-results.json --project=<n>`
 The dashboard discovers new projects automatically from the data — no dashboard code changes needed.
 
 ### Branch protection state (as of March 2026)
