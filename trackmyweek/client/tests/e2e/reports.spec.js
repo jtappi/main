@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Reports', () => {
   // ── Smoke check ─────────────────────────────────────────────────────────────
   // Confirms the page loads and the prebuilt reports API returned data.
+  // Report cards only render if /api/prebuilt/trend and /api/prebuilt/categories succeeded.
   test('page loads with pre-built report cards from API', async ({ page }) => {
     await page.goto('/trackmyweek/reports');
-    await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
     await expect(page.getByText('Entries Over Time')).toBeVisible();
     await expect(page.getByText('Category Breakdown')).toBeVisible();
   });

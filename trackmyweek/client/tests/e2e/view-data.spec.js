@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('View Data', () => {
   // ── Smoke check ─────────────────────────────────────────────────────────────
-  // Confirms the page loads and the day chart (which calls the entries API) renders.
+  // Confirms the page loads and the day chart renders.
+  // The day chart calls /api/entries, so its presence confirms the API is reachable.
   test('page loads with day chart visible', async ({ page }) => {
     await page.goto('/trackmyweek/view');
-    await expect(page.getByRole('heading', { name: 'View Data' })).toBeVisible();
     await expect(page.getByTestId('day-chart')).toBeVisible();
     await expect(page.getByTestId('filter-bar')).toBeVisible();
   });

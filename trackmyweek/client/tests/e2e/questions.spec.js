@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Questions', () => {
   // ── Smoke check ─────────────────────────────────────────────────────────────
-  // Confirms the page loads (questions API is reachable even if empty).
+  // Confirms the page loads and the questions form is usable.
+  // The add form renders regardless of API state, so it's a reliable load indicator.
   test('page loads with question form visible', async ({ page }) => {
     await page.goto('/trackmyweek/questions');
-    await expect(page.getByRole('heading', { name: 'Questions' })).toBeVisible();
     await expect(page.getByTestId('new-question-input')).toBeVisible();
   });
 

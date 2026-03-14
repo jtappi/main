@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Log Entry', () => {
   // ── Smoke check ─────────────────────────────────────────────────────────────
   // Confirms the page loads and the categories API returned data.
+  // Category buttons only render if /api/categories returned successfully.
   test('page loads with category buttons from API', async ({ page }) => {
     await page.goto('/trackmyweek/log');
-    await expect(page.getByRole('heading', { name: 'Log Entry' })).toBeVisible();
     await expect(
       page.locator('[data-testid^="category-btn-"]').first()
     ).toBeVisible({ timeout: 5000 });

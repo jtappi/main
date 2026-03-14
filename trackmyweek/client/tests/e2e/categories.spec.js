@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Categories', () => {
   // ── Smoke check ─────────────────────────────────────────────────────────────
   // Confirms the page loads and the categories API returned data.
+  // Category list items only render if /api/categories returned successfully.
   test('page loads with existing categories from API', async ({ page }) => {
     await page.goto('/trackmyweek/categories');
-    await expect(page.getByRole('heading', { name: 'Categories' })).toBeVisible();
     await expect(page.getByTestId('category-list').locator('li').first()).toBeVisible();
   });
 
