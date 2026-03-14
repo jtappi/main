@@ -38,10 +38,10 @@ async function loadRuns() {
     if (!res.ok) throw new Error('Failed to fetch');
     allRuns = await res.json();
 
-    // Back-compat: entries written before --project was added have no project field.
+    // Back-compat: entries written before project/runType fields existed
     allRuns.forEach(r => {
-      if (!r.project)  r.project  = 'portal';
-      if (!r.runType)  r.runType  = 'jest';
+      if (!r.project) r.project = 'portal';
+      if (!r.runType) r.runType = 'jest';
     });
 
     populateProjectFilter();
@@ -58,6 +58,8 @@ async function logout() {
 }
 
 // ── Project filter ──────────────────────────────────────────────
+// Discovers all projects dynamically from the data — no hardcoding.
+// Adding a new project or a manual run automatically adds it to the dropdown.
 function populateProjectFilter() {
   const select   = document.getElementById('project-select');
   const projects = [...new Set(allRuns.map(r => r.project))].sort();
@@ -73,8 +75,12 @@ function populateProjectFilter() {
 }
 
 function formatProjectName(slug) {
-  if (slug === 'all') return 'All projects';
-  const map = { trackmyweek: 'TrackMyWeek', portal: 'Portal' };
+  if (slug === 'all')       return 'All projects';
+  const map = {
+    trackmyweek: 'TrackMyWeek',
+    portal:      'Portal',
+    'on-demand': 'On Demand',
+  };
   return map[slug] || slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
@@ -188,8 +194,8 @@ function renderDurationChart(canvasId, emptyId, runs, suiteKey) {
 }
 
 // ── Suite breakdown ─────────────────────────────────────────────
-// One card per project. Each card shows unit, integration (if present),
-// and E2E (if present) sub-sections from the most recent run of each type.
+// One card per project. Each card shows unit, integration, and E2E
+// sub-sections from the most recent run of each type.
 function renderSuiteBreakdown(runs) {
   const container = document.getElementById('suite-row');
   container.innerHTML = '';
@@ -210,7 +216,6 @@ function renderSuiteBreakdown(runs) {
 
     const suiteRows = [];
 
-    // Unit
     suiteRows.push(`
       <div class="td-suite-sub">Unit</div>
       <div class="td-suite-stat ${(u.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${u.passed ?? '\u2014'}</div>
@@ -219,7 +224,6 @@ function renderSuiteBreakdown(runs) {
       <div class="td-suite-desc">failed last run</div>
     `);
 
-    // Integration (only if data present)
     if (int.status && int.status !== 'skip') {
       suiteRows.push(`
         <div class="td-suite-sub td-suite-sub--mt">Integration</div>
@@ -230,7 +234,6 @@ function renderSuiteBreakdown(runs) {
       `);
     }
 
-    // E2E (only if data present)
     if (e2e.status && e2e.status !== 'skip') {
       suiteRows.push(`
         <div class="td-suite-sub td-suite-sub--mt">E2E</div>
@@ -242,8 +245,8 @@ function renderSuiteBreakdown(runs) {
     }
 
     const card = document.createElement('div');
-    card.className          = 'td-card td-suite-card';
-    card.dataset.testid     = `test-dashboard-suite-${proj}`;
+    card.className      = 'td-card td-suite-card';
+    card.dataset.testid = `test-dashboard-suite-${proj}`;
     card.innerHTML = `
       <div class="td-suite-label">${escHtml(formatProjectName(proj))}</div>
       ${suiteRows.join('')}
@@ -267,7 +270,6 @@ function renderHistory(runs) {
   tbody.innerHTML = '';
 
   runs.forEach((run, idx) => {
-    // Collect errors from whichever suite types this entry has
     const allErrors = [
       ...(run.suites?.unit?.errors        || []),
       ...(run.suites?.integration?.errors || []),
