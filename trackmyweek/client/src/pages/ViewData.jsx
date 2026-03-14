@@ -19,6 +19,10 @@ const DATE_RANGE_OPTIONS = [
 // The datetime-local input has no timezone concept — it displays whatever string
 // it receives literally. We must convert from UTC to local wall-clock time before
 // populating the input, otherwise the displayed time is off by the user's UTC offset.
+//
+// This function is also exported from trackmyweek/lib/dateUtils.js for unit testing.
+// The implementation is duplicated here because the client cannot import server-side
+// Node modules directly — Vite only bundles what's in src/.
 function toLocalDatetimeInput(isoString) {
   const d   = new Date(isoString);
   const pad = (n) => String(n).padStart(2, '0');

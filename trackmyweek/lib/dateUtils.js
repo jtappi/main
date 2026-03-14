@@ -3,9 +3,11 @@
 /**
  * dateUtils.js — date helpers for TrackMyWeek.
  *
- * resolveDateRange(key)   — converts a dateRange key to { start, end } Date objects.
- *                           Returns null for 'alltime', unknown keys, and falsy values.
- * deriveFields(timestamp) — extracts human-readable fields from an ISO timestamp.
+ * resolveDateRange(key)        — converts a dateRange key to { start, end } Date objects.
+ *                                Returns null for 'alltime', unknown keys, and falsy values.
+ * deriveFields(timestamp)      — extracts human-readable fields from an ISO timestamp.
+ * toLocalDatetimeInput(isoStr) — converts a UTC ISO string to a YYYY-MM-DDTHH:MM string
+ *                                in the local timezone, suitable for a datetime-local input.
  *
  * Public API (what controllers and tests expect):
  *
@@ -24,6 +26,9 @@
  *   dayOfWeek {string}  'Monday' etc.
  *   month     {string}  'January' etc.
  *   week      {string}  'YYYY-WNN'
+ *
+ * toLocalDatetimeInput:
+ *   '2026-03-14T21:00:00.000Z' in UTC-4 → '2026-03-14T17:00'
  *
  * Internal aliases (used by report engine):
  *   hourBlock  → same as timeOfDay  (kept for controller back-compat)
@@ -111,4 +116,23 @@ function deriveFields(timestamp) {
   };
 }
 
-module.exports = { resolveDateRange, deriveFields };
+/**
+ * Convert a UTC ISO string to the local datetime-local input format (YYYY-MM-DDTHH:MM).
+ *
+ * The datetime-local input has no timezone concept — it displays whatever string
+ * it receives literally. We must convert from UTC to local wall-clock time before
+ * populating the input, otherwise the displayed time is off by the user's UTC offset.
+ *
+ * Example (UTC-4 / EDT):
+ *   '2026-03-14T21:00:00.000Z'  →  '2026-03-14T17:00'
+ */
+function toLocalDatetimeInput(isoString) {
+  const d   = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, '0');
+  return [
+    d.getFullYear(), '-', pad(d.getMonth() + 1), '-', pad(d.getDate()),
+    'T', pad(d.getHours()), ':', pad(d.getMinutes()),
+  ].join('');
+}
+
+module.exports = { resolveDateRange, deriveFields, toLocalDatetimeInput };
