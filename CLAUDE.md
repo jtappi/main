@@ -473,6 +473,9 @@ cd trackmyweek/client && npm install
 | data-testid inventory | `tests/TESTIDS.md` |
 | HTML/JS element contract | `docs/HTML_JS_CONTRACT.md` |
 | Deploy guide | `docs/DEPLOY.md` |
+| **Test catalog (index)** | **`docs/testing/README.md`** |
+| **Test catalog (Portal)** | **`docs/testing/PORTAL.md`** |
+| **Test catalog (TrackMyWeek)** | **`docs/testing/TRACKMYWEEK.md`** |
 | Playwright config (portal, local) | `playwright.config.js` (root) |
 | Playwright config (trackmyweek, CI) | `trackmyweek/client/playwright.ci.config.js` |
 | Playwright config (trackmyweek, local) | `trackmyweek/client/playwright.config.js` |
@@ -519,6 +522,7 @@ cd trackmyweek/client && npm install
 - [ ] Every new function has at least one test (per Section 2.5 checklist)
 - [ ] No existing test was deleted or disabled without explicit approval
 - [ ] Any new E2E test passes the litmus test in Section 2.6 before being written
+- [ ] `docs/testing/` consulted and PR description includes test coverage summary (Section 16)
 
 ---
 
@@ -647,3 +651,37 @@ npm run build
 
 **Claude must include these commands in every PR description** that touches server-side
 code, so the human is never left guessing what to run after merging.
+
+---
+
+## 16. Test Documentation — Mandatory PR Reference
+
+**This is a hard rule. Every PR must reference `docs/testing/` before being opened.**
+
+### What Claude must do before opening any PR
+
+1. **Read `docs/testing/README.md`** to understand the current test landscape.
+2. **Read the relevant project catalog** (`docs/testing/PORTAL.md`, `docs/testing/TRACKMYWEEK.md`,
+   or the appropriate project file) for every project touched by the PR.
+3. **Fill out the Test Coverage section** of the PR description (see `.github/pull_request_template.md`)
+   with:
+   - Existing tests that exercise the changed code paths
+   - New tests added in this PR (file, classification, what it covers)
+   - Tests not added and an explicit reason why
+4. **Update the relevant `docs/testing/<PROJECT>.md`** in the same PR if any new tests are added.
+   A PR that adds tests without updating the catalog is incomplete.
+
+### When a new project is added
+
+1. Create `docs/testing/<PROJECT_NAME>.md` using the existing catalogs as a template.
+2. Update `docs/testing/README.md` to add the project row.
+3. Both files must be in the same PR as the first test for the project.
+
+### Why this rule exists
+
+Without a living test catalog:
+- New contributors (human or AI) cannot know what is already tested
+- Duplicate tests get written; critical gaps go unnoticed
+- The PR review process has no authoritative reference for test completeness
+
+The catalog is the contract. The PR template is the enforcement prompt.
