@@ -549,6 +549,7 @@ cd trackmyweek/client && npm install
 - [ ] Every new function has at least one test (per Section 2.5 checklist)
 - [ ] No existing test was deleted or disabled without explicit approval
 - [ ] Any new E2E test passes the litmus test in Section 2.6 before being written
+- [ ] Coverage thresholds pass: `cd portal && npm run test:coverage` and `cd trackmyweek && npm run test:coverage` (Section 17)
 - [ ] `docs/testing/` consulted and PR description includes test coverage summary (Section 16)
 
 ---
@@ -590,8 +591,9 @@ by design but must be revisited if the workflow changes:
    mechanism or queue-based log delivery if the team grows.
 
 ### Adding a new project to the test dashboard
-1. Add a CI step: `npm test -- --ci --forceExit --json --outputFile=/tmp/<n>-jest-results.json`
+1. Add a CI step: `npm run test:coverage -- --ci --forceExit --json --outputFile=/tmp/<n>-jest-results.json`
 2. Add a log step: `node scripts/log-test-run.js /tmp/<n>-jest-results.json --project=<n>`
+3. Add coverage artifact upload and threshold config to the new project's `package.json`
 The dashboard discovers new projects automatically from the data — no dashboard code changes needed.
 
 ### Branch protection state (as of March 2026)
@@ -715,3 +717,70 @@ Without a living test catalog:
 - The PR review process has no authoritative reference for test completeness
 
 The catalog is the contract. The PR template is the enforcement prompt.
+
+---
+
+## 17. Code Coverage — Thresholds and Targets
+
+**Coverage is enforced on every CI run via `npm run test:coverage`.** A PR that drops
+coverage below the floor thresholds will fail CI and must not be merged.
+
+### Aspirational targets (goal for all projects)
+
+| Metric | Target |
+|--------|--------|
+| Branches | 100% |
+| Functions | 100% |
+| Lines | 90% |
+
+These targets apply to all projects, present and future, unless explicitly overridden
+by the owner with a documented reason.
+
+### Current floor thresholds (enforced in CI today)
+
+Floors are set at current measured coverage so CI passes immediately. Every PR that
+closes a coverage gap should raise the relevant threshold. Explicit owner approval is
+required to lower a threshold or add a per-file exception.
+
+**Portal** (`portal/package.json` → `jest.coverageThreshold`):
+| Metric | Floor |
+|--------|-------|
+| Branches | 65% |
+| Functions | 50% |
+| Lines | 79% |
+
+**TrackMyWeek** (`trackmyweek/package.json` → `jest.coverageThreshold`):
+| Metric | Floor |
+|--------|-------|
+| Branches | 65% |
+| Functions | 80% |
+| Lines | 78% |
+
+**Per-file exceptions (require owner approval to modify):**
+- `trackmyweek/controllers/prebuilt.controller.js` — floor: 0% branches, 10% functions,
+  25% lines. Nearly untested. A dedicated PR will bring this to target. Until then this
+  exception prevents CI from blocking all other work.
+
+### Coverage exclusions
+
+- `trackmyweek/lib/data.js` is excluded from TrackMyWeek coverage collection. It is pure
+  file I/O infrastructure that is mocked in every test — including it would report 0%
+  and obscure the real coverage picture for business logic.
+
+### Rules for new projects
+
+When a new project is added to the monorepo:
+1. Run `npm run test:coverage` immediately after writing the first tests.
+2. Set `coverageThreshold` in that project's `package.json` at the measured numbers.
+3. Add `coverageReporters: ["text", "lcov", "json-summary"]` so CI can upload the report.
+4. Add coverage artifact upload steps to `ci.yml` for the new project.
+5. Document floors and targets in `docs/TODO.md` under "Code Coverage — Aspirational Targets".
+
+### Visibility
+
+Coverage reports are available after every CI run as GitHub Actions artifacts:
+- `coverage-portal` — Portal HTML + lcov report (retained 14 days)
+- `coverage-trackmyweek` — TrackMyWeek HTML + lcov report (retained 14 days)
+
+A coverage summary table is posted to the GitHub Actions job summary on every run,
+and as a PR comment on every pull request.
