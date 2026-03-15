@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   # ── Job 0: Detect changed paths ──────────────────────────────────────────
@@ -282,6 +283,77 @@ jobs:
           path: trackmyweek/client/playwright-report-tmw/
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Deploy Playwright reports to server
+        # Deploys both report directories to the Mac Mini via rsync over SSH.
+        # Naming convention:
+        #   PR runs     -> PR-{number}/{portal|trackmyweek}/
+        #   Push runs   -> push-{short-sha}/{portal|trackmyweek}/
+        # Reports are served at https://trackmyweek.com/playwright-reports/{slug}/
+        # and are protected behind portal admin login.
+        if: always()
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SLUG="PR-${{ github.event.pull_request.number }}"
+          else
+            SLUG="push-$(echo '${{ github.sha }}' | cut -c1-7)"
+          fi
+          echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" \
+            "mkdir -p ~/apps/main/playwright-reports/${SLUG}/portal ~/apps/main/playwright-reports/${SLUG}/trackmyweek"
+
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/portal/"
+
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/trackmyweek/"
+
+      - name: Post PR comment with report links
+        # Posts (or updates in place) a sticky comment on the PR with direct links.
+        # Uses a marker comment so re-runs on the same PR replace the previous comment.
+        if: always() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- playwright-report-comment -->
+            ## 🎭 Playwright Report — ${{ env.REPORT_SLUG }}
+
+            | Suite | Status | Report |
+            |-------|--------|--------|
+            | Portal | ${{ steps.portal-e2e.outputs.exit_code == '0' && '✅ Passed' || '❌ Failed' }} | [View →](https://trackmyweek.com/playwright-reports/${{ env.REPORT_SLUG }}/portal/) |
+            | TrackMyWeek | ${{ steps.tmw-e2e.outputs.exit_code == '0' && '✅ Passed' || '❌ Failed' }} | [View →](https://trackmyweek.com/playwright-reports/${{ env.REPORT_SLUG }}/trackmyweek/) |
+          comment-author: github-actions[bot]
+          body-includes: playwright-report-comment
+
+      - name: Write job summary with report links
+        if: always() && github.event_name == 'push'
+        run: |
+          echo "## 🎭 Playwright Report — ${REPORT_SLUG}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | Status | Report |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.portal-e2e.outputs.exit_code }}" = "0" ]; then
+            PORTAL_STATUS="✅ Passed"
+          else
+            PORTAL_STATUS="❌ Failed"
+          fi
+          if [ "${{ steps.tmw-e2e.outputs.exit_code }}" = "0" ]; then
+            TMW_STATUS="✅ Passed"
+          else
+            TMW_STATUS="❌ Failed"
+          fi
+          echo "| Portal | ${PORTAL_STATUS} | [View →](https://trackmyweek.com/playwright-reports/${REPORT_SLUG}/portal/) |" >> $GITHUB_STEP_SUMMARY
+          echo "| TrackMyWeek | ${TMW_STATUS} | [View →](https://trackmyweek.com/playwright-reports/${REPORT_SLUG}/trackmyweek/) |" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if any E2E tests failed
         if: always()

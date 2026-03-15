@@ -26,6 +26,10 @@ const LOG_FILE = process.env.LOG_FILE ||
 const GITHUB_RAW_LOG =
   'https://raw.githubusercontent.com/jtappi/main/main/logs/test-runs.jsonl';
 
+// Playwright reports directory — override via env var for testing
+const PLAYWRIGHT_REPORTS_DIR = process.env.PLAYWRIGHT_REPORTS_DIR ||
+  path.join(__dirname, '../playwright-reports');
+
 // ── Trust proxy (behind Nginx) ─────────────────────────────────
 app.set('trust proxy', 1);
 
@@ -34,7 +38,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'"],
+      scriptSrc:  ["'self'", "'unsafe-inline'"],
       styleSrc:   ["'self'", "'unsafe-inline'"],
       imgSrc:     ["'self'", "data:"],
       connectSrc: ["'self'"]
@@ -129,6 +133,17 @@ app.get('/admin', requireAdmin, (req, res) => {
 app.get('/test-dashboard', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
+
+// ── Routes: Playwright reports (admin only) ────────────────────
+// Reports are deployed here by CI via rsync over SSH.
+// Directory structure: playwright-reports/{slug}/{portal|trackmyweek}/index.html
+// Slugs: PR-{number} | push-{short-sha} | on-demand-{run-id}
+//
+// scriptSrc is relaxed to 'unsafe-inline' above to allow Playwright's
+// self-contained report HTML to run its inline scripts.
+app.use('/playwright-reports', requireAdmin,
+  express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' })
+);
 
 // ── Routes: Auth ───────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
