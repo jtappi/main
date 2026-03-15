@@ -114,14 +114,18 @@ jobs:
 
       - name: Commit and push test log
         # Runs on both push and pull_request so all Jest results appear on the dashboard.
+        # Uses cp/fetch/checkout/pull instead of stash/rebase to work in detached HEAD
+        # context (PR runs check out pull/{n}/merge, not a real branch).
         # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git stash -- logs/test-runs.jsonl
-          git pull --rebase origin main
-          git stash pop
+          cp logs/test-runs.jsonl /tmp/test-runs-update.jsonl
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp /tmp/test-runs-update.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
@@ -252,16 +256,18 @@ jobs:
 
       - name: Commit and push E2E log
         # Runs on both push and pull_request so all E2E results appear on the dashboard.
+        # Uses cp/fetch/checkout/pull instead of stash/rebase to work in detached HEAD
+        # context (PR runs check out pull/{n}/merge, not a real branch).
         # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
-        # If branch protection requiring PRs is re-enabled, this step will fail for
-        # pull_request events and must be updated to use a bot-bypass token instead.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git stash -- logs/test-runs.jsonl
-          git pull --rebase origin main
-          git stash pop
+          cp logs/test-runs.jsonl /tmp/test-runs-update.jsonl
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp /tmp/test-runs-update.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log E2E test run results [skip ci]"
           git push origin HEAD:main
@@ -284,6 +290,19 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Set report slug
+        # Dedicated step so REPORT_SLUG is always set in $GITHUB_ENV before the deploy
+        # and comment steps run, even if deploy fails. Fixes the double-slash bug caused
+        # by REPORT_SLUG being empty when the previous deploy step errored out.
+        if: always()
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SLUG="PR-${{ github.event.pull_request.number }}"
+          else
+            SLUG="push-$(echo '${{ github.sha }}' | cut -c1-7)"
+          fi
+          echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
+
       - name: Deploy Playwright reports to server
         # Deploys both report directories to the Mac Mini via rsync over SSH.
         # Naming convention:
@@ -301,21 +320,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            SLUG="PR-${{ github.event.pull_request.number }}"
-          else
-            SLUG="push-$(echo '${{ github.sha }}' | cut -c1-7)"
-          fi
-          echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
-
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" \
-            "mkdir -p ~/apps/main/playwright-reports/${SLUG}/portal ~/apps/main/playwright-reports/${SLUG}/trackmyweek"
+            "mkdir -p ~/apps/main/playwright-reports/${REPORT_SLUG}/portal ~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek"
 
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/portal/"
+            playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/portal/"
 
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/trackmyweek/"
+            trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek/"
 
       - name: Post PR comment with report links
         # Posts (or updates in place) a sticky comment on the PR with direct links.

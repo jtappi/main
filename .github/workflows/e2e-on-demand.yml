@@ -137,13 +137,18 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=on-demand --type=e2e
 
       - name: Commit and push on-demand E2E log
+        # Uses cp/fetch/checkout/pull instead of stash/rebase. workflow_dispatch always
+        # runs on a real branch so detached HEAD is not a risk here, but using the same
+        # pattern keeps all three log commit steps consistent and avoids stash conflicts.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git stash -- logs/test-runs.jsonl
-          git pull --rebase origin main
-          git stash pop
+          cp logs/test-runs.jsonl /tmp/test-runs-update.jsonl
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp /tmp/test-runs-update.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log on-demand E2E results [skip ci]"
           git push origin HEAD:main
