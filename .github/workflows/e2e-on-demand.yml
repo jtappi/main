@@ -128,11 +128,11 @@ jobs:
 
       - name: Log portal E2E results
         if: ${{ always() && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'portal') }}
-        run: node scripts/log-test-run.js /tmp/portal-e2e-results.json --project=on-demand --type=e2e
+        run: node scripts/log-test-run.js /tmp/portal-e2e-results.json --project=portal --type=e2e
 
       - name: Log trackmyweek E2E results
         if: ${{ always() && (github.event.inputs.suite == 'all' || github.event.inputs.suite == 'trackmyweek') }}
-        run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=on-demand --type=e2e
+        run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
 
       - name: Commit and push on-demand E2E log
         if: always()
