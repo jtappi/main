@@ -240,9 +240,35 @@ to `module.exports = router`):**
 - Update every test file that imports the module in the same PR.
 - Never open a PR that you know will break existing tests.
 
+### Tracing behavior changes to existing tests — mandatory step before every PR
+
+**This is the step that must never be skipped.**
+
+Before opening any PR, Claude must:
+1. **Identify every behavior change in the diff** — any change to a return value, status
+   code, redirect URL, response shape, or middleware chain.
+2. **Read every test file that exercises the changed code paths** using `get_file_contents`.
+   Do not rely on memory of what the tests assert — read the actual file.
+3. **Verify each existing assertion is still correct** against the new behavior.
+4. **Update any assertion that is now wrong in the same commit** — not after CI fails.
+
+This step is non-negotiable even when the behavior change is intentional and by design.
+Knowing that a behavior changes is not sufficient — the tests must be updated before the PR is opened.
+
+**Example of what went wrong and must never recur:**
+A PR changed `GET /admin` from `requireAdmin` (returns 403 for unauthenticated) to
+`requireAuth, requireAdmin` (redirects unauthenticated to `/login?returnTo=...`). The
+behavior change was explicitly described in the technical proposal. The existing E2E test
+`unauthenticated /admin returns 403` was not updated. CI failed. This was avoidable —
+the changed code path was known, the test file was known, reading it and updating the
+assertion before opening the PR would have prevented the failure entirely.
+
 ### The concrete test checklist for every PR
 
 Before opening any PR, Claude must verify:
+- [ ] Every behavior change in the diff has been traced to its affected test files
+- [ ] Every affected test file has been read from GitHub (not from memory)
+- [ ] Every assertion that is now wrong has been updated in this PR
 - [ ] Every new function has at least one unit test
 - [ ] Every new API route has at least one integration test (happy path + one error case)
 - [ ] Every modified API shape (request or response) has updated tests
@@ -519,6 +545,7 @@ cd trackmyweek/client && npm install
 - [ ] No element ID changed without updating `docs/HTML_JS_CONTRACT.md`
 - [ ] All user-returning API routes use `safeUser()` — `passwordHash` never exposed
 - [ ] Style-only changes are in their own commit, separate from logic changes
+- [ ] Every behavior change has been traced to affected test files and those tests updated (Section 2.5)
 - [ ] Every new function has at least one test (per Section 2.5 checklist)
 - [ ] No existing test was deleted or disabled without explicit approval
 - [ ] Any new E2E test passes the litmus test in Section 2.6 before being written
@@ -663,13 +690,16 @@ code, so the human is never left guessing what to run after merging.
 1. **Read `docs/testing/README.md`** to understand the current test landscape.
 2. **Read the relevant project catalog** (`docs/testing/PORTAL.md`, `docs/testing/TRACKMYWEEK.md`,
    or the appropriate project file) for every project touched by the PR.
-3. **Fill out the Test Coverage section** of the PR description (see `.github/pull_request_template.md`)
+3. **Trace every behavior change to its affected test files** and read those files from GitHub.
+   Update any assertion that is now wrong before the PR is opened (see Section 2.5).
+4. **Fill out the Test Coverage section** of the PR description (see `.github/pull_request_template.md`)
    with:
    - Existing tests that exercise the changed code paths
    - New tests added in this PR (file, classification, what it covers)
    - Tests not added and an explicit reason why
-4. **Update the relevant `docs/testing/<PROJECT>.md`** in the same PR if any new tests are added.
-   A PR that adds tests without updating the catalog is incomplete.
+5. **Update the relevant `docs/testing/<PROJECT>.md`** in the same PR if any new tests are added
+   or any existing test descriptions change. A PR that adds or modifies tests without updating
+   the catalog is incomplete.
 
 ### When a new project is added
 

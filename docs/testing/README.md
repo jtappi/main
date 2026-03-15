@@ -56,9 +56,15 @@ See each project's catalog for the full breakdown.
 ## Rules for Maintaining This Documentation
 
 1. **Every PR that adds a new test must update the relevant project catalog** in the same PR.
-2. **Every PR that adds a new project must create a new `docs/testing/<PROJECT>.md`** and update this `README.md` index in the same PR.
-3. **Claude must read `docs/testing/` before opening any PR** and explicitly state in the PR description what tests exist and what new tests the PR adds.
-4. **Missing tests** (`🔴`) are tracked here as the authoritative backlog for test coverage. Do not remove a `🔴` entry without adding the test.
+2. **Every PR that modifies existing behavior must re-read the affected test files** from GitHub,
+   verify every assertion is still correct, update any that are wrong, and update the catalog
+   to reflect the change — all before the PR is opened.
+3. **Every PR that adds a new project must create a new `docs/testing/<PROJECT>.md`** and update
+   this `README.md` index in the same PR.
+4. **Claude must read `docs/testing/` before opening any PR** and explicitly state in the PR
+   description what tests exist, what new tests the PR adds, and what existing tests were updated.
+5. **Missing tests** (`🔴`) are tracked in project catalogs as the authoritative backlog.
+   Do not remove a `🔴` entry without adding the test.
 
 > **Backlog item:** CI tooling to auto-validate that new test files are referenced in the
 > appropriate `docs/testing/<PROJECT>.md`, and to auto-regenerate this index. Tracked in `docs/TODO.md`.
