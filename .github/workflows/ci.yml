@@ -12,8 +12,6 @@ permissions:
 
 jobs:
   # ── Job 0: Detect changed paths ──────────────────────────────────────────
-  # Only runs on pull_request. On push to main, all jobs run unconditionally
-  # so the test log is always committed and the dashboard stays accurate.
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
@@ -40,8 +38,6 @@ jobs:
               - 'scripts/**'
 
   # ── Job 1: Unit & Integration Tests ──────────────────────────────────────
-  # Runs when: push to main (always), or PR touching portal/trackmyweek/ci/scripts.
-  # Skipped when: PR only touches docs, markdown, or other non-code files.
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -113,22 +109,21 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
       - name: Commit and push test log
-        # Runs on both push and pull_request so all Jest results appear on the dashboard.
-        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git stash -- logs/test-runs.jsonl
-          git pull --rebase origin main
-          git stash pop
+          cp logs/test-runs.jsonl /tmp/test-runs-jest.jsonl
+          git checkout -- logs/test-runs.jsonl
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp /tmp/test-runs-jest.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
 
   # ── Job 2: E2E Tests (Playwright) ────────────────────────────────────────
-  # Runs when: push to main (always), or PR touching portal/trackmyweek/ci.
-  # Skipped when: PR only touches docs, markdown, scripts, or other non-code files.
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
@@ -251,17 +246,16 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
 
       - name: Commit and push E2E log
-        # Runs on both push and pull_request so all E2E results appear on the dashboard.
-        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
-        # If branch protection requiring PRs is re-enabled, this step will fail for
-        # pull_request events and must be updated to use a bot-bypass token instead.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git stash -- logs/test-runs.jsonl
-          git pull --rebase origin main
-          git stash pop
+          cp logs/test-runs.jsonl /tmp/test-runs-e2e.jsonl
+          git checkout -- logs/test-runs.jsonl
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          cp /tmp/test-runs-e2e.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log E2E test run results [skip ci]"
           git push origin HEAD:main
@@ -284,23 +278,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Deploy Playwright reports to server
-        # Deploys both report directories to the Mac Mini via rsync over SSH.
-        # Naming convention:
-        #   PR runs     -> PR-{number}/{portal|trackmyweek}/
-        #   Push runs   -> push-{short-sha}/{portal|trackmyweek}/
-        # Reports are served at https://trackmyweek.com/playwright-reports/{slug}/
-        # and are protected behind portal admin login.
+      - name: Set report slug
         if: always()
-        env:
-          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
-
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             SLUG="PR-${{ github.event.pull_request.number }}"
           else
@@ -308,18 +288,38 @@ jobs:
           fi
           echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
 
+      - name: Deploy Playwright reports to server
+        # DEPLOY_KEY is base64-encoded in the secret to avoid newline mangling.
+        # Only rsync directories that actually exist (tests may not produce a report
+        # if they fail before Playwright writes output).
+        if: always()
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" | base64 --decode > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
+
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" \
-            "mkdir -p ~/apps/main/playwright-reports/${SLUG}/portal ~/apps/main/playwright-reports/${SLUG}/trackmyweek"
+            "mkdir -p ~/apps/main/playwright-reports/${REPORT_SLUG}/portal ~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek"
 
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/portal/"
+          if [ -d playwright-report ]; then
+            rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+              playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/portal/"
+          else
+            echo "No portal report directory found, skipping rsync"
+          fi
 
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${SLUG}/trackmyweek/"
+          if [ -d trackmyweek/client/playwright-report-tmw ]; then
+            rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+              trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek/"
+          else
+            echo "No trackmyweek report directory found, skipping rsync"
+          fi
 
       - name: Post PR comment with report links
-        # Posts (or updates in place) a sticky comment on the PR with direct links.
-        # Uses a marker comment so re-runs on the same PR replace the previous comment.
         if: always() && github.event_name == 'pull_request'
         uses: peter-evans/create-or-update-comment@v4
         with:
