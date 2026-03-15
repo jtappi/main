@@ -64,6 +64,14 @@ Critical = app is broken for all users if this fails.
 |--------|------|------------------|
 | ✅ | `adding a new question persists and appears in list` | POST to API → new question renders in unanswered list |
 
+### E2E — `trackmyweek/client/tests/e2e/return-to.spec.js`
+
+| Status | Test | What it verifies |
+|--------|------|------------------|
+| ✅ | `unauthenticated /trackmyweek/log redirects to login with returnTo` | RequireAuth redirects with correct returnTo URL |
+| ✅ | `unauthenticated /trackmyweek/log redirects to login then back after login` | Full round-trip: unauthenticated → login → back to /log |
+| ✅ | `unauthenticated /trackmyweek/view redirects to login then back after login` | Full round-trip: unauthenticated → login → back to /view |
+
 ---
 
 ## Smoke Tests
