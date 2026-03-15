@@ -12,10 +12,11 @@ Read `CLAUDE.md` in full before doing anything else, then read this file.
 - **PR #56** — fix all Playwright E2E failures (cookie.secure CI fix + selector fixes)
 - **PR #57** — trim E2E to critical flows + smoke checks; CLAUDE.md Section 2.6 added
 - **PR #58** — log all CI events (push + PR) to test dashboard; CLAUDE.md Section 12 updated
-- **PR #59** — Playwright report hosting on server with PR comments (**MERGED BUT BROKEN** — see issues below)
+- **PR #59** — Playwright report hosting on server with PR comments
+- **PR #60** — fix CI log commit detached HEAD + report slug + SSH deploy
 
 ### Open PRs at end of session
-- **PR #60** — fix CI log commit detached HEAD + report slug + SSH deploy (in progress)
+None. Confirmed with `list_pull_requests`.
 
 ---
 
@@ -25,41 +26,20 @@ Read `CLAUDE.md` in full before doing anything else, then read this file.
 - Unit and integration tests passing
 - E2E auth fixed (`cookie.secure && !process.env.CI`)
 - Test dashboard shows PR runs alongside push-to-main runs
-- Portal route `GET /playwright-reports/*` exists behind `requireAdmin` (added in PR #59)
-- CI log commit steps fixed (cp/checkout/pull pattern — no more stash conflicts)
-- Report slug now set in dedicated step before deploy
+- Portal route `GET /playwright-reports/*` exists behind `requireAdmin`
+- CI log commit steps use cp/checkout/pull pattern — no stash conflicts
+- Report slug set in dedicated step before deploy — no double-slash in URLs
 - `DEPLOY_SSH_KEY` stored as base64 and decoded in CI deploy step
-- Both secrets (`DEPLOY_HOST`, `DEPLOY_SSH_KEY`) set via `gh` CLI — SSH confirmed working
-- rsync now guarded with directory existence checks (deploy step won't fail if no report)
-
-### What's still in progress
-- PR #60 is passing except for E2E test failures (unrelated to this PR's changes)
-- Once E2E tests pass, PR #60 is ready to merge
-
----
-
-## SSH Deploy — Confirmed Working
-
+- Both secrets (`DEPLOY_HOST`, `DEPLOY_SSH_KEY`) set via `gh` CLI
+- SSH deploy confirmed working — rsync reaches Mac Mini
+- rsync guarded with directory existence checks — no failure if no report generated
 - Port 22 forwarded through Xfinity router to Mac Mini at `10.0.0.98`
-- `DEPLOY_HOST` set to `jitendrabhatt@<external-ip>` via `gh secret set`
-- `DEPLOY_SSH_KEY` set to base64-encoded private key via `gh secret set`
-- CI deploy step decodes key with `echo "$DEPLOY_KEY" | base64 --decode > ~/.ssh/deploy_key`
-- SSH connection confirmed working — rsync now reaches the Mac Mini
-- TODO: Replace port 22 forwarding with Tailscale (see docs/TODO.md)
 
 ---
 
 ## Next session: priority order
 
-### Step 1 — Merge PR #60 once E2E tests pass
-Verify all steps green, then merge.
-
-### Step 2 — Restart portal on Mac Mini after merge
-```bash
-pm2 restart portal
-```
-
-### Step 3 — Set up prune cron (low urgency)
+### Step 1 — Set up prune cron (low urgency)
 ```bash
 crontab -e
 ```
@@ -68,9 +48,13 @@ Add line:
 0 3 * * * bash ~/apps/main/scripts/prune-playwright-reports.sh >> ~/apps/main/logs/prune.log 2>&1
 ```
 
+### Step 2 — Replace port 22 forwarding with Tailscale (low urgency)
+See `docs/TODO.md` for details.
+
 ---
 
 ## Key files to read at next session start
 1. `CLAUDE.md` — full working agreement (mandatory)
 2. `docs/HANDOFF.md` — this file
-3. `.github/workflows/ci.yml` — current state on PR #60 branch
+3. `.github/workflows/ci.yml` — current state
+4. `.github/workflows/e2e-on-demand.yml` — current state
