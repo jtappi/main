@@ -112,10 +112,15 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
       - name: Commit and push test log
-        if: ${{ always() && github.event_name == 'push' }}
+        # Runs on both push and pull_request so all Jest results appear on the dashboard.
+        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git stash -- logs/test-runs.jsonl
+          git pull --rebase origin main
+          git stash pop
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
@@ -245,7 +250,11 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
 
       - name: Commit and push E2E log
-        if: ${{ always() && github.event_name == 'push' }}
+        # Runs on both push and pull_request so all E2E results appear on the dashboard.
+        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
+        # If branch protection requiring PRs is re-enabled, this step will fail for
+        # pull_request events and must be updated to use a bot-bypass token instead.
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -280,7 +289,7 @@ jobs:
           PORTAL_EXIT="${{ steps.portal-e2e.outputs.exit_code }}"
           TMW_EXIT="${{ steps.tmw-e2e.outputs.exit_code }}"
           if [ "$PORTAL_EXIT" != "0" ] || [ "$TMW_EXIT" != "0" ]; then
-            echo "E2E tests failed — portal exit: ${PORTAL_EXIT:-n/a}  trackmyweek exit: ${TMW_EXIT:-n/a}"
+            echo "E2E tests failed - portal exit: ${PORTAL_EXIT:-n/a}  trackmyweek exit: ${TMW_EXIT:-n/a}"
             exit 1
           fi
           echo "All E2E tests passed"
