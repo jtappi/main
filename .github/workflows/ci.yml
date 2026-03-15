@@ -113,21 +113,19 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
       - name: Commit and push test log
-        # Runs on both push and pull_request so all Jest results appear on the dashboard.
-        # Stage the log file and stash before checkout to avoid 'overwritten by checkout'
-        # error when the log script has written new content to the working tree.
-        # Works in both branch and detached HEAD (PR) contexts.
-        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
+        # Saves the updated log to /tmp, switches to main, then overwrites the log
+        # with the saved version before committing. Avoids stash conflicts when the
+        # Jest and E2E jobs run concurrently and both try to commit to main.
+        # Works in both branch and detached HEAD (PR merge ref) contexts.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add logs/test-runs.jsonl
-          git stash
+          cp logs/test-runs.jsonl /tmp/test-runs-jest.jsonl
           git fetch origin main
           git checkout main
           git pull origin main
-          git stash pop
+          cp /tmp/test-runs-jest.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
@@ -257,21 +255,19 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
 
       - name: Commit and push E2E log
-        # Runs on both push and pull_request so all E2E results appear on the dashboard.
-        # Stage the log file and stash before checkout to avoid 'overwritten by checkout'
-        # error when the log script has written new content to the working tree.
-        # Works in both branch and detached HEAD (PR) contexts.
-        # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
+        # Saves the updated log to /tmp, switches to main, then overwrites the log
+        # with the saved version before committing. Avoids stash conflicts when the
+        # Jest and E2E jobs run concurrently and both try to commit to main.
+        # Works in both branch and detached HEAD (PR merge ref) contexts.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add logs/test-runs.jsonl
-          git stash
+          cp logs/test-runs.jsonl /tmp/test-runs-e2e.jsonl
           git fetch origin main
           git checkout main
           git pull origin main
-          git stash pop
+          cp /tmp/test-runs-e2e.jsonl logs/test-runs.jsonl
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log E2E test run results [skip ci]"
           git push origin HEAD:main
@@ -296,8 +292,7 @@ jobs:
 
       - name: Set report slug
         # Dedicated step so REPORT_SLUG is always set in $GITHUB_ENV before the deploy
-        # and comment steps run, even if deploy fails. Fixes the double-slash bug caused
-        # by REPORT_SLUG being empty when the previous deploy step errored out.
+        # and comment steps run, even if deploy fails. Fixes the double-slash bug.
         if: always()
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -308,12 +303,6 @@ jobs:
           echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
 
       - name: Deploy Playwright reports to server
-        # Deploys both report directories to the Mac Mini via rsync over SSH.
-        # Naming convention:
-        #   PR runs     -> PR-{number}/{portal|trackmyweek}/
-        #   Push runs   -> push-{short-sha}/{portal|trackmyweek}/
-        # Reports are served at https://trackmyweek.com/playwright-reports/{slug}/
-        # and are protected behind portal admin login.
         if: always()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -334,8 +323,6 @@ jobs:
             trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek/"
 
       - name: Post PR comment with report links
-        # Posts (or updates in place) a sticky comment on the PR with direct links.
-        # Uses a marker comment so re-runs on the same PR replace the previous comment.
         if: always() && github.event_name == 'pull_request'
         uses: peter-evans/create-or-update-comment@v4
         with:
