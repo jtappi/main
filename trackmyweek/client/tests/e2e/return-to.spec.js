@@ -8,9 +8,14 @@ import { test, expect } from '@playwright/test';
  *
  * These tests intentionally do NOT use storageState so they run unauthenticated.
  * They must be self-contained and not depend on global-setup seeding.
+ *
+ * Note on baseURL: the CI config sets baseURL to 'http://localhost:3000/trackmyweek'.
+ * We use full URLs here to avoid path doubling (baseURL + relative path).
+ * The BASE constant matches what the portal serves at.
  */
 
-const TMW_USER = 'e2e-tmw-001';
+const BASE     = 'http://localhost:3000';
+const TMW_USER = 'e2e-tmw';
 const TMW_PASS = 'e2epassword';
 
 async function loginWith(page, username, password) {
@@ -24,7 +29,7 @@ test.describe('TrackMyWeek returnTo — unauthenticated redirect', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('unauthenticated /trackmyweek/log redirects to login with returnTo', async ({ page }) => {
-    await page.goto('/trackmyweek/log');
+    await page.goto(`${BASE}/trackmyweek/log`);
     await expect(page).toHaveURL(/\/login\?returnTo=/, { timeout: 5000 });
     await expect(page.getByTestId('login-card')).toBeVisible();
     const url = new URL(page.url());
@@ -32,7 +37,7 @@ test.describe('TrackMyWeek returnTo — unauthenticated redirect', () => {
   });
 
   test('unauthenticated /trackmyweek/log redirects to login then back after login', async ({ page }) => {
-    await page.goto('/trackmyweek/log');
+    await page.goto(`${BASE}/trackmyweek/log`);
     await expect(page).toHaveURL(/\/login\?returnTo=/, { timeout: 5000 });
     await loginWith(page, TMW_USER, TMW_PASS);
     await expect(page).toHaveURL(/\/trackmyweek\/log/, { timeout: 5000 });
@@ -43,7 +48,7 @@ test.describe('TrackMyWeek returnTo — unauthenticated redirect', () => {
   });
 
   test('unauthenticated /trackmyweek/view redirects to login then back after login', async ({ page }) => {
-    await page.goto('/trackmyweek/view');
+    await page.goto(`${BASE}/trackmyweek/view`);
     await expect(page).toHaveURL(/\/login\?returnTo=/, { timeout: 5000 });
     await loginWith(page, TMW_USER, TMW_PASS);
     await expect(page).toHaveURL(/\/trackmyweek\/view/, { timeout: 5000 });
