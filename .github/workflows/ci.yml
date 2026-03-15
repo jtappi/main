@@ -290,7 +290,6 @@ jobs:
 
       - name: Deploy Playwright reports to server
         # DEPLOY_KEY is stored as base64 in the secret to avoid newline mangling.
-        # Decode it before writing to disk.
         if: always()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
