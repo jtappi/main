@@ -137,13 +137,13 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=on-demand --type=e2e
 
       - name: Commit and push on-demand E2E log
-        # Saves the updated log to /tmp, switches to main, overwrites and commits.
-        # Same cp-based pattern as ci.yml — no stash, no conflict risk.
+        # cp to /tmp first, discard working tree change, checkout main, restore and commit.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp logs/test-runs.jsonl /tmp/test-runs-ondemand.jsonl
+          git checkout -- logs/test-runs.jsonl
           git fetch origin main
           git checkout main
           git pull origin main
