@@ -37,7 +37,7 @@ jobs:
             scripts:
               - 'scripts/**'
 
-  # ── Job 1: Unit & Integration Tests ────────────────────────────────
+  # ── Job 1: Unit & Integration Tests + Coverage ─────────────────────
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -92,13 +92,85 @@ jobs:
       - name: Ensure log file exists
         run: touch logs/test-runs.jsonl
 
-      - name: Run portal unit & integration tests
-        run: npm test -- --ci --forceExit --json --outputFile=/tmp/portal-jest-results.json
+      - name: Run portal unit & integration tests with coverage
+        run: npm run test:coverage -- --ci --forceExit --json --outputFile=/tmp/portal-jest-results.json
         working-directory: portal
 
-      - name: Run trackmyweek unit tests
-        run: npm test -- --ci --forceExit --json --outputFile=/tmp/trackmyweek-jest-results.json
+      - name: Run trackmyweek unit tests with coverage
+        run: npm run test:coverage -- --ci --forceExit --json --outputFile=/tmp/trackmyweek-jest-results.json
         working-directory: trackmyweek
+
+      - name: Upload portal coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-portal
+          path: portal/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload trackmyweek coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-trackmyweek
+          path: trackmyweek/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Write coverage summary to job summary
+        if: always()
+        run: |
+          echo "## 📊 Code Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Portal" >> $GITHUB_STEP_SUMMARY
+          if [ -f portal/coverage/coverage-summary.json ]; then
+            node -e "
+              const s = require('./portal/coverage/coverage-summary.json').total;
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Statements | ' + s.statements.pct + '% |');
+              console.log('| Branches | ' + s.branches.pct + '% |');
+              console.log('| Functions | ' + s.functions.pct + '% |');
+              console.log('| Lines | ' + s.lines.pct + '% |');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Coverage report not found." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### TrackMyWeek" >> $GITHUB_STEP_SUMMARY
+          if [ -f trackmyweek/coverage/coverage-summary.json ]; then
+            node -e "
+              const s = require('./trackmyweek/coverage/coverage-summary.json').total;
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Statements | ' + s.statements.pct + '% |');
+              console.log('| Branches | ' + s.branches.pct + '% |');
+              console.log('| Functions | ' + s.functions.pct + '% |');
+              console.log('| Lines | ' + s.lines.pct + '% |');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Coverage report not found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Post coverage summary as PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- coverage-comment -->
+            ## 📊 Code Coverage
+
+            ### Portal
+            ${{ hashFiles('portal/coverage/coverage-summary.json') != '' && 'See job summary for details.' || 'Report not generated.' }}
+
+            ### TrackMyWeek
+            ${{ hashFiles('trackmyweek/coverage/coverage-summary.json') != '' && 'See job summary for details.' || 'Report not generated.' }}
+
+            Full HTML reports available as CI artifacts: **coverage-portal** and **coverage-trackmyweek** (retained 14 days).
+          comment-author: github-actions[bot]
+          body-includes: coverage-comment
 
       - name: Log portal test run results
         if: always()
@@ -123,7 +195,7 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
 
-  # ── Job 2: E2E Tests (Playwright) ──────────────────────────────────
+  # ── Job 2: E2E Tests (Playwright) ────────────────────────────────
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest

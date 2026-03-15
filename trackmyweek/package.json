@@ -24,7 +24,22 @@
     "collectCoverageFrom": [
       "lib/**/*.js",
       "controllers/**/*.js",
-      "!**/node_modules/**"
-    ]
+      "!**/node_modules/**",
+      "!lib/data.js"
+    ],
+    "coverageReporters": ["text", "lcov", "json-summary"],
+    "coverageDirectory": "coverage",
+    "coverageThreshold": {
+      "global": {
+        "branches": 65,
+        "functions": 80,
+        "lines": 78
+      },
+      "./controllers/prebuilt.controller.js": {
+        "branches": 0,
+        "functions": 10,
+        "lines": 25
+      }
+    }
   }
 }
