@@ -621,3 +621,29 @@ npm run build
 ```
 
 See `docs/DEPLOY.md` for the full deploy workflow.
+
+---
+
+## 15. Mac Mini Deploy Workflow — After Every Server-Side Merge
+
+**Both steps are always required. `pm2 restart` alone does not pull new code.**
+
+After merging any PR that changes server-side code (`portal/`, `core/`, `trackmyweek/server.js`,
+or any `.github/workflows/` file that affects the running app):
+
+```bash
+cd ~/apps/main
+git pull origin main
+pm2 restart portal
+```
+
+If the trackmyweek client was also changed (anything under `trackmyweek/client/src/`,
+`trackmyweek/client/index.html`, or `trackmyweek/client/vite.config.js`), also rebuild:
+
+```bash
+cd ~/apps/main/trackmyweek/client
+npm run build
+```
+
+**Claude must include these commands in every PR description** that touches server-side
+code, so the human is never left guessing what to run after merging.
