@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// ── Fixture setup ─────────────────────────────────────────────────────────────
+// ── Fixture setup ─────────────────────────────────────────────
 const USERS_FIXTURE = path.join(__dirname, '../fixtures/users.fixture.json');
 const PROJECTS_FIXTURE = path.join(__dirname, '../fixtures/projects.fixture.json');
 
@@ -27,7 +27,7 @@ afterEach(() => {
   if (fs.existsSync(tmpUsers)) fs.unlinkSync(tmpUsers);
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────
 async function loginAs(agent, username, password = 'test') {
   const hash = require('crypto')
     .createHash('sha256').update(password).digest('hex');
@@ -36,7 +36,7 @@ async function loginAs(agent, username, password = 'test') {
     .send({ identifier: username, passwordHash: hash });
 }
 
-// ── Root redirect ─────────────────────────────────────────────────────────────
+// ── Root redirect ────────────────────────────────────────────
 describe('GET /', () => {
   test('redirects to /login when unauthenticated', async () => {
     const res = await request(app).get('/');
@@ -45,7 +45,7 @@ describe('GET /', () => {
   });
 });
 
-// ── Login page ────────────────────────────────────────────────────────────────
+// ── Login page ──────────────────────────────────────────────
 describe('GET /login', () => {
   test('returns 200 with HTML', async () => {
     const res = await request(app).get('/login');
@@ -54,7 +54,7 @@ describe('GET /login', () => {
   });
 });
 
-// ── Auth: POST /auth/login ────────────────────────────────────────────────────
+// ── Auth: POST /auth/login ────────────────────────────────────────────
 describe('POST /auth/login', () => {
   test('returns success and role for valid admin', async () => {
     const agent = request.agent(app);
@@ -96,7 +96,7 @@ describe('POST /auth/login', () => {
   });
 });
 
-// ── Auth: session + logout ────────────────────────────────────────────────────
+// ── Auth: session + logout ────────────────────────────────────────────
 describe('GET /auth/session', () => {
   test('returns authenticated:false when not logged in', async () => {
     const res = await request(app).get('/auth/session');
@@ -123,14 +123,12 @@ describe('POST /auth/logout', () => {
   });
 });
 
-// ── Protected routes ──────────────────────────────────────────────────────────
+// ── Protected routes ──────────────────────────────────────────────
 describe('GET /dashboard', () => {
-  // requireAuth redirects unauthenticated browsers to /login (302).
-  // Supertest does not follow redirects, so we assert 302.
-  test('redirects to /login when unauthenticated', async () => {
+  test('redirects to /login?returnTo=%2Fdashboard when unauthenticated', async () => {
     const res = await request(app).get('/dashboard');
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/login');
+    expect(res.headers.location).toBe('/login?returnTo=%2Fdashboard');
   });
 
   test('returns 200 for authenticated user', async () => {
@@ -142,11 +140,10 @@ describe('GET /dashboard', () => {
 });
 
 describe('GET /admin', () => {
-  // requireAdmin returns 403 for any non-admin (including unauthenticated)
-  // because it checks role directly without a prior auth gate.
-  test('returns 403 when unauthenticated', async () => {
+  test('redirects to /login?returnTo=%2Fadmin when unauthenticated', async () => {
     const res = await request(app).get('/admin');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login?returnTo=%2Fadmin');
   });
 
   test('returns 403 for authenticated guest user', async () => {
@@ -164,13 +161,12 @@ describe('GET /admin', () => {
   });
 });
 
-// ── API: projects ─────────────────────────────────────────────────────────────
+// ── API: projects ───────────────────────────────────────────────
 describe('GET /api/projects', () => {
-  // requireAuth redirects unauthenticated requests to /login (302)
-  test('redirects to /login when unauthenticated', async () => {
+  test('redirects to /login?returnTo=%2Fapi%2Fprojects when unauthenticated', async () => {
     const res = await request(app).get('/api/projects');
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/login');
+    expect(res.headers.location).toBe('/login?returnTo=%2Fapi%2Fprojects');
   });
 
   test('returns projects for authenticated guest with access', async () => {
@@ -191,7 +187,7 @@ describe('GET /api/projects', () => {
   });
 });
 
-// ── Admin: user management ────────────────────────────────────────────────────
+// ── Admin: user management ────────────────────────────────────────────
 describe('Admin user CRUD', () => {
   test('GET /admin/users returns user list for admin', async () => {
     const agent = request.agent(app);

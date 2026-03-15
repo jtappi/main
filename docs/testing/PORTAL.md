@@ -50,6 +50,8 @@ Critical = app is broken for all users if this fails.
 | ✅ | `admin login redirects to dashboard` | Admin credentials authenticate and session is established |
 | ✅ | `guest login redirects to dashboard` | Guest credentials authenticate and session is established |
 | ✅ | `authenticated session skips login page` | Active session is preserved across navigation |
+| ✅ | `unauthenticated access to /dashboard redirects to login then back` | Unauthenticated user is redirected to login with returnTo, then lands on original page after login |
+| ✅ | `unauthenticated access to /admin redirects to login then back for admin user` | Same flow for admin-only page |
 
 ### Integration — `tests/integration/portal.test.js`
 
@@ -87,8 +89,8 @@ Smoke = a specific surface is broken if this fails, but the whole app still work
 | Status | Test | What it verifies |
 |--------|------|------------------|
 | ✅ | `admin panel loads with users table populated` | Admin page renders and `/admin/users` returned data |
-| ✅ | `unauthenticated /admin returns 403` | Auth boundary on admin route |
-| ✅ | `guest cannot access /admin (403)` | Role boundary on admin route |
+| ✅ | `unauthenticated /admin redirects to login with returnTo` | Unauthenticated request gets 302 to `/login?returnTo=%2Fadmin` |
+| ✅ | `guest cannot access /admin (403)` | Authenticated non-admin gets 403 |
 | 🔴 | `test dashboard loads for admin user` | `/test-dashboard` route is reachable and renders |
 
 ### Integration — `tests/integration/portal.test.js`
@@ -128,9 +130,9 @@ Full list in `tests/integration/portal.test.js`.
 ### Protected Routes
 | Status | Test |
 |--------|------|
-| ✅ | `GET /dashboard` — redirect when unauth, 200 when auth |
-| ✅ | `GET /admin` — 403 when unauth, 403 for guest, 200 for admin |
-| ✅ | `GET /api/projects` — redirect when unauth, filtered for guest, all for admin |
+| ✅ | `GET /dashboard` — redirects to `/login?returnTo=%2Fdashboard` when unauth, 200 when auth |
+| ✅ | `GET /admin` — redirects to `/login?returnTo=%2Fadmin` when unauth, 403 for guest, 200 for admin |
+| ✅ | `GET /api/projects` — redirects to `/login?returnTo=...` when unauth, filtered for guest, all for admin |
 
 ### Admin User CRUD
 | Status | Test |
@@ -165,9 +167,9 @@ Full list in `tests/integration/portal.test.js`.
 
 | Status | Function | Tests |
 |--------|----------|-------|
-| ✅ | `requireAuth` | Calls next for authenticated, redirects to /login when no session |
+| ✅ | `requireAuth` | Calls next for authenticated; redirects to `/login?returnTo=<url>` when no session; encodes URL correctly |
 | ✅ | `requireAdmin` | Calls next for admin, 403 for guest, 403 for unauthenticated |
-| ✅ | `requireProjectAccess` | Admin bypasses check, guest with access passes, guest without access gets 403, unauthenticated redirected |
+| ✅ | `requireProjectAccess` | Admin bypasses check, guest with access passes, guest without access gets 403, unauthenticated redirected to `/login?returnTo=<url>` |
 
 ---
 
@@ -178,6 +180,6 @@ Do not remove an entry without adding the test.
 
 | Priority | Type | What to test | Notes |
 |----------|------|-------------|-------|
-| High | Smoke (E2E) | `/test-dashboard` loads for admin user | All users should be able to access the test dashboard |
+| High | Smoke (E2E) | `/test-dashboard` loads for admin user | All admin users should be able to access the test dashboard |
 | Medium | Integration | `GET /test-dashboard` — 200 for admin, 403 for guest | Route-level auth boundary |
 | Medium | Integration | Admin project CRUD (`POST`, `PUT`, `DELETE /admin/projects`) | Not yet implemented in server or tested |
