@@ -139,11 +139,15 @@ app.get('/test-dashboard', requireAdmin, (req, res) => {
 // Directory structure: playwright-reports/{slug}/{portal|trackmyweek}/index.html
 // Slugs: PR-{number} | push-{short-sha} | on-demand-{run-id}
 //
-// scriptSrc is relaxed to 'unsafe-inline' above to allow Playwright's
-// self-contained report HTML to run its inline scripts.
-app.use('/playwright-reports', requireAdmin,
-  express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' })
-);
+// A dedicated Router is used so that express.static's directory index
+// resolution (dir/ → dir/index.html) works correctly when mounted at a
+// sub-path. Using app.use() with multiple handlers inline prevents the
+// trailing-slash redirect that static needs to find index.html.
+const reportsRouter = express.Router();
+reportsRouter.use(requireAdmin);
+reportsRouter.use(express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' }));
+reportsRouter.use((req, res) => res.status(404).send('Report not found.'));
+app.use('/playwright-reports', reportsRouter);
 
 // ── Routes: Auth ───────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
