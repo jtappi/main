@@ -89,8 +89,8 @@ Smoke = a specific surface is broken if this fails, but the whole app still work
 | Status | Test | What it verifies |
 |--------|------|------------------|
 | ✅ | `admin panel loads with users table populated` | Admin page renders and `/admin/users` returned data |
-| ✅ | `unauthenticated /admin returns 403` | Auth boundary on admin route |
-| ✅ | `guest cannot access /admin (403)` | Role boundary on admin route |
+| ✅ | `unauthenticated /admin redirects to login with returnTo` | Unauthenticated request gets 302 to `/login?returnTo=%2Fadmin` |
+| ✅ | `guest cannot access /admin (403)` | Authenticated non-admin gets 403 |
 | 🔴 | `test dashboard loads for admin user` | `/test-dashboard` route is reachable and renders |
 
 ### Integration — `tests/integration/portal.test.js`

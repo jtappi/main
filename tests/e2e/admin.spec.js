@@ -17,11 +17,15 @@ async function loginAs(page, username, password) {
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
 }
 
-// ── Auth boundaries ───────────────────────────────────────────────────────────
+// ── Auth boundaries ────────────────────────────────────────────────
 
-test('unauthenticated /admin returns 403', async ({ request }) => {
+// Unauthenticated users are now redirected to /login?returnTo=%2Fadmin
+// instead of receiving a 403. The 403 behaviour only applies to authenticated
+// users who lack the admin role (see test below).
+test('unauthenticated /admin redirects to login with returnTo', async ({ request }) => {
   const res = await request.get(`${BASE}/admin`, { maxRedirects: 0 });
-  expect(res.status()).toBe(403);
+  expect(res.status()).toBe(302);
+  expect(res.headers()['location']).toBe('/login?returnTo=%2Fadmin');
 });
 
 test('guest cannot access /admin (403)', async ({ page }) => {
@@ -30,7 +34,7 @@ test('guest cannot access /admin (403)', async ({ page }) => {
   expect(res.status()).toBe(403);
 });
 
-// ── Smoke check ───────────────────────────────────────────────────────────────
+// ── Smoke check ──────────────────────────────────────────────────
 // Confirms the admin page loads and the users API returned data.
 
 test('admin panel loads with users table populated', async ({ page }) => {
