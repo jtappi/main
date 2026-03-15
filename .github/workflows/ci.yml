@@ -289,7 +289,9 @@ jobs:
           echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
 
       - name: Deploy Playwright reports to server
-        # DEPLOY_KEY is stored as base64 in the secret to avoid newline mangling.
+        # DEPLOY_KEY is base64-encoded in the secret to avoid newline mangling.
+        # Only rsync directories that actually exist (tests may not produce a report
+        # if they fail before Playwright writes output).
         if: always()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -303,11 +305,19 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" \
             "mkdir -p ~/apps/main/playwright-reports/${REPORT_SLUG}/portal ~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek"
 
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/portal/"
+          if [ -d playwright-report ]; then
+            rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+              playwright-report/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/portal/"
+          else
+            echo "No portal report directory found, skipping rsync"
+          fi
 
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek/"
+          if [ -d trackmyweek/client/playwright-report-tmw ]; then
+            rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+              trackmyweek/client/playwright-report-tmw/ "$DEPLOY_HOST:~/apps/main/playwright-reports/${REPORT_SLUG}/trackmyweek/"
+          else
+            echo "No trackmyweek report directory found, skipping rsync"
+          fi
 
       - name: Post PR comment with report links
         if: always() && github.event_name == 'pull_request'
