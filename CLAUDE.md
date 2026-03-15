@@ -530,10 +530,33 @@ cd trackmyweek/client && npm install
 - The script requires a `--project=<slug>` flag. Every CI log step must pass this flag.
 - Do not gitignore anything inside `logs/`.
 - Log commits use `[skip ci]` in the message to prevent infinite CI trigger loops.
-- The log push step runs on `push` events only (not `pull_request`) and pushes directly
-  to `main` via `git push origin HEAD:main`.
+- The log push step runs on **all** CI events (both `push` and `pull_request`) so that
+  PR test results appear in the dashboard alongside post-merge results.
 - The portal reads `logs/test-runs.jsonl` from `raw.githubusercontent.com` at request time,
   so no `git pull` on the Mac Mini is ever needed for dashboard data to update.
+- Use the **branch** and **trigger** filters on the test dashboard to isolate post-merge
+  history from PR runs when needed (filter to `branch=main`, `trigger=push`).
+
+### Known caveats with logging all CI events (as of March 2026)
+
+Logging both `push` and `pull_request` runs involves three trade-offs that are accepted
+by design but must be revisited if the workflow changes:
+
+1. **PR runs commit directly to `main` via the CI bot.** This is intentional and safe
+   because the bot only ever appends to `logs/test-runs.jsonl` — it never touches source
+   files. However, if branch protection rules requiring PRs before merging are ever
+   re-enabled, the log push step will fail for `pull_request` events. At that point it
+   must be updated to push to the PR branch instead, or use a bot-bypass token.
+
+2. **The dashboard will contain PR branch runs alongside post-merge runs.** Each log entry
+   stores `branch` and `trigger` fields. Filter by `trigger=push` and `branch=main` on
+   the dashboard to see only post-merge history. PR runs show `trigger=pull_request` and
+   their source branch name.
+
+3. **Concurrent PRs can cause a rebase conflict on the log push.** If two PRs run CI
+   simultaneously and both try to commit a log entry to `main` at the same moment, one
+   push will fail the rebase. This is rare in solo development but would need a retry
+   mechanism or queue-based log delivery if the team grows.
 
 ### Adding a new project to the test dashboard
 1. Add a CI step: `npm test -- --ci --forceExit --json --outputFile=/tmp/<n>-jest-results.json`
