@@ -26,9 +26,9 @@ None. Confirmed with `list_pull_requests`.
 - E2E auth fixed (`cookie.secure && !process.env.CI`)
 - Test dashboard shows PR runs alongside push-to-main runs
 - Portal route `GET /playwright-reports/*` exists behind `requireAdmin` (added in PR #59)
-- CI attempts to deploy reports via rsync after E2E runs (broken — see Issue 3)
+- CI attempts to deploy reports via rsync after E2E runs (broken — see Bug 3)
 
-### What's broken — three active bugs from PR #59
+### What's broken — four active bugs from PR #59
 
 ---
 
@@ -84,54 +84,53 @@ Then remove the slug calculation from inside the deploy step.
 **Symptom:** `Error: Process completed with exit code 1` on "Deploy Playwright reports
 to server" step. No SSH error detail shown (secrets are redacted in logs).
 
-**Most likely causes in order:**
+### What has already been confirmed (do NOT re-check these)
+- ✅ `DEPLOY_SSH_KEY` and `DEPLOY_HOST` secrets are set in GitHub
+- ✅ The user typed `n` on the keygen overwrite prompt — the existing key pair is intact
+- ✅ Public key IS already present in `~/.ssh/authorized_keys` (confirmed end of session)
+- ✅ `playwright-reports/` directory exists at `~/apps/main/playwright-reports/`
 
-1. **Mac Mini not reachable from GitHub Actions runners.** The runner is on the public
-   internet; the Mac Mini may be behind NAT. Confirm that port 22 (or whatever SSH port
-   you use) is forwarded through your router to the Mac Mini, and that `DEPLOY_HOST`
-   contains the correct external IP/hostname. Check your current external IP:
+### Remaining causes to investigate
+1. **Mac Mini not reachable from GitHub Actions runners.** This is the most likely
+   remaining cause. The runner is on the public internet; the Mac Mini may be behind
+   NAT without port 22 forwarded through the router. Check external IP:
    ```bash
    curl ifconfig.me
    ```
-   Compare that to what is stored in the `DEPLOY_HOST` secret.
+   Compare to what is stored in the `DEPLOY_HOST` secret. If they differ, update the
+   secret. If they match, check that port 22 is forwarded in the router to the Mac Mini.
 
-2. **Public key not in `authorized_keys`.** The user ran `n` on the keygen overwrite
-   prompt, which is correct — the existing key pair was preserved. But the
-   `cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys` step may not have been
-   completed. Verify:
+2. **Non-standard SSH port.** If the Mac Mini's SSH daemon is not on port 22, the
+   `ssh-keyscan` and `rsync -e ssh` commands need a `-p` flag. Check:
    ```bash
-   grep -f ~/.ssh/github_deploy.pub ~/.ssh/authorized_keys && echo "present" || echo "MISSING"
-   ```
-   If it says MISSING:
-   ```bash
-   cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys
+   sudo lsof -i -P | grep LISTEN | grep ssh
    ```
 
-3. **Private key in secret doesn’t match public key on server.** If `y` was typed at
-   any point, the key pair was overwritten. The `DEPLOY_SSH_KEY` secret would then hold
-   the *old* private key which no longer matches the *new* public key on disk. To fix:
-   regenerate a new key pair, add the new public key to `authorized_keys`, and update
-   the `DEPLOY_SSH_KEY` secret with the new private key.
+3. **Private key in secret is stale.** If the `DEPLOY_SSH_KEY` secret was set from a
+   previous (older) key pair that predates the current `~/.ssh/github_deploy`, the
+   private key won't match the public key in `authorized_keys`. To verify, print the
+   public key fingerprint of the key currently on disk and compare it to the fingerprint
+   of the private key in the secret:
+   ```bash
+   ssh-keygen -lf ~/.ssh/github_deploy.pub
+   ```
+   If the fingerprints don't match, regenerate and update the secret:
    ```bash
    ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_deploy -N ""
    cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys
    cat ~/.ssh/github_deploy
    ```
-   Then update the `DEPLOY_SSH_KEY` secret in GitHub with the output of that last command.
+   Then update `DEPLOY_SSH_KEY` in GitHub secrets with the output of `cat ~/.ssh/github_deploy`.
 
-4. **Non-standard SSH port.** If your Mac Mini’s SSH is not on port 22, the `ssh-keyscan`
-   and `rsync` commands need a `-p` flag. Check:
-   ```bash
-   sudo lsof -i -P | grep LISTEN | grep ssh
-   ```
-
-**How to add SSH debug output to CI for diagnosis:** Temporarily add `-v` to the ssh
-and rsync commands in the deploy step to get verbose output in CI logs:
-```bash
-ssh -v -i ~/.ssh/deploy_key ...
-rsync -az --delete -e "ssh -v -i ~/.ssh/deploy_key ..." ...
+### How to get verbose SSH output in CI for diagnosis
+Temporarily add `-v` to the ssh and rsync commands in the deploy step to get full
+connection debug output in CI logs (secrets still redacted, but connection errors
+will be visible):
+```yaml
+ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" ...
+rsync -az --delete -e "ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" ...
 ```
-Remember to remove `-v` after diagnosing.
+Remove `-v` after diagnosing.
 
 ---
 
@@ -178,7 +177,7 @@ These are two different things that coexist without conflict:
 | Path | What it is | Where it lives |
 |------|------------|----------------|
 | `playwright-report/` | Portal E2E output dir, written by `npx playwright test` during CI | Repo root, gitignored, ephemeral |
-| `playwright-reports/` | Hosted report directory, rsync’d by CI after each run | Mac Mini only at `~/apps/main/playwright-reports/`, never in the repo |
+| `playwright-reports/` | Hosted report directory, rsync'd by CI after each run | Mac Mini only at `~/apps/main/playwright-reports/`, never in the repo |
 
 The naming is slightly confusing (singular vs plural) but they serve completely
 different purposes. No conflict, no action needed.
@@ -188,20 +187,20 @@ different purposes. No conflict, no action needed.
 ## Next session: priority order
 
 ### Step 1 — Diagnose SSH connectivity (manual, on Mac Mini)
-Before writing any code, confirm the SSH issue. Run through the Bug 3 checklist above.
-The most common cause is NAT/port forwarding — check external IP and router config.
+Before writing any code, work through Bug 3 remaining causes above.
+Most likely: check external IP matches `DEPLOY_HOST` secret and port 22 is forwarded.
 
-### Step 2 — Fix all four bugs in one PR
+### Step 2 — Fix Bugs 2, 3, and 4 in one PR
 Files to change: `ci.yml`, `e2e-on-demand.yml`
 
 Changes:
 1. **All three log commit steps** — replace stash/rebase with cp/checkout/pull (Bug 4)
 2. **Add dedicated `Set report slug` step** before deploy in both workflows (Bug 2)
-3. **Temporarily add `-v` to SSH commands** in deploy step if SSH still failing after
-   Step 1 diagnostics (Bug 3 diagnosis)
+3. **Add `-v` SSH flags** if SSH diagnosis from Step 1 is still inconclusive (Bug 3)
 
 ### Step 3 — Server restart after fixes merge
-No client rebuild needed (`portal/server.js` changes from PR #59 are already on main).
+No client rebuild needed (`portal/server.js` changes from PR #59 are already on main
+and the portal route for playwright-reports is already live).
 Just restart the portal process:
 ```bash
 pm2 restart portal
