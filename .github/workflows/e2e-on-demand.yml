@@ -106,10 +106,8 @@ jobs:
       - name: Run portal E2E tests
         id: portal-e2e
         if: ${{ github.event.inputs.suite == 'all' || github.event.inputs.suite == 'portal' }}
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/portal-e2e-results.json
         run: |
-          npx playwright test ${{ github.event.inputs.test }} --reporter=list --reporter=json
+          npx playwright test ${{ github.event.inputs.test }}
           echo "exit_code=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
