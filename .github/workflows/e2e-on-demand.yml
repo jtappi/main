@@ -137,7 +137,6 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=on-demand --type=e2e
 
       - name: Commit and push on-demand E2E log
-        # cp to /tmp first, discard working tree change, checkout main, restore and commit.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
@@ -171,13 +170,15 @@ jobs:
           if-no-files-found: ignore
 
       - name: Deploy Playwright reports to server
+        # DEPLOY_KEY is stored as base64 in the secret to avoid newline mangling.
+        # Decode it before writing to disk.
         if: always()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          echo "$DEPLOY_KEY" | base64 --decode > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
 

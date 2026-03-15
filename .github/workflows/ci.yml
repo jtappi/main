@@ -12,8 +12,6 @@ permissions:
 
 jobs:
   # ── Job 0: Detect changed paths ──────────────────────────────────────────
-  # Only runs on pull_request. On push to main, all jobs run unconditionally
-  # so the test log is always committed and the dashboard stays accurate.
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
@@ -40,8 +38,6 @@ jobs:
               - 'scripts/**'
 
   # ── Job 1: Unit & Integration Tests ──────────────────────────────────────
-  # Runs when: push to main (always), or PR touching portal/trackmyweek/ci/scripts.
-  # Skipped when: PR only touches docs, markdown, or other non-code files.
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -113,8 +109,6 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
       - name: Commit and push test log
-        # cp to /tmp first, then discard the working tree change so git checkout
-        # main succeeds cleanly, then restore from /tmp and commit.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
@@ -130,8 +124,6 @@ jobs:
           git push origin HEAD:main
 
   # ── Job 2: E2E Tests (Playwright) ────────────────────────────────────────
-  # Runs when: push to main (always), or PR touching portal/trackmyweek/ci.
-  # Skipped when: PR only touches docs, markdown, scripts, or other non-code files.
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
@@ -254,8 +246,6 @@ jobs:
         run: node scripts/log-test-run.js /tmp/trackmyweek-e2e-results.json --project=trackmyweek --type=e2e
 
       - name: Commit and push E2E log
-        # cp to /tmp first, then discard the working tree change so git checkout
-        # main succeeds cleanly, then restore from /tmp and commit.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
@@ -299,13 +289,15 @@ jobs:
           echo "REPORT_SLUG=${SLUG}" >> $GITHUB_ENV
 
       - name: Deploy Playwright reports to server
+        # DEPLOY_KEY is stored as base64 in the secret to avoid newline mangling.
+        # Decode it before writing to disk.
         if: always()
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          echo "$DEPLOY_KEY" | base64 --decode > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H $(echo "$DEPLOY_HOST" | cut -d@ -f2) >> ~/.ssh/known_hosts 2>/dev/null
 
