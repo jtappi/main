@@ -126,11 +126,13 @@ app.get('/dashboard', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
-app.get('/admin', requireAdmin, (req, res) => {
+// requireAuth handles unauthenticated users (redirects to /login?returnTo=...).
+// requireAdmin handles authenticated non-admins (returns 403).
+app.get('/admin', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
 
-app.get('/test-dashboard', requireAdmin, (req, res) => {
+app.get('/test-dashboard', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
 
@@ -144,6 +146,7 @@ app.get('/test-dashboard', requireAdmin, (req, res) => {
 // sub-path. Using app.use() with multiple handlers inline prevents the
 // trailing-slash redirect that static needs to find index.html.
 const reportsRouter = express.Router();
+reportsRouter.use(requireAuth);
 reportsRouter.use(requireAdmin);
 reportsRouter.use(express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' }));
 reportsRouter.use((req, res) => res.status(404).send('Report not found.'));

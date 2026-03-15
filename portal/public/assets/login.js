@@ -1,7 +1,7 @@
 'use strict';
 
 (function () {
-  const btn = document.getElementById('login-btn');
+  const btn      = document.getElementById('login-btn');
   const errorMsg = document.getElementById('error-msg');
 
   function showError(msg) {
@@ -11,6 +11,23 @@
 
   function hideError() {
     errorMsg.classList.add('hidden');
+  }
+
+  /**
+   * Returns a safe returnTo URL from the query string, or null if absent/unsafe.
+   * Only allows relative paths starting with '/' to prevent open redirect attacks.
+   * Rejects protocol-relative URLs (starting with '//') and anything containing '://'.
+   */
+  function getSafeReturnTo() {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('returnTo');
+    if (!raw) return null;
+    const decoded = decodeURIComponent(raw);
+    // Must be a relative path: starts with '/', not '//', no protocol
+    if (!decoded.startsWith('/')) return null;
+    if (decoded.startsWith('//')) return null;
+    if (decoded.includes('://')) return null;
+    return decoded;
   }
 
   async function sha256(str) {
@@ -32,26 +49,27 @@
       return showError('Please enter your email/username and password.');
     }
 
-    btn.disabled = true;
+    btn.disabled    = true;
     btn.textContent = 'Logging in...';
 
     try {
       const passwordHash = await sha256(password);
       const res = await fetch('/auth/login', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, passwordHash })
+        body:    JSON.stringify({ identifier, passwordHash })
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = '/dashboard';
+        const returnTo = getSafeReturnTo();
+        window.location.href = returnTo || '/dashboard';
       } else {
         showError(data.message || 'Invalid credentials.');
       }
     } catch (err) {
       showError('Network error. Please try again.');
     } finally {
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = 'Login';
     }
   }
