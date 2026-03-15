@@ -1,12 +1,12 @@
 'use strict';
 
-// ── State ──────────────────────────────────────────────────────
+// ── State ────────────────────────────────────────────────
 let allRuns  = [];
 let days     = 7;
 let project  = 'all';
 let runType  = 'all';
 
-// ── Boot ───────────────────────────────────────────────────────
+// ── Boot ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await checkSession();
   await loadRuns();
@@ -63,7 +63,7 @@ async function logout() {
   window.location.href = '/login';
 }
 
-// ── Project filter ──────────────────────────────────────────────
+// ── Project filter ──────────────────────────────────────────
 // Discovers all projects dynamically from the data — no hardcoding.
 // Adding a new project or a manual run automatically adds it to the dropdown.
 function populateProjectFilter() {
@@ -97,7 +97,7 @@ function updateSubtitle() {
   el.textContent = `CI run history \u2014 ${projLabel}${typeLabel}`;
 }
 
-// ── Filter ─────────────────────────────────────────────────────
+// ── Filter ─────────────────────────────────────────────────
 function filteredRuns() {
   let runs = allRuns;
   if (project !== 'all') runs = runs.filter(r => r.project === project);
@@ -110,7 +110,8 @@ function filteredRuns() {
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
-// Helper: most recent run of a given runType for a given project
+// Helper: most recent run of a given runType for a given project.
+// Requires the input array to already be sorted newest-first.
 function latestRunOfType(runs, proj, type) {
   return runs.find(r => r.project === proj && r.runType === type) || null;
 }
@@ -127,7 +128,7 @@ function render() {
   renderHistory(runs);
 }
 
-// ── Health indicators ───────────────────────────────────────────
+// ── Health indicators ─────────────────────────────────────────
 function renderHealth(runs) {
   const pctEl   = document.getElementById('health-pct');
   const subEl   = document.getElementById('health-sub');
@@ -217,36 +218,36 @@ function renderSuiteBreakdown(runs) {
   container.innerHTML = '';
   if (!runs.length) return;
 
-  // When the type filter is active, only show the relevant suite type.
-  // When 'all', show whatever data exists for the project.
   const projectsInView = project === 'all'
     ? [...new Set(runs.map(r => r.project))].sort()
     : [project];
 
   for (const proj of projectsInView) {
-    // Pull from the full unfiltered-by-type runs so suite cards always
-    // show the latest known state even when filtered to a single type.
-    const allRunsForProj = allRuns.filter(r => {
-      if (r.project !== proj) return false;
-      if (days) {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - days);
-        if (new Date(r.timestamp) < cutoff) return false;
-      }
-      return true;
-    });
+    // Build the list of runs for this project within the current date window,
+    // sorted newest-first so latestRunOfType always finds the most recent entry.
+    const allRunsForProj = allRuns
+      .filter(r => {
+        if (r.project !== proj) return false;
+        if (days) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - days);
+          if (new Date(r.timestamp) < cutoff) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     const lastJest = latestRunOfType(allRunsForProj, proj, 'jest');
     const lastE2e  = latestRunOfType(allRunsForProj, proj, 'e2e');
     if (!lastJest && !lastE2e) continue;
 
-    const u   = lastJest?.suites?.unit        || {};
-    const int = lastJest?.suites?.integration || {};
-    const e2e = lastE2e?.suites?.e2e          || {};
-
     const suiteRows = [];
 
-    if (runType === 'all' || runType === 'jest') {
+    // Only render Jest rows when a Jest run actually exists for this project.
+    if (lastJest && (runType === 'all' || runType === 'jest')) {
+      const u   = lastJest.suites?.unit        || {};
+      const int = lastJest.suites?.integration || {};
+
       suiteRows.push(`
         <div class="td-suite-sub">Unit</div>
         <div class="td-suite-stat ${(u.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${u.passed ?? '\u2014'}</div>
@@ -266,14 +267,18 @@ function renderSuiteBreakdown(runs) {
       }
     }
 
-    if ((runType === 'all' || runType === 'e2e') && e2e.status && e2e.status !== 'skip') {
-      suiteRows.push(`
-        <div class="td-suite-sub td-suite-sub--mt">E2E</div>
-        <div class="td-suite-stat ${(e2e.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${e2e.passed ?? '\u2014'}</div>
-        <div class="td-suite-desc">passed last run</div>
-        <div class="td-suite-stat td-suite-stat--fail">${e2e.failed ?? '\u2014'}</div>
-        <div class="td-suite-desc">failed last run</div>
-      `);
+    // Only render E2E row when an E2E run actually exists for this project.
+    if (lastE2e && (runType === 'all' || runType === 'e2e')) {
+      const e2e = lastE2e.suites?.e2e || {};
+      if (e2e.status && e2e.status !== 'skip') {
+        suiteRows.push(`
+          <div class="td-suite-sub ${suiteRows.length ? 'td-suite-sub--mt' : ''}">E2E</div>
+          <div class="td-suite-stat ${(e2e.failed || 0) > 0 ? '' : 'td-suite-stat--good'}">${e2e.passed ?? '\u2014'}</div>
+          <div class="td-suite-desc">passed last run</div>
+          <div class="td-suite-stat td-suite-stat--fail">${e2e.failed ?? '\u2014'}</div>
+          <div class="td-suite-desc">failed last run</div>
+        `);
+      }
     }
 
     if (!suiteRows.length) continue;
@@ -289,7 +294,7 @@ function renderSuiteBreakdown(runs) {
   }
 }
 
-// ── Run history table ───────────────────────────────────────────
+// ── Run history table ─────────────────────────────────────────
 function renderHistory(runs) {
   const tbody   = document.getElementById('history-tbody');
   const empty   = document.getElementById('history-empty');
@@ -364,7 +369,7 @@ function escHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ── Canvas chart primitives ─────────────────────────────────────
+// ── Canvas chart primitives ───────────────────────────────────────
 function drawBarChart(canvas, labels, series, opts = {}) {
   const dpr = window.devicePixelRatio || 1;
   const W   = canvas.offsetWidth || canvas.parentElement.offsetWidth || 600;
