@@ -29,47 +29,48 @@ Read `CLAUDE.md` in full before doing anything else, then read this file.
 - CI log commit steps fixed (cp/checkout/pull pattern — no more stash conflicts)
 - Report slug now set in dedicated step before deploy
 - `DEPLOY_SSH_KEY` stored as base64 and decoded in CI deploy step
-- Both secrets (`DEPLOY_HOST`, `DEPLOY_SSH_KEY`) set via `gh` CLI to avoid copy-paste mangling
+- Both secrets (`DEPLOY_HOST`, `DEPLOY_SSH_KEY`) set via `gh` CLI — SSH confirmed working
+- rsync now guarded with directory existence checks (deploy step won't fail if no report)
 
-### What's still broken
-- SSH deploy to Mac Mini still failing with `Permission denied (publickey)` despite
-  confirmed working local SSH test and correct `authorized_keys` entries
+### What's still in progress
+- PR #60 is passing except for E2E test failures (unrelated to this PR's changes)
+- Once E2E tests pass, PR #60 is ready to merge
 
 ---
 
-## SSH Deploy — Full Diagnosis History
+## SSH Deploy — Confirmed Working
 
-### What has been confirmed working
-- `~/.ssh/github_deploy` key pair is valid (fingerprint `SHA256:c8UoPCLU...`)
-- `authorized_keys` contains the matching public key (`AAAAIAcKnAg...` x4 entries)
-- Local SSH test passed: `ssh -i /tmp/test_deploy_key jitendrabhatt@localhost echo "test OK"`
-- Port 22 is open and forwarded through Xfinity router to Mac Mini at `10.0.0.98`
+- Port 22 forwarded through Xfinity router to Mac Mini at `10.0.0.98`
 - `DEPLOY_HOST` set to `jitendrabhatt@<external-ip>` via `gh secret set`
 - `DEPLOY_SSH_KEY` set to base64-encoded private key via `gh secret set`
 - CI deploy step decodes key with `echo "$DEPLOY_KEY" | base64 --decode > ~/.ssh/deploy_key`
+- SSH connection confirmed working — rsync now reaches the Mac Mini
+- TODO: Replace port 22 forwarding with Tailscale (see docs/TODO.md)
 
-### Remaining suspicion
-The `runner@***: Permission denied` error in CI logs shows `runner@` as the connecting
-user — but `DEPLOY_HOST` is `jitendrabhatt@<ip>`. If SSH is somehow ignoring the
-`-o StrictHostKeyChecking=no` and falling back to a different user, or if `DEPLOY_HOST`
-has a hidden character, that could explain it.
+---
 
-### Next step to try
-Add verbose SSH output temporarily to see exactly what the runner is attempting:
-```yaml
-ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$DEPLOY_HOST" ...
+## Next session: priority order
+
+### Step 1 — Merge PR #60 once E2E tests pass
+Verify all steps green, then merge.
+
+### Step 2 — Restart portal on Mac Mini after merge
+```bash
+pm2 restart portal
 ```
-This will show which user is being used and what keys are being offered.
+
+### Step 3 — Set up prune cron (low urgency)
+```bash
+crontab -e
+```
+Add line:
+```
+0 3 * * * bash ~/apps/main/scripts/prune-playwright-reports.sh >> ~/apps/main/logs/prune.log 2>&1
+```
 
 ---
 
 ## Key files to read at next session start
 1. `CLAUDE.md` — full working agreement (mandatory)
 2. `docs/HANDOFF.md` — this file
-3. `.github/workflows/ci.yml` — current state (on PR #60 branch)
-4. `.github/workflows/e2e-on-demand.yml` — current state
-
----
-
-## docs/TODO.md
-Created this session. Contains Tailscale item (replace port 22 forwarding with Tailscale).
+3. `.github/workflows/ci.yml` — current state on PR #60 branch
