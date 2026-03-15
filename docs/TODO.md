@@ -44,14 +44,10 @@ Low-urgency items to revisit when time permits.
 
 ---
 
-## Test Coverage Backlog
+## Test Coverage Gaps
 
-See `docs/testing/PORTAL.md` and `docs/testing/TRACKMYWEEK.md` for the full
-per-project coverage gap lists. High-priority items summarized here:
+Test coverage gaps are tracked in the project catalogs — that is the single source of truth.
+Do not duplicate gap entries here.
 
-- [ ] **Portal** — Smoke E2E: `/test-dashboard` loads for admin user
-- [ ] **TrackMyWeek** — Smoke E2E: `navigation.spec.js` — all 5 routes load
-- [ ] **TrackMyWeek** — Critical E2E: quick log item saves data
-- [ ] **TrackMyWeek** — Smoke E2E: day view renders chart values when today has entries
-- [ ] **TrackMyWeek** — Smoke E2E: all entries view loads and renders rows
-- [ ] **TrackMyWeek** — Smoke E2E: asked/answered questions sections render
+- [`docs/testing/PORTAL.md`](./testing/PORTAL.md) — Coverage Gaps section
+- [`docs/testing/TRACKMYWEEK.md`](./testing/TRACKMYWEEK.md) — Coverage Gaps section
