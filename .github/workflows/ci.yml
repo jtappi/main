@@ -114,18 +114,20 @@ jobs:
 
       - name: Commit and push test log
         # Runs on both push and pull_request so all Jest results appear on the dashboard.
-        # Uses cp/fetch/checkout/pull instead of stash/rebase to work in detached HEAD
-        # context (PR runs check out pull/{n}/merge, not a real branch).
+        # Stage the log file and stash before checkout to avoid 'overwritten by checkout'
+        # error when the log script has written new content to the working tree.
+        # Works in both branch and detached HEAD (PR) contexts.
         # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          cp logs/test-runs.jsonl /tmp/test-runs-update.jsonl
+          git add logs/test-runs.jsonl
+          git stash
           git fetch origin main
           git checkout main
           git pull origin main
-          cp /tmp/test-runs-update.jsonl logs/test-runs.jsonl
+          git stash pop
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
@@ -256,18 +258,20 @@ jobs:
 
       - name: Commit and push E2E log
         # Runs on both push and pull_request so all E2E results appear on the dashboard.
-        # Uses cp/fetch/checkout/pull instead of stash/rebase to work in detached HEAD
-        # context (PR runs check out pull/{n}/merge, not a real branch).
+        # Stage the log file and stash before checkout to avoid 'overwritten by checkout'
+        # error when the log script has written new content to the working tree.
+        # Works in both branch and detached HEAD (PR) contexts.
         # See CLAUDE.md Section 12 for caveats on PR runs committing directly to main.
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          cp logs/test-runs.jsonl /tmp/test-runs-update.jsonl
+          git add logs/test-runs.jsonl
+          git stash
           git fetch origin main
           git checkout main
           git pull origin main
-          cp /tmp/test-runs-update.jsonl logs/test-runs.jsonl
+          git stash pop
           git add logs/test-runs.jsonl
           git diff --staged --quiet || git commit -m "chore: log E2E test run results [skip ci]"
           git push origin HEAD:main
