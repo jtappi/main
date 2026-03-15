@@ -9,7 +9,11 @@ module.exports = defineConfig({
   globalTeardown: './tests/e2e/global-teardown.js',
   timeout: 15000,
   retries: 0,
-  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  reporter: [
+    ['list'],
+    ['json', { outputFile: '/tmp/portal-e2e-results.json' }],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+  ],
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
     headless: true,
