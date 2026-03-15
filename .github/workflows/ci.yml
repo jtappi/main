@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ── Job 0: Detect changed paths ──────────────────────────────────────────
+  # ── Job 0: Detect changed paths ──────────────────────────────────────
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
             scripts:
               - 'scripts/**'
 
-  # ── Job 1: Unit & Integration Tests ──────────────────────────────────────
+  # ── Job 1: Unit & Integration Tests ────────────────────────────────
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -123,7 +123,7 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
 
-  # ── Job 2: E2E Tests (Playwright) ────────────────────────────────────────
+  # ── Job 2: E2E Tests (Playwright) ──────────────────────────────────
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
@@ -216,10 +216,8 @@ jobs:
 
       - name: Run portal E2E tests
         id: portal-e2e
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/portal-e2e-results.json
         run: |
-          npx playwright test --reporter=list --reporter=json
+          npx playwright test
           echo "exit_code=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
