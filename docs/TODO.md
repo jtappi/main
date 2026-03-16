@@ -48,6 +48,13 @@ Low-urgency items to revisit when time permits.
   Current approach (CI artifacts + job summary) is sufficient for enforcement but
   doesn't show historical trends or per-line annotation.
 
+- [ ] **Fix coverage PR comment body in `ci.yml`**
+  The `Post coverage summary as PR comment` step in Job 1 uses `hashFiles()` inside
+  the `body:` string, which is not evaluated in that context. Replace with a shell
+  step that reads `coverage-summary.json` and builds the comment body with real
+  numbers, similar to how the job summary step works. This is cosmetic — enforcement
+  and job summary are unaffected.
+
 ---
 
 ## Code Coverage — Aspirational Targets
