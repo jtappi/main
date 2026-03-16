@@ -22,21 +22,31 @@ Low-urgency items to revisit when time permits.
 
 ## Observability
 
-- [ ] **Application logging per project — structured logs with a per-project dashboard**
-  Currently, all server output (stdout/stderr) goes to PM2 logs as an undifferentiated
-  stream. As the platform grows with more subprojects, diagnosing issues requires
-  `pm2 logs` and manual grepping. A proper observability layer should:
-  1. **Structured logging per project** — each subproject writes structured JSON log
-     entries (timestamp, level, project, message, context) to a dedicated log file
-     or shared append-only JSONL file (similar to `logs/test-runs.jsonl`).
-  2. **Per-project log dashboard** — an admin page (e.g. `/logs-dashboard`) that reads
-     the structured log file and displays entries filterable by project, log level
-     (info/warn/error), and time range. Modelled on the existing test dashboard.
-  3. **Log rotation** — prevent unbounded log growth with a cron-based or size-based
-     rotation strategy.
-  Options to evaluate: custom implementation (consistent with the platform's JSON-file
-  approach), or integrate a lightweight library like `pino` with file transport.
-  Resolve after bptracker Phase 7 is complete.
+- [ ] **Server-side logging per project with a log viewer dashboard**
+  Currently, application errors are only visible via `pm2 logs` on the Mac Mini.
+  There is no per-project log stream, no log history, and no way to view logs from
+  the browser. This makes debugging production issues (e.g. extraction failures in
+  bptracker) slow and requires SSH access.
+
+  **What to build:**
+  - A lightweight structured logger for each subproject that writes JSON log lines
+    to per-project log files (e.g. `logs/bptracker.jsonl`, `logs/portal.jsonl`).
+    Each entry includes: timestamp, level (info/warn/error), project, message, and
+    optional metadata object.
+  - A **Log Viewer** admin-only page at `/logs` on the portal that reads the log
+    files and displays them in a filterable table: filter by project, level, and
+    date range. Similar architecture to the existing Test Dashboard.
+  - Log rotation: cap each log file at a configurable size (e.g. 5MB) and keep
+    the last N rotated files. Never let logs grow unbounded.
+
+  **Why this matters:**
+  - Extraction failures in bptracker (Anthropic API errors, parse failures) are
+    currently invisible without SSH. A log viewer would surface these immediately.
+  - As more subprojects are added, a centralized log viewer becomes the primary
+    debugging tool for all runtime issues.
+
+  **Scope:** Design as a new subproject or as an extension of the portal admin panel.
+  Decide before building.
 
 ---
 

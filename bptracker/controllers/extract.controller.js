@@ -20,6 +20,16 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const router = express.Router();
 
+// Warn loudly on startup if the API key is missing so the problem is
+// immediately visible in pm2 logs rather than discovered on the first request.
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error('[bptracker/extract] WARNING: ANTHROPIC_API_KEY is not set. ' +
+    'All extraction requests will fail. Add it to .env and restart.');
+} else {
+  console.log('[bptracker/extract] ANTHROPIC_API_KEY is present (' +
+    process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...)');
+}
+
 /** Plausible BP/HR ranges for server-side validation. */
 const RANGES = {
   systolic:  { min: 60,  max: 250 },
@@ -85,13 +95,13 @@ function validateRanges(data) {
 router.post('/', async (req, res) => {
   const { imageData, mediaType } = req.body;
 
-  console.log('[bptracker/extract] POST /api/extract received');
-  console.log('[bptracker/extract] mediaType:', mediaType);
-  console.log('[bptracker/extract] imageData length:', imageData ? imageData.length : 'MISSING');
-  console.log('[bptracker/extract] ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
+  console.log('[bptracker/extract] POST /api/extract called');
+  console.log('[bptracker/extract]   mediaType:', mediaType || 'not provided');
+  console.log('[bptracker/extract]   imageData length:', imageData ? imageData.length : 0);
+  console.log('[bptracker/extract]   API key present:', !!process.env.ANTHROPIC_API_KEY);
 
   if (!imageData) {
-    console.log('[bptracker/extract] Rejected: imageData missing');
+    console.error('[bptracker/extract] Missing imageData in request body');
     return res.status(400).json({ error: 'imageData is required.' });
   }
 
@@ -127,13 +137,14 @@ router.post('/', async (req, res) => {
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
-    console.log('[bptracker/extract] Anthropic API response received');
-    console.log('[bptracker/extract] Raw response text:', rawText);
+    console.log('[bptracker/extract] Anthropic response received, rawText:', rawText);
   } catch (err) {
-    console.error('[bptracker/extract] Anthropic API error name:', err.name);
-    console.error('[bptracker/extract] Anthropic API error message:', err.message);
-    console.error('[bptracker/extract] Anthropic API error status:', err.status);
-    console.error('[bptracker/extract] Anthropic API error stack:', err.stack);
+    console.error('[bptracker/extract] Anthropic API error:');
+    console.error('  message:', err.message);
+    console.error('  status:', err.status);
+    console.error('  error type:', err.error?.type);
+    console.error('  error detail:', JSON.stringify(err.error));
+    console.error('  stack:', err.stack);
     return res.status(502).json({ error: 'extraction_failed', message: 'Extraction service unavailable.' });
   }
 
@@ -147,7 +158,7 @@ router.post('/', async (req, res) => {
   console.log('[bptracker/extract] Validated result:', JSON.stringify(validated));
 
   if (validated.systolic === null && validated.diastolic === null && validated.heartRate === null) {
-    console.log('[bptracker/extract] All values null — returning image_unreadable');
+    console.error('[bptracker/extract] All values null — image unreadable');
     return res.status(422).json({ error: 'image_unreadable', message: 'Could not read the monitor display. Please retake in better light.' });
   }
 
