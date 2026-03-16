@@ -5,23 +5,20 @@ import { updateReading, deleteReading } from '../api/client.js';
  * HistoryTable — reading history, newest first.
  *
  * Features:
- *   - Inline notes editing (click pencil, edit, save/cancel)
- *   - Delete with confirmation dialog
- *   - Date range filter driven by parent range prop
- *
- * Props:
- *   readings    — full readings array
- *   range       — '7d' | '30d' | '90d' | 'all' (shared with TrendChart)
- *   onUpdate    — callback(updatedReading) to sync parent state
- *   onDelete    — callback(id) to sync parent state
+ *   - Icon-based confidence indicator (hidden when high, red camera when low,
+ *     blue camera + M when manual)
+ *   - AHA BP status badge (Hypotension / Normal / Elevated / Stage 1 / Stage 2 / Severe)
+ *   - Inline notes editing
+ *   - Delete with confirmation
+ *   - Date range filter
  */
 export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
-  const [editingId, setEditingId]       = useState(null);
-  const [editNotes, setEditNotes]       = useState('');
-  const [savingId, setSavingId]         = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [deletingId, setDeletingId]     = useState(null);
-  const [error, setError]               = useState(null);
+  const [editingId,        setEditingId]        = useState(null);
+  const [editNotes,        setEditNotes]         = useState('');
+  const [savingId,         setSavingId]          = useState(null);
+  const [confirmDeleteId,  setConfirmDeleteId]   = useState(null);
+  const [deletingId,       setDeletingId]        = useState(null);
+  const [error,            setError]             = useState(null);
 
   const filtered = useMemo(() => {
     const now = Date.now();
@@ -49,13 +46,6 @@ export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
     return `${mo}/${da}/${yr} ${h}:${mi}${ampm}`;
   }
 
-  function confidenceBadge(c) {
-    if (c === 'high')   return <span className="badge badge-high">High</span>;
-    if (c === 'low')    return <span className="badge badge-low">Low</span>;
-    if (c === 'manual') return <span className="badge badge-manual">Manual</span>;
-    return null;
-  }
-
   async function handleSaveNotes(id) {
     setSavingId(id);
     setError(null);
@@ -63,7 +53,7 @@ export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
       const updated = await updateReading(id, { notes: editNotes });
       onUpdate(updated);
       setEditingId(null);
-    } catch (err) {
+    } catch {
       setError('Failed to save notes. Please try again.');
     } finally {
       setSavingId(null);
@@ -77,7 +67,7 @@ export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
       await deleteReading(id);
       onDelete(id);
       setConfirmDeleteId(null);
-    } catch (err) {
+    } catch {
       setError('Failed to delete reading. Please try again.');
     } finally {
       setDeletingId(null);
@@ -132,7 +122,10 @@ export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
           <div key={r.id} className="history-row" data-testid={`history-row-${r.id}`}>
             <div className="history-row-top">
               <span className="history-row-date">{fmtDate(r.timestamp)}</span>
-              {confidenceBadge(r.extractionConfidence)}
+              <div className="history-row-badges">
+                <ConfidenceIcon confidence={r.extractionConfidence} />
+                <BpStatusBadge systolic={r.systolic} diastolic={r.diastolic} />
+              </div>
               <button
                 className="history-delete-btn"
                 onClick={() => setConfirmDeleteId(r.id)}
@@ -197,5 +190,92 @@ export default function HistoryTable({ readings, range, onUpdate, onDelete }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ConfidenceIcon
+// high   -> nothing
+// low    -> red camera SVG
+// manual -> blue camera SVG + "M"
+// ---------------------------------------------------------------------------
+function ConfidenceIcon({ confidence }) {
+  if (!confidence || confidence === 'high') return null;
+
+  const color = confidence === 'low' ? '#ef4444' : '#3b82f6';
+
+  return (
+    <span
+      className={`confidence-icon confidence-${confidence}`}
+      aria-label={confidence === 'low' ? 'Low confidence' : 'Manual entry'}
+      data-testid={`confidence-icon-${confidence}`}
+      title={confidence === 'low' ? 'Low extraction confidence' : 'Manually entered'}
+    >
+      <svg
+        width="14" height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {/* Camera body */}
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        {/* Lens */}
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+      {confidence === 'manual' && (
+        <span className="confidence-manual-label">M</span>
+      )}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BpStatusBadge
+// Classifies BP per AHA categories + hypotension.
+// Returns null if either systolic or diastolic is null.
+// ---------------------------------------------------------------------------
+function getBpCategory(systolic, diastolic) {
+  if (systolic == null || diastolic == null) return null;
+
+  // Severe / Hypertensive emergency (check first — superset of Stage 2)
+  if (systolic > 180 || diastolic > 120) {
+    return { label: 'Severe', cls: 'bp-severe' };
+  }
+  // Stage 2
+  if (systolic >= 140 || diastolic >= 90) {
+    return { label: 'Stage 2', cls: 'bp-stage2' };
+  }
+  // Stage 1
+  if (systolic >= 130 || diastolic >= 80) {
+    return { label: 'Stage 1', cls: 'bp-stage1' };
+  }
+  // Elevated
+  if (systolic >= 120 && systolic <= 129 && diastolic < 80) {
+    return { label: 'Elevated', cls: 'bp-elevated' };
+  }
+  // Hypotension
+  if (systolic < 90 || diastolic < 60) {
+    return { label: 'Low BP', cls: 'bp-hypo' };
+  }
+  // Normal
+  return { label: 'Normal', cls: 'bp-normal' };
+}
+
+function BpStatusBadge({ systolic, diastolic }) {
+  const category = getBpCategory(systolic, diastolic);
+  if (!category) return null;
+
+  return (
+    <span
+      className={`bp-badge ${category.cls}`}
+      data-testid={`bp-badge-${category.cls}`}
+      title={`Blood pressure: ${category.label}`}
+    >
+      {category.label}
+    </span>
   );
 }

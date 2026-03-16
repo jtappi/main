@@ -44,8 +44,6 @@ input, textarea {
 }
 
 /* --- Text size scale ------------------------------------------------------- */
-/* Applied as .text-sm / .text-md / .text-lg on .app-shell.               */
-/* Scales BP numbers, heart rate values, and history table text.           */
 
 .text-sm .scalable { font-size: 0.85em; }
 .text-md .scalable { font-size: 1em;    }
@@ -782,18 +780,48 @@ input, textarea {
   flex: 1;
 }
 
-.badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 7px;
+.history-row-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* --- Confidence icon (camera) --------------------------------------------- */
+
+.confidence-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.confidence-manual-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #3b82f6;
+  line-height: 1;
+}
+
+/* --- BP status badge ------------------------------------------------------ */
+
+.bp-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
   border-radius: 99px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.badge-high   { background: #dcfce7; color: #15803d; }
-.badge-low    { background: #fff7ed; color: #c2410c; }
-.badge-manual { background: #f3f4f6; color: #6b7280; }
+.bp-hypo   { background: #dbeafe; color: #1e40af; }
+.bp-normal { background: #dcfce7; color: #15803d; }
+.bp-elevated { background: #fef9c3; color: #854d0e; }
+.bp-stage1 { background: #fed7aa; color: #9a3412; }
+.bp-stage2 { background: #fecaca; color: #991b1b; }
+.bp-severe { background: #881337; color: #fce7f3; }
+
+/* --- History row values --------------------------------------------------- */
 
 .history-delete-btn {
   font-size: 1rem;
