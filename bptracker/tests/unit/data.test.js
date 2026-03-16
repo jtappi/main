@@ -3,35 +3,32 @@
 /**
  * data.test.js — unit tests for bptracker/lib/data.js
  *
- * Strategy: mock the `fs` module entirely so all file I/O is intercepted.
- * This avoids the DATA_DIR redirect problem (internal closures capture DATA_DIR
- * at module load time, so reassigning the exported property after load has no
- * effect). With fs mocked we control exactly what every read/write/exists call
- * sees, with no real disk access and no tmp directory management.
+ * Strategy: mock the `fs` module so all file I/O is intercepted.
+ *
+ * Jest hoists jest.mock() before any variable declarations, so the mock
+ * factory cannot reference external variables. The mock functions are
+ * defined inline and retrieved via require('fs') after the mock is set up.
  */
 
 const path = require('path');
 
-// ---------------------------------------------------------------------------
-// fs mock — must be declared before requiring data.js
-// ---------------------------------------------------------------------------
-const fsMock = {
-  existsSync: jest.fn(),
-  readFileSync: jest.fn(),
+jest.mock('fs', () => ({
+  existsSync:   jest.fn(),
+  readFileSync:  jest.fn(),
   writeFileSync: jest.fn(),
-  copyFileSync: jest.fn(),
-  unlinkSync: jest.fn(),
-  mkdirSync: jest.fn(),
-};
+  copyFileSync:  jest.fn(),
+  unlinkSync:    jest.fn(),
+  mkdirSync:     jest.fn(),
+}));
 
-jest.mock('fs', () => fsMock);
+// Retrieve the mocked fs so tests can configure return values
+const fs = require('fs');
 
-// Now safe to load the module under test
+// Load the module under test after the mock is in place
 const data = require('../../lib/data');
 
-// Derive the paths data.js uses internally so our assertions are exact
-const DATA_DIR   = data.DATA_DIR;
-const IMAGES_DIR = data.IMAGES_DIR;
+// Derive the paths data.js uses internally so assertions are exact
+const DATA_DIR    = data.DATA_DIR;
 const runtimePath  = path.join(DATA_DIR, 'readings.json');
 const templatePath = path.join(DATA_DIR, 'readings.template.json');
 
@@ -41,16 +38,16 @@ const templatePath = path.join(DATA_DIR, 'readings.template.json');
 
 function makeReading(overrides = {}) {
   return {
-    id: 'test-uuid-001',
-    userId: 'user-001',
-    systolic: 120,
-    diastolic: 80,
-    heartRate: 70,
-    timestamp: '2026-03-16T08:00:00',
-    imageRef: null,
+    id:                   'test-uuid-001',
+    userId:               'user-001',
+    systolic:             120,
+    diastolic:            80,
+    heartRate:            70,
+    timestamp:            '2026-03-16T08:00:00',
+    imageRef:             null,
     extractionConfidence: 'high',
-    notes: null,
-    createdAt: new Date().toISOString(),
+    notes:                null,
+    createdAt:            new Date().toISOString(),
     ...overrides,
   };
 }
@@ -65,22 +62,22 @@ beforeEach(() => {
 
 describe('readReadings()', () => {
   test('returns empty array when runtime file does not exist (seeds from template)', () => {
-    fsMock.existsSync
+    fs.existsSync
       .mockReturnValueOnce(false)  // runtime file does not exist
       .mockReturnValueOnce(true);  // template file exists
-    fsMock.readFileSync.mockReturnValue('[]');
+    fs.readFileSync.mockReturnValue('[]');
 
     const result = data.readReadings();
 
     expect(result).toEqual([]);
-    expect(fsMock.copyFileSync).toHaveBeenCalledWith(templatePath, runtimePath);
-    expect(fsMock.readFileSync).toHaveBeenCalledWith(runtimePath, 'utf8');
+    expect(fs.copyFileSync).toHaveBeenCalledWith(templatePath, runtimePath);
+    expect(fs.readFileSync).toHaveBeenCalledWith(runtimePath, 'utf8');
   });
 
   test('returns parsed array when runtime file exists', () => {
     const reading = makeReading();
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([reading]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([reading]));
 
     const result = data.readReadings();
 
@@ -89,7 +86,7 @@ describe('readReadings()', () => {
   });
 
   test('throws if neither runtime nor template file exists', () => {
-    fsMock.existsSync.mockReturnValue(false);
+    fs.existsSync.mockReturnValue(false);
 
     expect(() => data.readReadings()).toThrow('[data.js] Template not found');
   });
@@ -104,7 +101,7 @@ describe('writeReadings()', () => {
     const readings = [makeReading()];
     data.writeReadings(readings);
 
-    expect(fsMock.writeFileSync).toHaveBeenCalledWith(
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
       runtimePath,
       JSON.stringify(readings, null, 2),
       'utf8'
@@ -115,8 +112,8 @@ describe('writeReadings()', () => {
     data.writeReadings([makeReading({ id: 'r1' })]);
     data.writeReadings([makeReading({ id: 'r2' })]);
 
-    expect(fsMock.writeFileSync).toHaveBeenCalledTimes(2);
-    const lastCall = fsMock.writeFileSync.mock.calls[1];
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(2);
+    const lastCall = fs.writeFileSync.mock.calls[1];
     const written = JSON.parse(lastCall[1]);
     expect(written[0].id).toBe('r2');
   });
@@ -156,21 +153,21 @@ describe('filterByUserId()', () => {
 
 describe('appendReading()', () => {
   test('adds record and returns updated array', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue('[]');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('[]');
 
     const reading = makeReading({ id: 'r1' });
     const result = data.appendReading(reading);
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('r1');
-    expect(fsMock.writeFileSync).toHaveBeenCalledTimes(1);
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
   });
 
   test('appends to existing records without overwriting', () => {
     const existing = makeReading({ id: 'r1' });
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([existing]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([existing]));
 
     const result = data.appendReading(makeReading({ id: 'r2' }));
 
@@ -186,8 +183,8 @@ describe('appendReading()', () => {
 describe('updateReading()', () => {
   test('updates matching record and returns it', () => {
     const reading = makeReading({ id: 'r1', notes: null });
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([reading]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([reading]));
 
     const updated = data.updateReading('r1', { notes: 'felt dizzy' });
 
@@ -197,18 +194,18 @@ describe('updateReading()', () => {
 
   test('only merges provided fields — other fields preserved', () => {
     const reading = makeReading({ id: 'r1', systolic: 120, notes: null });
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([reading]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([reading]));
 
     data.updateReading('r1', { notes: 'test' });
 
-    const written = JSON.parse(fsMock.writeFileSync.mock.calls[0][1]);
+    const written = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
     expect(written[0].systolic).toBe(120);
   });
 
   test('returns null when id not found', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue('[]');
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue('[]');
 
     const result = data.updateReading('nonexistent', { notes: 'x' });
     expect(result).toBeNull();
@@ -222,24 +219,24 @@ describe('updateReading()', () => {
 describe('deleteReading()', () => {
   test('removes matching record and returns true', () => {
     const readings = [makeReading({ id: 'r1' }), makeReading({ id: 'r2' })];
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify(readings));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify(readings));
 
     const result = data.deleteReading('r1');
 
     expect(result).toBe(true);
-    const written = JSON.parse(fsMock.writeFileSync.mock.calls[0][1]);
+    const written = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
     expect(written).toHaveLength(1);
     expect(written[0].id).toBe('r2');
   });
 
   test('returns false when id not found', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([makeReading({ id: 'r1' })]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([makeReading({ id: 'r1' })]));
 
     const result = data.deleteReading('nonexistent');
     expect(result).toBe(false);
-    expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
   });
 });
 
@@ -249,30 +246,30 @@ describe('deleteReading()', () => {
 
 describe('purgeExpiredImages()', () => {
   test('returns { purged: 0 } when images directory does not exist', () => {
-    fsMock.existsSync.mockReturnValue(false);
+    fs.existsSync.mockReturnValue(false);
 
     const result = data.purgeExpiredImages();
     expect(result).toEqual({ purged: 0 });
   });
 
   test('returns { purged: 0 } when no readings have imageRef set', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([makeReading({ imageRef: null })]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([makeReading({ imageRef: null })]));
 
     const result = data.purgeExpiredImages();
     expect(result).toEqual({ purged: 0 });
-    expect(fsMock.unlinkSync).not.toHaveBeenCalled();
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
   });
 
   test('does not purge image within retention window', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([
       makeReading({ imageRef: 'images/recent.jpg', createdAt: new Date().toISOString() }),
     ]));
 
     const result = data.purgeExpiredImages();
     expect(result).toEqual({ purged: 0 });
-    expect(fsMock.unlinkSync).not.toHaveBeenCalled();
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
   });
 
   test('purges expired image file and nulls imageRef on reading', () => {
@@ -280,17 +277,17 @@ describe('purgeExpiredImages()', () => {
     const reading = makeReading({ id: 'r1', imageRef: 'images/old.jpg', createdAt: expiredDate });
     const imgPath = path.join(DATA_DIR, 'images/old.jpg');
 
-    fsMock.existsSync
+    fs.existsSync
       .mockReturnValueOnce(true)   // IMAGES_DIR exists
       .mockReturnValueOnce(true)   // runtime readings.json exists
       .mockReturnValueOnce(true);  // image file exists
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([reading]));
+    fs.readFileSync.mockReturnValue(JSON.stringify([reading]));
 
     const result = data.purgeExpiredImages();
 
     expect(result).toEqual({ purged: 1 });
-    expect(fsMock.unlinkSync).toHaveBeenCalledWith(imgPath);
-    const written = JSON.parse(fsMock.writeFileSync.mock.calls[0][1]);
+    expect(fs.unlinkSync).toHaveBeenCalledWith(imgPath);
+    const written = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
     expect(written[0].imageRef).toBeNull();
   });
 
@@ -298,26 +295,26 @@ describe('purgeExpiredImages()', () => {
     const expiredDate = new Date(Date.now() - data.IMAGE_RETENTION_MS - 1000).toISOString();
     const reading = makeReading({ id: 'r1', imageRef: 'images/gone.jpg', createdAt: expiredDate });
 
-    fsMock.existsSync
+    fs.existsSync
       .mockReturnValueOnce(true)    // IMAGES_DIR exists
       .mockReturnValueOnce(true)    // runtime readings.json exists
       .mockReturnValueOnce(false);  // image file does not exist
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([reading]));
+    fs.readFileSync.mockReturnValue(JSON.stringify([reading]));
 
     const result = data.purgeExpiredImages();
 
     expect(result).toEqual({ purged: 0 });
-    expect(fsMock.unlinkSync).not.toHaveBeenCalled();
-    const written = JSON.parse(fsMock.writeFileSync.mock.calls[0][1]);
+    expect(fs.unlinkSync).not.toHaveBeenCalled();
+    const written = JSON.parse(fs.writeFileSync.mock.calls[0][1]);
     expect(written[0].imageRef).toBeNull();
   });
 
   test('only writes readings to disk if at least one record was modified', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    fsMock.readFileSync.mockReturnValue(JSON.stringify([makeReading({ imageRef: null })]));
+    fs.existsSync.mockReturnValue(true);
+    fs.readFileSync.mockReturnValue(JSON.stringify([makeReading({ imageRef: null })]));
 
     data.purgeExpiredImages();
 
-    expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
   });
 });
