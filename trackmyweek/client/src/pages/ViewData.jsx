@@ -11,6 +11,8 @@ const DATE_RANGE_OPTIONS = [
   { value: '90days',  label: 'Last 90 days' },
 ];
 
+const PAGE_SIZE = 20;
+
 // ---------------------------------------------------------------------------
 // Timezone helpers
 // ---------------------------------------------------------------------------
@@ -42,6 +44,9 @@ export default function ViewData() {
   const [keyword, setKeyword]       = useState('');
   const [category, setCategory]     = useState('');
   const [dateRange, setDateRange]   = useState('');
+
+  // Pagination
+  const [page, setPage] = useState(1);
 
   // Inline edit state: { id, field, value } | null
   const [editing, setEditing]       = useState(null);
@@ -76,6 +81,16 @@ export default function ViewData() {
     const matchCat = !category || e.category === category;
     return matchKw && matchCat;
   });
+
+  // Reset to page 1 whenever filters or underlying data change
+  useEffect(() => { setPage(1); }, [keyword, category, dateRange]);
+
+  // Pagination derived values
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage    = Math.min(page, totalPages);
+  const startIndex  = (safePage - 1) * PAGE_SIZE;
+  const endIndex    = Math.min(startIndex + PAGE_SIZE, filtered.length);
+  const paginated   = filtered.slice(startIndex, endIndex);
 
   const hasFilters = keyword || category || dateRange;
 
@@ -136,7 +151,21 @@ export default function ViewData() {
   async function handleDelete(id) {
     try {
       await deleteEntry(id);
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setEntries((prev) => {
+        const next = prev.filter((e) => e.id !== id);
+        // If deleting the last item on the current page, step back
+        const nextFiltered = next.filter((e) => {
+          const kw = keyword.toLowerCase();
+          const matchKw = !kw ||
+            e.text.toLowerCase().includes(kw) ||
+            (e.notes && e.notes.toLowerCase().includes(kw));
+          const matchCat = !category || e.category === category;
+          return matchKw && matchCat;
+        });
+        const nextTotalPages = Math.max(1, Math.ceil(nextFiltered.length / PAGE_SIZE));
+        setPage((p) => Math.min(p, nextTotalPages));
+        return next;
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -272,8 +301,15 @@ export default function ViewData() {
       {/* Entry count */}
       {!loading && (
         <p className="text-muted entry-count">
-          {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
-          {hasFilters && ` (filtered from ${entries.length})`}
+          {filtered.length === 0 ? (
+            `${filtered.length} ${filtered.length === 1 ? 'entry' : 'entries'}${
+              hasFilters ? ` (filtered from ${entries.length})` : ''
+            }`
+          ) : (
+            `Showing ${startIndex + 1}–${endIndex} of ${filtered.length} ${
+              filtered.length === 1 ? 'entry' : 'entries'
+            }${hasFilters ? ` (filtered from ${entries.length})` : ''}`
+          )}
         </p>
       )}
 
@@ -290,64 +326,91 @@ export default function ViewData() {
           )}
         </div>
       ) : (
-        <div className="entries-table-wrap">
-          <table className="entries-table" data-testid="entries-table">
-            <thead>
-              <tr>
-                <th>Text</th>
-                <th>Category</th>
-                <th>Notes</th>
-                <th>Timestamp</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className={`entry-row${confirmDelete === entry.id ? ' entry-row--deleting' : ''}`}
-                  data-testid={`entry-row-${entry.id}`}
-                >
-                  <td>{renderCell(entry, 'text')}</td>
-                  <td>{renderCell(entry, 'category')}</td>
-                  <td>{renderCell(entry, 'notes')}</td>
-                  <td>{renderCell(entry, 'timestamp')}</td>
-                  <td className="entry-actions">
-                    {confirmDelete === entry.id ? (
-                      <span className="delete-confirm">
-                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>Delete?</span>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                          onClick={() => handleDelete(entry.id)}
-                          data-testid={`confirm-delete-${entry.id}`}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                          onClick={() => setConfirmDelete(null)}
-                        >
-                          No
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        className="btn btn-ghost delete-btn"
-                        onClick={() => setConfirmDelete(entry.id)}
-                        title="Delete entry"
-                        data-testid={`delete-btn-${entry.id}`}
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </td>
+        <>
+          <div className="entries-table-wrap">
+            <table className="entries-table" data-testid="entries-table">
+              <thead>
+                <tr>
+                  <th>Text</th>
+                  <th>Category</th>
+                  <th>Notes</th>
+                  <th>Timestamp</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {paginated.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    className={`entry-row${confirmDelete === entry.id ? ' entry-row--deleting' : ''}`}
+                    data-testid={`entry-row-${entry.id}`}
+                  >
+                    <td>{renderCell(entry, 'text')}</td>
+                    <td>{renderCell(entry, 'category')}</td>
+                    <td>{renderCell(entry, 'notes')}</td>
+                    <td>{renderCell(entry, 'timestamp')}</td>
+                    <td className="entry-actions">
+                      {confirmDelete === entry.id ? (
+                        <span className="delete-confirm">
+                          <span className="text-muted" style={{ fontSize: '0.8rem' }}>Delete?</span>
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                            onClick={() => handleDelete(entry.id)}
+                            data-testid={`confirm-delete-${entry.id}`}
+                          >
+                            Yes
+                          </button>
+                          <button
+                            className="btn btn-ghost"
+                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                            onClick={() => setConfirmDelete(null)}
+                          >
+                            No
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          className="btn btn-ghost delete-btn"
+                          onClick={() => setConfirmDelete(entry.id)}
+                          title="Delete entry"
+                          data-testid={`delete-btn-${entry.id}`}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination bar — only rendered when there is more than one page */}
+          {totalPages > 1 && (
+            <div className="pagination-bar" data-testid="pagination-bar">
+              <button
+                className="pagination-btn"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                data-testid="pagination-prev"
+              >
+                ← Prev
+              </button>
+              <span className="pagination-info" data-testid="pagination-info">
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                className="pagination-btn"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                data-testid="pagination-next"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
