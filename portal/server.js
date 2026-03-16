@@ -61,7 +61,9 @@ app.use(session({
 }));
 
 // ── Body parsing ────────────────────────────────────────────
-app.use(express.json());
+// Limit raised to 10mb to support bptracker image uploads (phone camera photos
+// sent as base64 are typically 2-5mb).
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 // ── Rate limiting on auth ───────────────────────────────────────
