@@ -1,10 +1,10 @@
 # TrackMyWeek — Test Catalog
 
 **Project:** TrackMyWeek (trackmyweek.com — activity logging, data viewing, reports, categories, questions)
-**Test runner:** Jest + Supertest (unit), Playwright (E2E)
+**Test runner:** Jest + Supertest (unit/integration), Playwright (E2E)
 **Run commands:**
 ```bash
-cd trackmyweek && npm test                                           # unit tests
+cd trackmyweek && npm test                                           # unit + integration tests
 npx playwright test --config=trackmyweek/client/playwright.ci.config.js  # E2E (CI)
 npx playwright test --config=trackmyweek/client/playwright.config.js     # E2E (local)
 ```
@@ -16,6 +16,7 @@ npx playwright test --config=trackmyweek/client/playwright.config.js     # E2E (
 - [Critical Tests](#critical-tests)
 - [Smoke Tests](#smoke-tests)
 - [Regression Tests](#regression-tests)
+- [Integration Tests](#integration-tests)
 - [Unit Tests](#unit-tests)
 - [Coverage Gaps](#coverage-gaps)
 
@@ -25,7 +26,8 @@ npx playwright test --config=trackmyweek/client/playwright.config.js     # E2E (
 
 | Tool | Version source | Purpose |
 |------|---------------|--------|
-| **Jest** | `trackmyweek/package.json` | Unit test runner |
+| **Jest** | `trackmyweek/package.json` | Unit and integration test runner |
+| **Supertest** | `trackmyweek/package.json` | HTTP integration testing against live Express router |
 | **Playwright** | root `package.json` | E2E browser automation |
 | **Chromium** | Playwright-managed | Browser for E2E tests |
 
@@ -33,7 +35,7 @@ npx playwright test --config=trackmyweek/client/playwright.config.js     # E2E (
 - Jest: `trackmyweek/package.json` (`jest` key)
 - Playwright (local): `trackmyweek/client/playwright.config.js`
 - Playwright (CI): `trackmyweek/client/playwright.ci.config.js`
-- E2E global setup: `trackmyweek/client/tests/e2e/global-setup.js` (seeds e2e-tmw user)
+- E2E global setup: `trackmyweek/client/tests/e2e/global-setup.js` (seeds e2e-tmw user, username: `e2e-tmw`)
 - E2E global teardown: `trackmyweek/client/tests/e2e/global-teardown.js` (removes e2e-tmw user)
 
 **Note:** `@playwright/test` is owned by the **root** `package.json` only.
@@ -63,6 +65,14 @@ Critical = app is broken for all users if this fails.
 | Status | Test | What it verifies |
 |--------|------|------------------|
 | ✅ | `adding a new question persists and appears in list` | POST to API → new question renders in unanswered list |
+
+### E2E — `trackmyweek/client/tests/e2e/return-to.spec.js`
+
+| Status | Test | What it verifies |
+|--------|------|------------------|
+| ✅ | `unauthenticated /trackmyweek/log redirects to login with returnTo` | RequireAuth redirects with correct returnTo URL |
+| ✅ | `unauthenticated /trackmyweek/log redirects to login then back after login` | Full round-trip: unauthenticated → login → back to /log |
+| ✅ | `unauthenticated /trackmyweek/view redirects to login then back after login` | Full round-trip: unauthenticated → login → back to /view |
 
 ---
 
@@ -134,6 +144,21 @@ Regression = written to prevent a previously-fixed bug from returning.
 
 ---
 
+## Integration Tests
+
+Full list in `trackmyweek/tests/unit/server.test.js`.
+
+### Auth boundaries
+| Status | Test |
+|--------|------|
+| ✅ | `GET /trackmyweek/api/entries` — unauthenticated → 302 to `/login?returnTo=...` |
+| ✅ | `GET /trackmyweek/api/categories` — unauthenticated → 302 to `/login?returnTo=...` |
+| ✅ | `GET /trackmyweek/api/reports` — unauthenticated → 302 to `/login?returnTo=...` |
+| ✅ | `GET /trackmyweek/api/questions` — unauthenticated → 302 to `/login?returnTo=...` |
+| ✅ | `GET /trackmyweek/api/prebuilt/trend` — unauthenticated → 302 to `/login?returnTo=...` |
+
+---
+
 ## Unit Tests
 
 ### `trackmyweek/tests/unit/entries.controller.test.js` — entries controller
@@ -181,4 +206,3 @@ Do not remove an entry without adding the test.
 | Medium | Smoke (E2E) | `view-data.spec.js` | All entries view loads and renders rows from API |
 | Medium | Smoke (E2E) | `questions.spec.js` | Asked questions section renders |
 | Medium | Smoke (E2E) | `questions.spec.js` | Answered questions section renders |
-| Low | Integration | *(new)* | TrackMyWeek server routes — auth boundaries, data endpoints |
