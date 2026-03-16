@@ -1,9 +1,13 @@
 name: CI
 
+# CI runs on pull_request only — not on push to main.
+# Rationale: this is a solo-contributor repo. Tests run on the PR before merge,
+# which is sufficient. Running again post-merge on every push to main adds CI
+# minutes with no safety benefit when there is only one contributor.
+#
+# TODO (docs/TODO.md): Re-enable push trigger when a second contributor joins.
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
 
 permissions:
@@ -493,26 +497,6 @@ jobs:
             | TrackMyWeek | ${{ steps.tmw-e2e.outputs.exit_code == '0' && '✅ Passed' || '❌ Failed' }} | [View →](https://trackmyweek.com/playwright-reports/${{ env.REPORT_SLUG }}/trackmyweek/) |
           comment-author: github-actions[bot]
           body-includes: playwright-report-comment
-
-      - name: Write job summary with report links
-        if: always() && github.event_name == 'push'
-        run: |
-          echo "## 🎭 Playwright Report — ${REPORT_SLUG}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Suite | Status | Report |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|--------|" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.portal-e2e.outputs.exit_code }}" = "0" ]; then
-            PORTAL_STATUS="✅ Passed"
-          else
-            PORTAL_STATUS="❌ Failed"
-          fi
-          if [ "${{ steps.tmw-e2e.outputs.exit_code }}" = "0" ]; then
-            TMW_STATUS="✅ Passed"
-          else
-            TMW_STATUS="❌ Failed"
-          fi
-          echo "| Portal | ${PORTAL_STATUS} | [View →](https://trackmyweek.com/playwright-reports/${REPORT_SLUG}/portal/) |" >> $GITHUB_STEP_SUMMARY
-          echo "| TrackMyWeek | ${TMW_STATUS} | [View →](https://trackmyweek.com/playwright-reports/${REPORT_SLUG}/trackmyweek/) |" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if any E2E tests failed
         if: always()

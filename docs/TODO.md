@@ -23,6 +23,44 @@ Low-urgency items to revisit when time permits.
 
 ## CI / Build
 
+- [ ] **Re-enable CI on push to main when a second contributor joins**
+  CI currently runs on `pull_request` only — the `push` trigger was removed on
+  2026-03-16 because this is a solo-contributor repo and running tests twice
+  (once on PR, once post-merge) added CI minutes with no safety benefit.
+
+  **To re-enable:** Add `push: branches: [main]` back to the `on:` block in
+  `.github/workflows/ci.yml` and remove this TODO item.
+
+  **Trigger:** Do this as soon as a second contributor opens their first PR.
+  With multiple contributors, post-merge CI catches integration regressions
+  that can't be caught on individual PRs.
+
+- [ ] **Split `ci.yml` into per-project workflow files**
+  The current single `ci.yml` uses path filters to scope jobs, but as the monorepo
+  grows this becomes increasingly complex to maintain — a CI change for one project
+  risks breaking another, and the `if` conditions grow with every new project added.
+
+  **Target architecture:**
+  | File | Triggers on |
+  |------|------------|
+  | `ci-portal.yml` | `portal/**`, `core/**` |
+  | `ci-trackmyweek.yml` | `trackmyweek/**` |
+  | `ci-bptracker.yml` | `bptracker/**` |
+  | `ci-e2e.yml` | `portal/**`, `core/**`, `trackmyweek/**` |
+
+  Each project owns its pipeline. Adding a new project means creating a new file,
+  not editing a shared one.
+
+  **Key consideration before splitting:** The shared `logs/test-runs.jsonl` commit
+  step (used by the test dashboard) will cause rebase conflicts if two workflows
+  run concurrently and both try to push to `main` at the same moment. Resolve the
+  log delivery mechanism first — options include: a serialised log workflow that
+  runs after all others complete, or switching to a GitHub API append rather than
+  a git commit.
+
+  **Trigger:** Do this when a third or fourth project joins and the single-file
+  complexity becomes the bottleneck. Not needed yet.
+
 - [ ] **Do not run E2E tests on merge for new subprojects that don't touch shared code**
   Currently, every merge to `main` triggers the full CI pipeline including E2E tests.
   For new subprojects (e.g. `bptracker`) that have no portal integration yet, running
