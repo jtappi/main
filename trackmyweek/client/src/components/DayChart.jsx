@@ -11,12 +11,11 @@ import './DayChart.css';
  */
 export default function DayChart() {
   const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate]           = useState(today);
-  const [entries, setEntries]     = useState([]);
+  const [date, setDate]             = useState(today);
+  const [entries, setEntries]       = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const canvasRef                 = useRef(null);
-  const chartRef                  = useRef(null);
+  const [loading, setLoading]       = useState(false);
+  const canvasRef                   = useRef(null);
 
   // Load categories once
   useEffect(() => {
@@ -39,14 +38,19 @@ export default function DayChart() {
   const colorMap = {};
   for (const cat of categories) colorMap[cat.name] = cat.color;
 
-  // Draw chart using Canvas API (no extra dependency)
-  useEffect(() => {
+  // Draw the chart. Called by the ResizeObserver so it always has a real width.
+  function draw() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width  = canvas.offsetWidth;
-    const H = canvas.height = 120;
 
+    const W = canvas.offsetWidth;
+    if (W === 0) return; // not laid out yet — observer will call again
+
+    canvas.width  = W;
+    canvas.height = 120;
+    const H = canvas.height;
+
+    const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
     // Background
@@ -70,7 +74,7 @@ export default function DayChart() {
     ctx.textAlign = 'center';
     for (const h of [0, 6, 12, 18, 24]) {
       const x = (h / 24) * W;
-      const label = h === 0 ? '12am' : h === 12 ? '12pm' : h === 24 ? '' : h > 12 ? `${h-12}pm` : `${h}am`;
+      const label = h === 0 ? '12am' : h === 12 ? '12pm' : h === 24 ? '' : h > 12 ? `${h - 12}pm` : `${h}am`;
       ctx.fillText(label, x, H - 4);
     }
 
@@ -85,16 +89,15 @@ export default function DayChart() {
     // Group entries by hour to stack dots
     const byHour = {};
     for (const entry of entries) {
-      const d = new Date(entry.timestamp);
-      const h = d.getHours() + d.getMinutes() / 60;
+      const d    = new Date(entry.timestamp);
+      const h    = d.getHours() + d.getMinutes() / 60;
       const hKey = Math.floor(h);
       byHour[hKey] = (byHour[hKey] || 0) + 1;
       const stack = byHour[hKey];
-      const x = (h / 24) * W;
-      const y = H - 24 - (stack - 1) * 14;
+      const x     = (h / 24) * W;
+      const y     = H - 24 - (stack - 1) * 14;
       const color = colorMap[entry.category] || '#6c63ff';
 
-      // Draw dot
       ctx.beginPath();
       ctx.arc(x, y, 6, 0, Math.PI * 2);
       ctx.fillStyle = color;
@@ -103,6 +106,23 @@ export default function DayChart() {
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
+  }
+
+  // Use a ResizeObserver so the canvas is drawn (and redrawn on resize) only
+  // once it has a real measured width. The previous approach read offsetWidth
+  // directly in a useEffect, which fired before layout and always returned 0.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const observer = new ResizeObserver(() => { draw(); });
+    observer.observe(canvas);
+
+    // Also draw immediately in case the observer fires before React flushes
+    draw();
+
+    return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, categories]);
 
   return (
