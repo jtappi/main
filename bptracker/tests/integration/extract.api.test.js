@@ -3,46 +3,70 @@
 /**
  * extract.api.test.js — integration tests for POST /bptracker/api/extract
  *
- * The Anthropic SDK is mocked in testApp.js — no real API calls are made.
- * Each test configures the mock's return value to simulate different
- * Claude responses.
+ * jest.mock() calls are hoisted by Jest to the top of this file.
+ * The Anthropic SDK constructor is mocked so no real API calls are made.
  */
 
-const request  = require('supertest');
-const Anthropic = require('@anthropic-ai/sdk');
-const { buildApp } = require('../unit/testApp');
+jest.mock('../../../core/auth/middleware', () => ({
+  requireAuth:          (_req, _res, next) => next(),
+  requireAdmin:         (_req, _res, next) => next(),
+  requireProjectAccess: () => (_req, _res, next) => next(),
+}));
 
-/** Build a fake Anthropic messages.create response for a given JSON payload. */
-function mockClaudeResponse(jsonPayload) {
-  return {
-    content: [{ type: 'text', text: JSON.stringify(jsonPayload) }],
-  };
+jest.mock('../../lib/data', () => ({
+  readReadings:       jest.fn(() => []),
+  writeReadings:      jest.fn(),
+  filterByUserId:     jest.fn((r) => r),
+  appendReading:      jest.fn(),
+  updateReading:      jest.fn(),
+  deleteReading:      jest.fn(),
+  purgeExpiredImages: jest.fn(() => ({ purged: 0 })),
+  IMAGE_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
+  DATA_DIR:           '/tmp/bptracker-test',
+  IMAGES_DIR:         '/tmp/bptracker-test/images',
+}));
+
+const mockCreate = jest.fn();
+jest.mock('@anthropic-ai/sdk', () =>
+  jest.fn().mockImplementation(() => ({
+    messages: { create: mockCreate },
+  }))
+);
+
+const request = require('supertest');
+const express = require('express');
+
+function buildApp(user) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.session = { user }; next(); });
+  app.use('/bptracker', require('../../server'));
+  return app;
 }
 
-let anthropicInstance;
+function mockClaudeResponse(jsonPayload) {
+  return { content: [{ type: 'text', text: JSON.stringify(jsonPayload) }] };
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
-  anthropicInstance = new Anthropic();
-  Anthropic.mockImplementation(() => anthropicInstance);
 });
 
-const validBody = {
-  imageData: 'base64encodedstring',
-  mediaType: 'image/jpeg',
-};
+const validBody = { imageData: 'base64encodedstring', mediaType: 'image/jpeg' };
+const guestUser = { id: 'user-001', role: 'guest' };
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 describe('POST /bptracker/api/extract', () => {
   test('returns extracted values for a high-confidence response', async () => {
-    anthropicInstance.messages.create.mockResolvedValue(
+    mockCreate.mockResolvedValue(
       mockClaudeResponse({ systolic: 122, diastolic: 78, heartRate: 64, confidence: 'high' })
     );
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(200);
     expect(res.body.systolic).toBe(122);
@@ -52,24 +76,26 @@ describe('POST /bptracker/api/extract', () => {
   });
 
   test('propagates low confidence from Claude to client', async () => {
-    anthropicInstance.messages.create.mockResolvedValue(
+    mockCreate.mockResolvedValue(
       mockClaudeResponse({ systolic: 130, diastolic: 85, heartRate: 70, confidence: 'low' })
     );
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(200);
     expect(res.body.confidence).toBe('low');
   });
 
   test('overrides confidence to low when a value is outside plausible range', async () => {
-    anthropicInstance.messages.create.mockResolvedValue(
+    mockCreate.mockResolvedValue(
       mockClaudeResponse({ systolic: 999, diastolic: 78, heartRate: 64, confidence: 'high' })
     );
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(200);
     expect(res.body.confidence).toBe('low');
@@ -77,44 +103,48 @@ describe('POST /bptracker/api/extract', () => {
   });
 
   test('returns 422 image_unreadable when all values are null', async () => {
-    anthropicInstance.messages.create.mockResolvedValue(
+    mockCreate.mockResolvedValue(
       mockClaudeResponse({ systolic: null, diastolic: null, heartRate: null, confidence: 'low' })
     );
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(422);
     expect(res.body.error).toBe('image_unreadable');
   });
 
   test('returns 502 extraction_failed when Claude API throws', async () => {
-    anthropicInstance.messages.create.mockRejectedValue(new Error('Network error'));
+    mockCreate.mockRejectedValue(new Error('Network error'));
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('extraction_failed');
   });
 
   test('returns 502 extraction_failed when Claude returns unparseable output', async () => {
-    anthropicInstance.messages.create.mockResolvedValue({
+    mockCreate.mockResolvedValue({
       content: [{ type: 'text', text: 'Sorry, I cannot read this image.' }],
     });
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send(validBody);
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send(validBody);
 
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('extraction_failed');
   });
 
   test('returns 400 when imageData is missing', async () => {
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
-    const res = await request(app).post('/bptracker/api/extract').send({});
+    const res = await request(buildApp(guestUser))
+      .post('/bptracker/api/extract')
+      .send({});
 
     expect(res.status).toBe(400);
-    expect(anthropicInstance.messages.create).not.toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

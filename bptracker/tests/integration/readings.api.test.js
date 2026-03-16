@@ -3,13 +3,46 @@
 /**
  * readings.api.test.js — integration tests for /bptracker/api/readings
  *
- * All file I/O is mocked via testApp.js. No disk access occurs.
- * Auth middleware is mocked — session user is injected per test.
+ * jest.mock() calls are hoisted by Jest to the top of this file before any
+ * require() runs. This ensures the mocks are in place when server.js and the
+ * controllers load their dependencies.
  */
 
+jest.mock('../../../core/auth/middleware', () => ({
+  requireAuth:          (_req, _res, next) => next(),
+  requireAdmin:         (_req, _res, next) => next(),
+  requireProjectAccess: () => (_req, _res, next) => next(),
+}));
+
+const mockReadReadings   = jest.fn();
+const mockFilterByUserId = jest.fn((readings) => readings);
+const mockAppendReading  = jest.fn();
+const mockUpdateReading  = jest.fn();
+const mockDeleteReading  = jest.fn();
+
+jest.mock('../../lib/data', () => ({
+  readReadings:       mockReadReadings,
+  writeReadings:      jest.fn(),
+  filterByUserId:     mockFilterByUserId,
+  appendReading:      mockAppendReading,
+  updateReading:      mockUpdateReading,
+  deleteReading:      mockDeleteReading,
+  purgeExpiredImages: jest.fn(() => ({ purged: 0 })),
+  IMAGE_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
+  DATA_DIR:           '/tmp/bptracker-test',
+  IMAGES_DIR:         '/tmp/bptracker-test/images',
+}));
+
 const request = require('supertest');
-const data    = require('../../lib/data');
-const { buildApp } = require('../unit/testApp');
+const express = require('express');
+
+function buildApp(user) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.session = { user }; next(); });
+  app.use('/bptracker', require('../../server'));
+  return app;
+}
 
 function makeReading(overrides = {}) {
   return {
@@ -37,16 +70,16 @@ beforeEach(() => {
 describe('GET /bptracker/api/readings', () => {
   test('returns scoped readings for guest user', async () => {
     const reading = makeReading();
-    data.readReadings.mockReturnValue([reading]);
-    data.filterByUserId.mockReturnValue([reading]);
+    mockReadReadings.mockReturnValue([reading]);
+    mockFilterByUserId.mockReturnValue([reading]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app).get('/bptracker/api/readings');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].id).toBe('reading-001');
-    expect(data.filterByUserId).toHaveBeenCalledWith([reading], 'user-001', 'guest');
+    expect(mockFilterByUserId).toHaveBeenCalledWith([reading], 'user-001', 'guest');
   });
 
   test('returns all readings for admin user', async () => {
@@ -54,22 +87,22 @@ describe('GET /bptracker/api/readings', () => {
       makeReading({ id: 'r1', userId: 'user-001' }),
       makeReading({ id: 'r2', userId: 'user-002' }),
     ];
-    data.readReadings.mockReturnValue(readings);
-    data.filterByUserId.mockReturnValue(readings);
+    mockReadReadings.mockReturnValue(readings);
+    mockFilterByUserId.mockReturnValue(readings);
 
-    const app = buildApp({ user: { id: 'admin-001', role: 'admin' } });
+    const app = buildApp({ id: 'admin-001', role: 'admin' });
     const res = await request(app).get('/bptracker/api/readings');
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(2);
-    expect(data.filterByUserId).toHaveBeenCalledWith(readings, 'admin-001', 'admin');
+    expect(mockFilterByUserId).toHaveBeenCalledWith(readings, 'admin-001', 'admin');
   });
 
   test('returns empty array when user has no readings', async () => {
-    data.readReadings.mockReturnValue([]);
-    data.filterByUserId.mockReturnValue([]);
+    mockReadReadings.mockReturnValue([]);
+    mockFilterByUserId.mockReturnValue([]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app).get('/bptracker/api/readings');
 
     expect(res.status).toBe(200);
@@ -82,9 +115,9 @@ describe('GET /bptracker/api/readings', () => {
 // ---------------------------------------------------------------------------
 describe('POST /bptracker/api/readings', () => {
   test('saves reading and returns 201 with reading object', async () => {
-    data.appendReading.mockImplementation((r) => [r]);
+    mockAppendReading.mockImplementation((r) => [r]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .post('/bptracker/api/readings')
       .send({
@@ -101,22 +134,22 @@ describe('POST /bptracker/api/readings', () => {
     expect(res.body.diastolic).toBe(78);
     expect(res.body.heartRate).toBe(64);
     expect(res.body.id).toBeDefined();
-    expect(data.appendReading).toHaveBeenCalledTimes(1);
+    expect(mockAppendReading).toHaveBeenCalledTimes(1);
   });
 
   test('returns 400 when required fields are missing', async () => {
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .post('/bptracker/api/readings')
       .send({ systolic: 122 });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/required/);
-    expect(data.appendReading).not.toHaveBeenCalled();
+    expect(mockAppendReading).not.toHaveBeenCalled();
   });
 
   test('returns 400 when systolic is not an integer', async () => {
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .post('/bptracker/api/readings')
       .send({ systolic: 'abc', diastolic: 78, heartRate: 64, timestamp: '2026-03-16T08:00:00' });
@@ -131,36 +164,36 @@ describe('POST /bptracker/api/readings', () => {
 describe('PUT /bptracker/api/readings/:id', () => {
   test('owner can update notes on their own reading', async () => {
     const reading = makeReading({ userId: 'user-001' });
-    data.readReadings.mockReturnValue([reading]);
-    data.updateReading.mockReturnValue({ ...reading, notes: 'felt tired' });
+    mockReadReadings.mockReturnValue([reading]);
+    mockUpdateReading.mockReturnValue({ ...reading, notes: 'felt tired' });
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .put('/bptracker/api/readings/reading-001')
       .send({ notes: 'felt tired' });
 
     expect(res.status).toBe(200);
     expect(res.body.notes).toBe('felt tired');
-    expect(data.updateReading).toHaveBeenCalledWith('reading-001', { notes: 'felt tired' });
+    expect(mockUpdateReading).toHaveBeenCalledWith('reading-001', { notes: 'felt tired' });
   });
 
   test('returns 403 when user tries to edit another user\'s reading', async () => {
     const reading = makeReading({ userId: 'user-002' });
-    data.readReadings.mockReturnValue([reading]);
+    mockReadReadings.mockReturnValue([reading]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .put('/bptracker/api/readings/reading-001')
       .send({ notes: 'hacked' });
 
     expect(res.status).toBe(403);
-    expect(data.updateReading).not.toHaveBeenCalled();
+    expect(mockUpdateReading).not.toHaveBeenCalled();
   });
 
   test('returns 404 when reading does not exist', async () => {
-    data.readReadings.mockReturnValue([]);
+    mockReadReadings.mockReturnValue([]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .put('/bptracker/api/readings/nonexistent')
       .send({ notes: 'x' });
@@ -170,9 +203,9 @@ describe('PUT /bptracker/api/readings/:id', () => {
 
   test('returns 400 when no valid update fields are provided', async () => {
     const reading = makeReading({ userId: 'user-001' });
-    data.readReadings.mockReturnValue([reading]);
+    mockReadReadings.mockReturnValue([reading]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app)
       .put('/bptracker/api/readings/reading-001')
       .send({ unknownField: 'ignored' });
@@ -187,31 +220,31 @@ describe('PUT /bptracker/api/readings/:id', () => {
 describe('DELETE /bptracker/api/readings/:id', () => {
   test('owner can delete their own reading', async () => {
     const reading = makeReading({ userId: 'user-001' });
-    data.readReadings.mockReturnValue([reading]);
-    data.deleteReading.mockReturnValue(true);
+    mockReadReadings.mockReturnValue([reading]);
+    mockDeleteReading.mockReturnValue(true);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app).delete('/bptracker/api/readings/reading-001');
 
     expect(res.status).toBe(204);
-    expect(data.deleteReading).toHaveBeenCalledWith('reading-001');
+    expect(mockDeleteReading).toHaveBeenCalledWith('reading-001');
   });
 
   test('returns 403 when user tries to delete another user\'s reading', async () => {
     const reading = makeReading({ userId: 'user-002' });
-    data.readReadings.mockReturnValue([reading]);
+    mockReadReadings.mockReturnValue([reading]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app).delete('/bptracker/api/readings/reading-001');
 
     expect(res.status).toBe(403);
-    expect(data.deleteReading).not.toHaveBeenCalled();
+    expect(mockDeleteReading).not.toHaveBeenCalled();
   });
 
   test('returns 404 when reading does not exist', async () => {
-    data.readReadings.mockReturnValue([]);
+    mockReadReadings.mockReturnValue([]);
 
-    const app = buildApp({ user: { id: 'user-001', role: 'guest' } });
+    const app = buildApp({ id: 'user-001', role: 'guest' });
     const res = await request(app).delete('/bptracker/api/readings/nonexistent');
 
     expect(res.status).toBe(404);
