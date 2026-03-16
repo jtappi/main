@@ -1,8 +1,8 @@
 # trackmyweek.com — Platform Specification
 
-**Version:** 1.3  
-**Date:** 2026-03-10  
-**Status:** APPROVED — Ready to Build  
+**Version:** 1.4
+**Date:** 2026-03-16
+**Status:** APPROVED — Ready to Build
 
 ---
 
@@ -44,12 +44,11 @@ A self-hosted personal development portfolio and app ecosystem that serves as bo
 
 ## 4. Current Scope
 
-This spec covers **Phase 1 and Phase 2** only:
-
 | Project | Description | Status |
 |---------|-------------|--------|
-| **Portal** | Main entry point — login, dashboard, admin panel | 🔜 Building now |
-| **TrackMyWeek** | Activity and week tracking app | 🔜 Migrating into monorepo |
+| **Portal** | Main entry point — login, dashboard, admin panel | 🔨 In Progress |
+| **TrackMyWeek** | Activity and week tracking app | 🔨 In Progress |
+| **BP Tracker** | Mobile blood pressure logging with Claude Vision | 🔜 Spec approved |
 
 Additional sub-projects will be defined in future spec versions as they are planned.
 
@@ -61,7 +60,8 @@ Additional sub-projects will be defined in future spec versions as they are plan
 |-----|------|
 | Portal | 3000 |
 | TrackMyWeek | 3001 |
-| Reserved for future projects | 3002–3010 |
+| BP Tracker | 3002 |
+| Reserved for future projects | 3003–3010 |
 
 ---
 
@@ -73,6 +73,7 @@ All sub-projects are served as subpaths of the main domain:
 |-----|-----|
 | Portal / Login | trackmyweek.com/ |
 | TrackMyWeek | trackmyweek.com/trackmyweek |
+| BP Tracker | trackmyweek.com/bptracker |
 | Future projects | trackmyweek.com/{project-name} |
 
 ---
@@ -81,45 +82,32 @@ All sub-projects are served as subpaths of the main domain:
 
 ```
 main/                          # Root monorepo (github.com/jtappi/main)
-├── SPEC.md                    # This file
-├── README.md                  # Project overview
-├── .gitignore
-├── .env.example
-│
-├── core/                      # Shared platform code
-│   ├── auth/
-│   │   ├── auth.js            # Login/logout/session logic
-│   │   └── middleware.js      # Auth + access control middleware
-│   └── data/
-│       ├── users.json         # All users (gitignored)
-│       ├── users.template.json
-│       └── projects.json      # Project registry
-│
-├── portal/                    # Main entry point (port 3000)
-│   ├── server.js
-│   ├── package.json
-│   └── public/
-│       ├── login.html
-│       ├── dashboard.html
-│       ├── admin.html
-│       └── assets/
-│
-├── tests/                     # All tests
-│   ├── unit/                  # Unit tests (Jest)
-│   │   ├── auth.test.js
-│   │   └── middleware.test.js
-│   ├── integration/           # API integration tests (Supertest)
-│   │   └── portal.test.js
-│   ├── e2e/                   # End-to-end tests (Playwright)
-│   │   ├── login.spec.js
-│   │   ├── dashboard.spec.js
-│   │   └── admin.spec.js
-│   └── fixtures/              # Test data
-│       ├── users.fixture.json
-│       └── projects.fixture.json
-│
-└── projects/
-    └── trackmyweek/
++-- SPEC.md                    # This file
++-- README.md                  # Project overview
++-- .gitignore
++-- .env.example
++-- core/                      # Shared platform code
+|   +-- auth/
+|   |   +-- auth.js            # Login/logout/session logic
+|   |   +-- middleware.js      # Auth + access control middleware
+|   +-- data/
+|       +-- users.json         # All users (gitignored)
+|       +-- users.template.json
+|       +-- projects.json      # Project registry
++-- portal/                    # Main entry point (port 3000)
+|   +-- server.js
+|   +-- package.json
+|   +-- public/
+|       +-- login.html
+|       +-- dashboard.html
+|       +-- admin.html
+|       +-- assets/
++-- trackmyweek/               # Activity tracking app (port 3001)
++-- bptracker/                 # Blood pressure tracker (port 3002)
++-- tests/                     # Portal + core tests
++-- scripts/
++-- logs/
++-- docs/
 ```
 
 ---
@@ -315,24 +303,6 @@ main/                          # Root monorepo (github.com/jtappi/main)
 - testids are **never** used for styling — CSS classes only
 - Full inventory of testids is documented in `tests/TESTIDS.md`
 
-### Test File Locations
-```
-tests/
-├── unit/
-│   ├── auth.test.js          # core/auth/auth.js
-│   └── middleware.test.js    # core/auth/middleware.js
-├── integration/
-│   └── portal.test.js        # All portal API routes
-├── e2e/
-│   ├── login.spec.js         # Login flow
-│   ├── dashboard.spec.js     # Dashboard flow
-│   └── admin.spec.js         # Admin panel flows
-├── fixtures/
-│   ├── users.fixture.json    # Test users (never real data)
-│   └── projects.fixture.json # Test projects
-└── TESTIDS.md                # Master list of all data-testids
-```
-
 ### Running Tests
 ```bash
 npm test              # Run all unit + integration tests
@@ -381,9 +351,9 @@ npm run test:e2e      # Playwright E2E tests
 | Phase | What We Build | Status |
 |-------|---------------|--------|
 | **Phase 1** | Portal: SSO auth, dashboard, admin panel + tests | 🔨 In Progress |
-| **Phase 2** | Migrate TrackMyWeek into monorepo | ⬜ |
+| **Phase 2** | Migrate TrackMyWeek into monorepo | 🔨 In Progress |
 | **Phase 3** | CI/CD pipeline | ⬜ |
-| **Phase 4** | First new sub-project | ⬜ |
+| **Phase 4** | BP Tracker — first new sub-project | 🔜 Spec approved |
 | **Phase 5** | MongoDB migration | ⬜ |
 | **Phase 6** | New Relic + AWS integration | ⬜ |
 | **Phase 7** | AI features across projects | ⬜ |
