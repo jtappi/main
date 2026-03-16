@@ -20,6 +20,26 @@ Low-urgency items to revisit when time permits.
 
 ---
 
+## Observability
+
+- [ ] **Application logging per project — structured logs with a per-project dashboard**
+  Currently, all server output (stdout/stderr) goes to PM2 logs as an undifferentiated
+  stream. As the platform grows with more subprojects, diagnosing issues requires
+  `pm2 logs` and manual grepping. A proper observability layer should:
+  1. **Structured logging per project** — each subproject writes structured JSON log
+     entries (timestamp, level, project, message, context) to a dedicated log file
+     or shared append-only JSONL file (similar to `logs/test-runs.jsonl`).
+  2. **Per-project log dashboard** — an admin page (e.g. `/logs-dashboard`) that reads
+     the structured log file and displays entries filterable by project, log level
+     (info/warn/error), and time range. Modelled on the existing test dashboard.
+  3. **Log rotation** — prevent unbounded log growth with a cron-based or size-based
+     rotation strategy.
+  Options to evaluate: custom implementation (consistent with the platform's JSON-file
+  approach), or integrate a lightweight library like `pino` with file transport.
+  Resolve after bptracker Phase 7 is complete.
+
+---
+
 ## Security
 
 - [ ] **Replace port 22 forwarding with Tailscale**
