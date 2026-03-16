@@ -12,6 +12,7 @@ what tests exist and what new tests are required.
 |---------|-------------|------------|
 | [Portal](./PORTAL.md) | Auth, admin, user management | Jest + Supertest + Playwright |
 | [TrackMyWeek](./TRACKMYWEEK.md) | Logging, data, reports, categories, questions | Jest + Supertest + Playwright |
+| [BP Tracker](./BPTRACKER.md) | Image capture, Claude Vision extraction, readings, reports | Jest + Supertest + Playwright |
 
 ---
 
