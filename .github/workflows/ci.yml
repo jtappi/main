@@ -19,6 +19,7 @@ jobs:
     outputs:
       portal:      ${{ steps.filter.outputs.portal }}
       trackmyweek: ${{ steps.filter.outputs.trackmyweek }}
+      bptracker:   ${{ steps.filter.outputs.bptracker }}
       ci:          ${{ steps.filter.outputs.ci }}
       scripts:     ${{ steps.filter.outputs.scripts }}
     steps:
@@ -32,6 +33,8 @@ jobs:
               - 'core/**'
             trackmyweek:
               - 'trackmyweek/**'
+            bptracker:
+              - 'bptracker/**'
             ci:
               - '.github/workflows/**'
             scripts:
@@ -47,6 +50,7 @@ jobs:
         github.event_name == 'push' ||
         needs.changes.outputs.portal      == 'true' ||
         needs.changes.outputs.trackmyweek == 'true' ||
+        needs.changes.outputs.bptracker   == 'true' ||
         needs.changes.outputs.ci          == 'true' ||
         needs.changes.outputs.scripts     == 'true'
       )
@@ -67,6 +71,7 @@ jobs:
             package-lock.json
             portal/package-lock.json
             trackmyweek/package-lock.json
+            bptracker/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -79,6 +84,10 @@ jobs:
         run: npm ci
         working-directory: trackmyweek
 
+      - name: Install bptracker dependencies
+        run: npm ci
+        working-directory: bptracker
+
       - name: Bootstrap data files
         run: cp core/data/users.template.json core/data/users.json
 
@@ -88,6 +97,11 @@ jobs:
           [ -f trackmyweek/data/categories.json ] || cp trackmyweek/data/categories.template.json trackmyweek/data/categories.json
           [ -f trackmyweek/data/reports.json ]    || cp trackmyweek/data/reports.template.json trackmyweek/data/reports.json
           [ -f trackmyweek/data/questions.json ]  || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
+
+      - name: Bootstrap bptracker data files
+        run: |
+          [ -f bptracker/data/readings.json ] || cp bptracker/data/readings.template.json bptracker/data/readings.json
+          mkdir -p bptracker/data/images
 
       - name: Ensure log file exists
         run: touch logs/test-runs.jsonl
@@ -99,6 +113,10 @@ jobs:
       - name: Run trackmyweek unit tests with coverage
         run: npm run test:coverage -- --ci --forceExit --json --outputFile=/tmp/trackmyweek-jest-results.json
         working-directory: trackmyweek
+
+      - name: Run bptracker unit & integration tests
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/bptracker-jest-results.json
+        working-directory: bptracker
 
       - name: Upload portal coverage report
         if: always()
@@ -238,6 +256,10 @@ jobs:
         if: always()
         run: node scripts/log-test-run.js /tmp/trackmyweek-jest-results.json --project=trackmyweek
 
+      - name: Log bptracker test run results
+        if: always()
+        run: node scripts/log-test-run.js /tmp/bptracker-jest-results.json --project=bptracker
+
       - name: Commit and push test log
         if: always()
         run: |
@@ -283,6 +305,7 @@ jobs:
             portal/package-lock.json
             trackmyweek/package-lock.json
             trackmyweek/client/package-lock.json
+            bptracker/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -298,6 +321,10 @@ jobs:
       - name: Install trackmyweek client dependencies
         run: npm ci
         working-directory: trackmyweek/client
+
+      - name: Install bptracker dependencies
+        run: npm ci
+        working-directory: bptracker
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -323,6 +350,11 @@ jobs:
           [ -f trackmyweek/data/categories.json ] || cp trackmyweek/data/categories.template.json trackmyweek/data/categories.json
           [ -f trackmyweek/data/reports.json ]    || cp trackmyweek/data/reports.template.json trackmyweek/data/reports.json
           [ -f trackmyweek/data/questions.json ]  || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
+
+      - name: Bootstrap bptracker data files
+        run: |
+          [ -f bptracker/data/readings.json ] || cp bptracker/data/readings.template.json bptracker/data/readings.json
+          mkdir -p bptracker/data/images
 
       - name: Build trackmyweek client
         run: npm run build
