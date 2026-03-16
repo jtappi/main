@@ -198,9 +198,14 @@ export default function Questions() {
             <textarea
               ref={answerRef}
               value={answering.answer}
-              onChange={(e) =>
-                setAnswering((a) => ({ ...a, answer: e.target.value }))
-              }
+              onChange={(e) => {
+                // Read value synchronously before passing into the state updater.
+                // Accessing e.target.value inside an async updater function risks
+                // reading a nullified synthetic event, which caused each keystroke
+                // to appear at position 0 (text appearing backwards).
+                const value = e.target.value;
+                setAnswering((a) => ({ ...a, answer: value }));
+              }}
               placeholder="Write your answer…"
               className="q-answer-textarea"
               rows={4}
@@ -258,7 +263,7 @@ export default function Questions() {
                   title={hasAnswer ? 'Edit answer' : 'Answer'}
                   data-testid={`answer-btn-${q.id}`}
                 >
-                  {hasAnswer ? '✏️ Edit answer' : '💬 Answer'}
+                  {hasAnswer ? '\u270f\ufe0f Edit answer' : '\ud83d\udcac Answer'}
                 </button>
               )}
               <button
@@ -267,7 +272,7 @@ export default function Questions() {
                 title="Edit question"
                 data-testid={`edit-q-btn-${q.id}`}
               >
-                ✏️
+                \u270f\ufe0f
               </button>
               <button
                 className="btn btn-ghost q-action-btn"
@@ -275,7 +280,7 @@ export default function Questions() {
                 title="Delete"
                 data-testid={`delete-btn-${q.id}`}
               >
-                🗑️
+                \ud83d\uddd1\ufe0f
               </button>
             </div>
           </div>
@@ -311,7 +316,7 @@ export default function Questions() {
         />
         <div className="q-add-footer">
           <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-            {unanswered.length} unanswered · {answered.length} answered
+            {unanswered.length} unanswered \u00b7 {answered.length} answered
           </span>
           <button
             type="submit"
@@ -319,13 +324,13 @@ export default function Questions() {
             disabled={adding || !newQ.trim()}
             data-testid="add-question-btn"
           >
-            {adding ? 'Adding…' : 'Ask'}
+            {adding ? 'Adding\u2026' : 'Ask'}
           </button>
         </div>
       </form>
 
       {loading ? (
-        <p className="text-muted">Loading…</p>
+        <p className="text-muted">Loading\u2026</p>
       ) : (
         <>
           {/* Mobile tab switcher */}
