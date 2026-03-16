@@ -43,6 +43,42 @@ input, textarea {
   font-size: 1rem;
 }
 
+/* --- Text size scale ------------------------------------------------------- */
+/* Applied as .text-sm / .text-md / .text-lg on .app-shell.               */
+/* Scales BP numbers, heart rate values, and history table text.           */
+
+.text-sm .scalable { font-size: 0.85em; }
+.text-md .scalable { font-size: 1em;    }
+.text-lg .scalable { font-size: 1.2em;  }
+
+.text-sm .history-bp,
+.text-sm .recent-bp,
+.text-sm .success-values      { font-size: 1.1rem; }
+
+.text-md .history-bp,
+.text-md .recent-bp,
+.text-md .success-values      { font-size: 1.3rem; }
+
+.text-lg .history-bp,
+.text-lg .recent-bp,
+.text-lg .success-values      { font-size: 1.6rem; }
+
+.text-sm .history-hr,
+.text-sm .recent-hr,
+.text-sm .capture-last-value  { font-size: 0.85rem; }
+
+.text-md .history-hr,
+.text-md .recent-hr,
+.text-md .capture-last-value  { font-size: 1rem; }
+
+.text-lg .history-hr,
+.text-lg .recent-hr,
+.text-lg .capture-last-value  { font-size: 1.2rem; }
+
+.text-sm .recent-readings-table { font-size: 0.78rem; }
+.text-md .recent-readings-table { font-size: 0.88rem; }
+.text-lg .recent-readings-table { font-size: 1rem;    }
+
 /* --- App shell ------------------------------------------------------------ */
 
 .app-shell {
@@ -127,10 +163,13 @@ input, textarea {
   width: 100%;
   max-width: 480px;
   display: flex;
+  align-items: center;
   background: #ffffff;
   border-top: 1px solid #e5e7eb;
   height: 64px;
   z-index: 100;
+  padding: 0 8px;
+  gap: 4px;
 }
 
 .bottom-nav-btn {
@@ -161,6 +200,35 @@ input, textarea {
   font-size: 0.7rem;
 }
 
+/* --- Text size toggle ----------------------------------------------------- */
+
+.text-size-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+}
+
+.text-size-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9ca3af;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0;
+}
+
+.text-size-btn.active {
+  background: #4f6ef7;
+  color: #fff;
+}
+
 /* --- Capture view --------------------------------------------------------- */
 
 .capture-view {
@@ -168,7 +236,7 @@ input, textarea {
   flex-direction: column;
   align-items: center;
   padding: 48px 24px 24px;
-  gap: 40px;
+  gap: 32px;
   min-height: 100%;
 }
 
@@ -226,34 +294,75 @@ input, textarea {
   letter-spacing: 0.02em;
 }
 
-.capture-last {
-  text-align: center;
-  color: #6b7280;
+/* --- Recent readings table ------------------------------------------------ */
+
+.recent-readings {
+  width: 100%;
 }
 
-.capture-last-label {
-  font-size: 0.8rem;
+.recent-readings-label {
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 4px;
-}
-
-.capture-last-date {
-  font-size: 0.8rem;
   color: #9ca3af;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
 }
 
-.capture-last-value {
-  font-size: 1.2rem;
+.recent-readings-empty {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.recent-readings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.recent-readings-table th {
+  text-align: left;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #1a1a2e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.capture-last-hr {
-  font-size: 1rem;
-  font-weight: 400;
+.recent-readings-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.recent-readings-table tr:last-child td {
+  border-bottom: none;
+}
+
+.recent-date {
   color: #6b7280;
+  white-space: nowrap;
+  font-size: 0.82em;
+}
+
+.recent-bp {
+  font-weight: 700;
+  color: #1a1a2e;
+  white-space: nowrap;
+}
+
+.recent-sys  { color: #ef4444; }
+.recent-sep  { color: #9ca3af; margin: 0 2px; font-weight: 400; }
+.recent-dia  { color: #3b82f6; }
+
+.recent-hr {
+  color: #22c55e;
+  font-weight: 500;
+  text-align: right;
 }
 
 /* --- Preview view --------------------------------------------------------- */
