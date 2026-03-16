@@ -21,6 +21,9 @@
     "modulePaths": [
       "<rootDir>/node_modules"
     ],
+    "moduleNameMapper": {
+      "^@anthropic-ai/sdk$": "<rootDir>/__mocks__/@anthropic-ai/sdk.js"
+    },
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "../core/auth/*.js",
@@ -46,6 +49,6 @@
   "devDependencies": {
     "nodemon": "^3.0.2",
     "jest": "^29.7.0",
-    "supertest": "^6.3.4"
+    "supertest": "^7.1.3"
   }
 }
