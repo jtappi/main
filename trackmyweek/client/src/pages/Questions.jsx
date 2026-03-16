@@ -22,15 +22,15 @@ export default function Questions() {
   const [error, setError]         = useState('');
 
   // New question form
-  const [newQ, setNewQ]       = useState('');
-  const [adding, setAdding]   = useState(false);
+  const [newQ, setNewQ]     = useState('');
+  const [adding, setAdding] = useState(false);
 
   // Answering: { id, answer } | null
   const [answering, setAnswering] = useState(null);
   const answerRef = useRef(null);
 
   // Editing question text: id | null
-  const [editingQ, setEditingQ] = useState(null);
+  const [editingQ, setEditingQ]   = useState(null);
   const [editQText, setEditQText] = useState('');
 
   // Delete confirm: id | null
@@ -156,147 +156,13 @@ export default function Questions() {
   }
 
   // ---------------------------------------------------------------------------
-  // Render a single question card
-  // ---------------------------------------------------------------------------
-  function QuestionCard({ q }) {
-    const isAnswering  = answering?.id === q.id;
-    const isEditingQ   = editingQ === q.id;
-    const isDeleting   = confirmDelete === q.id;
-    const hasAnswer    = !!q.answer;
-
-    return (
-      <div
-        className={`q-card card${
-          isDeleting  ? ' q-card--deleting'  : ''
-        }${
-          isAnswering ? ' q-card--answering' : ''
-        }`}
-        data-testid={`q-card-${q.id}`}
-      >
-        {/* Question text */}
-        {isEditingQ ? (
-          <textarea
-            autoFocus
-            value={editQText}
-            onChange={(e) => setEditQText(e.target.value)}
-            onKeyDown={(e) => handleEditQKey(e, q.id)}
-            className="q-edit-textarea"
-            rows={2}
-          />
-        ) : (
-          <p className="q-text">{q.question}</p>
-        )}
-
-        {/* Answer (if exists and not currently answering) */}
-        {hasAnswer && !isAnswering && (
-          <blockquote className="q-answer">{q.answer}</blockquote>
-        )}
-
-        {/* Answer input panel */}
-        {isAnswering && (
-          <div className="q-answer-form">
-            <textarea
-              ref={answerRef}
-              value={answering.answer}
-              onChange={(e) => {
-                // Read value synchronously before passing into the state updater.
-                // Accessing e.target.value inside an async updater function risks
-                // reading a nullified synthetic event, which caused each keystroke
-                // to appear at position 0 (text appearing backwards).
-                const value = e.target.value;
-                setAnswering((a) => ({ ...a, answer: value }));
-              }}
-              placeholder="Write your answer…"
-              className="q-answer-textarea"
-              rows={4}
-            />
-            <div className="q-answer-actions">
-              <button className="btn btn-primary" onClick={commitAnswer}>Save</button>
-              <button className="btn btn-ghost" onClick={() => setAnswering(null)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {/* Edit question text actions */}
-        {isEditingQ && (
-          <div className="q-edit-actions">
-            <button className="btn btn-primary" onClick={() => commitEditQ(q.id)}>Save</button>
-            <button className="btn btn-ghost" onClick={() => setEditingQ(null)}>Cancel</button>
-          </div>
-        )}
-
-        {/* Delete confirm */}
-        {isDeleting && (
-          <div className="q-delete-confirm">
-            <span className="text-muted" style={{ fontSize: '0.85rem' }}>Delete this question?</span>
-            <button
-              className="btn btn-danger"
-              style={{ padding: '3px 10px', fontSize: '0.8rem' }}
-              onClick={() => handleDelete(q.id)}
-              data-testid={`confirm-delete-${q.id}`}
-            >
-              Yes
-            </button>
-            <button
-              className="btn btn-ghost"
-              style={{ padding: '3px 10px', fontSize: '0.8rem' }}
-              onClick={() => setConfirmDelete(null)}
-            >
-              No
-            </button>
-          </div>
-        )}
-
-        {/* Card footer — meta + action buttons */}
-        {!isEditingQ && !isAnswering && !isDeleting && (
-          <div className="q-footer">
-            <span className="q-meta text-muted">
-              {hasAnswer
-                ? `Answered ${fmtDate(q.answeredAt)}`
-                : `Asked ${fmtDate(q.createdAt)}`}
-            </span>
-            <div className="q-actions">
-              {!isEditingQ && (
-                <button
-                  className="btn btn-ghost q-action-btn"
-                  onClick={() => startAnswer(q)}
-                  title={hasAnswer ? 'Edit answer' : 'Answer'}
-                  data-testid={`answer-btn-${q.id}`}
-                >
-                  {hasAnswer ? '\u270f\ufe0f Edit answer' : '\ud83d\udcac Answer'}
-                </button>
-              )}
-              <button
-                className="btn btn-ghost q-action-btn"
-                onClick={() => startEditQ(q)}
-                title="Edit question"
-                data-testid={`edit-q-btn-${q.id}`}
-              >
-                \u270f\ufe0f
-              </button>
-              <button
-                className="btn btn-ghost q-action-btn"
-                onClick={() => setConfirmDelete(q.id)}
-                title="Delete"
-                data-testid={`delete-btn-${q.id}`}
-              >
-                \ud83d\uddd1\ufe0f
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
   // Page
   // ---------------------------------------------------------------------------
   return (
     <div className="questions-page">
       <h1 className="page-title">Questions</h1>
       <p className="text-muted questions-subtitle">
-        Ask yourself questions and come back to answer them when you're ready.
+        Ask yourself questions and come back to answer them when you’re ready.
       </p>
 
       {error && <p className="error-msg">{error}</p>}
@@ -316,7 +182,7 @@ export default function Questions() {
         />
         <div className="q-add-footer">
           <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-            {unanswered.length} unanswered \u00b7 {answered.length} answered
+            {unanswered.length} unanswered · {answered.length} answered
           </span>
           <button
             type="submit"
@@ -324,13 +190,13 @@ export default function Questions() {
             disabled={adding || !newQ.trim()}
             data-testid="add-question-btn"
           >
-            {adding ? 'Adding\u2026' : 'Ask'}
+            {adding ? 'Adding…' : 'Ask'}
           </button>
         </div>
       </form>
 
       {loading ? (
-        <p className="text-muted">Loading\u2026</p>
+        <p className="text-muted">Loading…</p>
       ) : (
         <>
           {/* Mobile tab switcher */}
@@ -362,7 +228,26 @@ export default function Questions() {
                   <p className="text-muted">All caught up! No open questions.</p>
                 </div>
               ) : (
-                unanswered.map((q) => <QuestionCard key={q.id} q={q} />)
+                unanswered.map((q) => (
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    answering={answering}
+                    setAnswering={setAnswering}
+                    answerRef={answerRef}
+                    editingQ={editingQ}
+                    editQText={editQText}
+                    setEditQText={setEditQText}
+                    confirmDelete={confirmDelete}
+                    setConfirmDelete={setConfirmDelete}
+                    startAnswer={startAnswer}
+                    commitAnswer={commitAnswer}
+                    startEditQ={startEditQ}
+                    commitEditQ={commitEditQ}
+                    handleEditQKey={handleEditQKey}
+                    handleDelete={handleDelete}
+                  />
+                ))
               )}
             </section>
 
@@ -378,11 +263,171 @@ export default function Questions() {
                   <p className="text-muted">No answered questions yet.</p>
                 </div>
               ) : (
-                answered.map((q) => <QuestionCard key={q.id} q={q} />)
+                answered.map((q) => (
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    answering={answering}
+                    setAnswering={setAnswering}
+                    answerRef={answerRef}
+                    editingQ={editingQ}
+                    editQText={editQText}
+                    setEditQText={setEditQText}
+                    confirmDelete={confirmDelete}
+                    setConfirmDelete={setConfirmDelete}
+                    startAnswer={startAnswer}
+                    commitAnswer={commitAnswer}
+                    startEditQ={startEditQ}
+                    commitEditQ={commitEditQ}
+                    handleEditQKey={handleEditQKey}
+                    handleDelete={handleDelete}
+                  />
+                ))
               )}
             </section>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// QuestionCard — defined OUTSIDE Questions so its identity is stable across
+// re-renders. When it was defined inside Questions, every keystroke in the
+// answer textarea caused Questions to re-render, which re-created the
+// QuestionCard function reference, which caused React to unmount and remount
+// the card — including the textarea — resetting cursor position to 0 and
+// making each typed character appear at the front (reversed text).
+// ---------------------------------------------------------------------------
+function QuestionCard({
+  q,
+  answering, setAnswering, answerRef,
+  editingQ, editQText, setEditQText,
+  confirmDelete, setConfirmDelete,
+  startAnswer, commitAnswer,
+  startEditQ, commitEditQ, handleEditQKey,
+  handleDelete,
+}) {
+  const isAnswering = answering?.id === q.id;
+  const isEditingQ  = editingQ === q.id;
+  const isDeleting  = confirmDelete === q.id;
+  const hasAnswer   = !!q.answer;
+
+  return (
+    <div
+      className={`q-card card${
+        isDeleting  ? ' q-card--deleting'  : ''
+      }${
+        isAnswering ? ' q-card--answering' : ''
+      }`}
+      data-testid={`q-card-${q.id}`}
+    >
+      {/* Question text */}
+      {isEditingQ ? (
+        <textarea
+          autoFocus
+          value={editQText}
+          onChange={(e) => setEditQText(e.target.value)}
+          onKeyDown={(e) => handleEditQKey(e, q.id)}
+          className="q-edit-textarea"
+          rows={2}
+        />
+      ) : (
+        <p className="q-text">{q.question}</p>
+      )}
+
+      {/* Answer (if exists and not currently answering) */}
+      {hasAnswer && !isAnswering && (
+        <blockquote className="q-answer">{q.answer}</blockquote>
+      )}
+
+      {/* Answer input panel */}
+      {isAnswering && (
+        <div className="q-answer-form">
+          <textarea
+            ref={answerRef}
+            value={answering.answer}
+            onChange={(e) => {
+              const value = e.target.value;
+              setAnswering((a) => ({ ...a, answer: value }));
+            }}
+            placeholder="Write your answer…"
+            className="q-answer-textarea"
+            rows={4}
+          />
+          <div className="q-answer-actions">
+            <button className="btn btn-primary" onClick={commitAnswer}>Save</button>
+            <button className="btn btn-ghost" onClick={() => setAnswering(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit question text actions */}
+      {isEditingQ && (
+        <div className="q-edit-actions">
+          <button className="btn btn-primary" onClick={() => commitEditQ(q.id)}>Save</button>
+          <button className="btn btn-ghost" onClick={() => setEditingQ(null)}>Cancel</button>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {isDeleting && (
+        <div className="q-delete-confirm">
+          <span className="text-muted" style={{ fontSize: '0.85rem' }}>Delete this question?</span>
+          <button
+            className="btn btn-danger"
+            style={{ padding: '3px 10px', fontSize: '0.8rem' }}
+            onClick={() => handleDelete(q.id)}
+            data-testid={`confirm-delete-${q.id}`}
+          >
+            Yes
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ padding: '3px 10px', fontSize: '0.8rem' }}
+            onClick={() => setConfirmDelete(null)}
+          >
+            No
+          </button>
+        </div>
+      )}
+
+      {/* Card footer — meta + action buttons */}
+      {!isEditingQ && !isAnswering && !isDeleting && (
+        <div className="q-footer">
+          <span className="q-meta text-muted">
+            {hasAnswer
+              ? `Answered ${fmtDate(q.answeredAt)}`
+              : `Asked ${fmtDate(q.createdAt)}`}
+          </span>
+          <div className="q-actions">
+            <button
+              className="btn btn-ghost q-action-btn"
+              onClick={() => startAnswer(q)}
+              title={hasAnswer ? 'Edit answer' : 'Answer'}
+              data-testid={`answer-btn-${q.id}`}
+            >
+              {hasAnswer ? '✏️ Edit answer' : '💬 Answer'}
+            </button>
+            <button
+              className="btn btn-ghost q-action-btn"
+              onClick={() => startEditQ(q)}
+              title="Edit question"
+              data-testid={`edit-q-btn-${q.id}`}
+            >
+              ✏️
+            </button>
+            <button
+              className="btn btn-ghost q-action-btn"
+              onClick={() => setConfirmDelete(q.id)}
+              title="Delete"
+              data-testid={`delete-btn-${q.id}`}
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
