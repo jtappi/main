@@ -18,6 +18,7 @@
   });
 
   let allProjects = [];
+  let allUsers = []; // cache for edit modal lookups
 
   // ── Load Projects ────────────────────────────────────────
   async function loadProjects() {
@@ -39,9 +40,9 @@
   // ── Load Users ───────────────────────────────────────────
   async function loadUsers() {
     const res = await fetch('/admin/users');
-    const users = await res.json();
+    allUsers = await res.json(); // keep in module cache
     const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = users.map(u => `
+    tbody.innerHTML = allUsers.map(u => `
       <tr>
         <td>${u.name}</td>
         <td>${u.email}</td>
@@ -50,7 +51,7 @@
         <td>
           <span class="status-badge ${u.active ? 'status-active' : 'status-disabled'}"
             data-testid="admin-status-badge-${u.id}">
-            ${u.active ? '&#10003; Active' : '&#10007; Disabled'}
+            ${u.active ? '\u2713 Active' : '\u2717 Disabled'}
           </span>
         </td>
         <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
@@ -82,34 +83,32 @@
 
   // ── Toggle Active ─────────────────────────────────────────
   window.toggleActive = async (id, current) => {
-    await fetch(`/admin/users/${id}`, {
+    const res = await fetch(`/admin/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active: !current })
     });
-    loadUsers();
+    if (res.ok) await loadUsers();
   };
 
   // ── Delete User ───────────────────────────────────────────
   window.deleteUser = async (id, name) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-    await fetch(`/admin/users/${id}`, { method: 'DELETE' });
-    loadUsers();
+    const res = await fetch(`/admin/users/${id}`, { method: 'DELETE' });
+    if (res.ok) await loadUsers();
   };
 
   // ── Edit User Modal ───────────────────────────────────────
   let editingUserId = null;
 
-  window.openEditModal = async (id) => {
+  // Uses the allUsers cache populated by loadUsers() — no extra fetch needed.
+  window.openEditModal = (id) => {
     editingUserId = id;
     const errEl = document.getElementById('edit-modal-error');
     errEl.classList.add('hidden');
     errEl.textContent = '';
 
-    // Fetch current user data
-    const res = await fetch('/admin/users');
-    const users = await res.json();
-    const user = users.find(u => u.id === id);
+    const user = allUsers.find(u => u.id === id);
     if (!user) return;
 
     document.getElementById('edit-name').value     = user.name     || '';
@@ -159,7 +158,7 @@
     if (res.ok) {
       document.getElementById('edit-user-modal').classList.add('hidden');
       editingUserId = null;
-      loadUsers();
+      await loadUsers();
     } else {
       const data = await res.json();
       errEl.textContent = data.error || 'Failed to save changes.';
@@ -204,7 +203,7 @@
 
     if (res.ok) {
       document.getElementById('create-user-modal').classList.add('hidden');
-      loadUsers();
+      await loadUsers();
     } else {
       const data = await res.json();
       errEl.textContent = data.error || 'Failed to create user.';
