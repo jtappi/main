@@ -31,14 +31,14 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "branches": 65,
-        "functions": 80,
-        "lines": 78
+        "branches": 85,
+        "functions": 95,
+        "lines": 90
       },
       "./controllers/prebuilt.controller.js": {
-        "branches": 0,
-        "functions": 10,
-        "lines": 25
+        "branches": 80,
+        "functions": 100,
+        "lines": 90
       }
     }
   }
