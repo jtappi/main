@@ -21,6 +21,9 @@
     "modulePaths": [
       "<rootDir>/node_modules"
     ],
+    "moduleNameMapper": {
+      "^@anthropic-ai/sdk$": "<rootDir>/__mocks__/@anthropic-ai/sdk.js"
+    },
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "../core/auth/*.js",
