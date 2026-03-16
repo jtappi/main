@@ -2,10 +2,13 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /**
- * BottomNav — two-tab bottom navigation bar.
- * Highlights the active tab based on current route.
+ * BottomNav — two-tab navigation bar + text size toggle.
+ *
+ * Props:
+ *   textSize   — 'sm' | 'md' | 'lg'
+ *   onTextSize — callback(size)
  */
-export default function BottomNav() {
+export default function BottomNav({ textSize, onTextSize }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -22,6 +25,21 @@ export default function BottomNav() {
         <span className="bottom-nav-icon">&#128247;</span>
         <span className="bottom-nav-label">Capture</span>
       </button>
+
+      <div className="text-size-toggle" data-testid="text-size-toggle">
+        {['sm', 'md', 'lg'].map((s) => (
+          <button
+            key={s}
+            className={`text-size-btn${textSize === s ? ' active' : ''}`}
+            onClick={() => onTextSize(s)}
+            aria-label={`Text size ${s}`}
+            data-testid={`text-size-${s}`}
+          >
+            {s === 'sm' ? 'S' : s === 'md' ? 'M' : 'L'}
+          </button>
+        ))}
+      </div>
+
       <button
         className={`bottom-nav-btn${isReports ? ' active' : ''}`}
         data-testid="nav-reports-btn"

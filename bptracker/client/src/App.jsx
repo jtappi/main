@@ -5,11 +5,28 @@ import Reports from './pages/Reports.jsx';
 import Success from './pages/Success.jsx';
 import BottomNav from './components/BottomNav.jsx';
 
+// Valid text size values and the localStorage key
+const TEXT_SIZES = ['sm', 'md', 'lg'];
+const TEXT_SIZE_KEY = 'bptracker-text-size';
+
+/**
+ * Read text size from localStorage synchronously before first render
+ * to avoid a flash of unsized text.
+ */
+function getInitialTextSize() {
+  try {
+    const stored = localStorage.getItem(TEXT_SIZE_KEY);
+    if (stored && TEXT_SIZES.includes(stored)) return stored;
+  } catch {}
+  return 'md';
+}
+
 /**
  * App — top-level component.
  *
- * Fetches the current session user from the portal on mount.
- * All pages receive the user object as a prop.
+ * Manages:
+ *   - Session user fetch
+ *   - Text size preference (localStorage-backed, applied as CSS class on app-shell)
  *
  * Routes:
  *   /bptracker           -> Capture (default)
@@ -17,8 +34,10 @@ import BottomNav from './components/BottomNav.jsx';
  *   /bptracker/success   -> Success (after save)
  */
 export default function App() {
-  const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user,     setUser]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  // Initialised synchronously from localStorage — no flash
+  const [textSize, setTextSize] = useState(getInitialTextSize);
 
   useEffect(() => {
     fetch('/auth/session', { credentials: 'include' })
@@ -36,6 +55,12 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  function handleTextSize(size) {
+    if (!TEXT_SIZES.includes(size)) return;
+    setTextSize(size);
+    try { localStorage.setItem(TEXT_SIZE_KEY, size); } catch {}
+  }
+
   if (loading) {
     return (
       <div className="app-loading" data-testid="app-loading">
@@ -48,7 +73,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="app-shell">
+      <div className={`app-shell text-${textSize}`} data-testid="app-shell">
         <div className="app-content">
           <Routes>
             <Route path="/bptracker"         element={<Capture user={user} />} />
@@ -57,7 +82,7 @@ export default function App() {
             <Route path="*"                  element={<Navigate to="/bptracker" replace />} />
           </Routes>
         </div>
-        <BottomNav />
+        <BottomNav textSize={textSize} onTextSize={handleTextSize} />
       </div>
     </BrowserRouter>
   );

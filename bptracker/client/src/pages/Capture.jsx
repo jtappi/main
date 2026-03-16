@@ -7,18 +7,18 @@ import Preview from './Preview.jsx';
  * Capture — main capture view.
  *
  * Responsibilities:
- *   - Show greeting, live clock, last reading summary
+ *   - Show greeting, live clock, last 5 readings mini-table
  *   - Trigger native device camera via hidden file input
  *   - Read selected image as base64 and pass to Preview inline
  *   - Render Preview inline (not a separate route) so URL stays /bptracker
  *     until the save completes, at which point we navigate to /bptracker/success
  */
 export default function Capture({ user }) {
-  const [now,          setNow]          = useState(new Date());
-  const [lastReading,  setLastReading]  = useState(null);
-  const [captureState, setCaptureState] = useState('idle'); // idle | previewing
-  const [imageData,    setImageData]    = useState(null);
-  const [imageType,    setImageType]    = useState('image/jpeg');
+  const [now,           setNow]           = useState(new Date());
+  const [recentReadings, setRecentReadings] = useState([]);
+  const [captureState,  setCaptureState]  = useState('idle'); // idle | previewing
+  const [imageData,     setImageData]     = useState(null);
+  const [imageType,     setImageType]     = useState('image/jpeg');
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ export default function Capture({ user }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch last reading on mount
+  // Fetch readings on mount — keep top 5 most recent
   useEffect(() => {
     getReadings()
       .then((readings) => {
@@ -37,11 +37,11 @@ export default function Capture({ user }) {
           const sorted = [...readings].sort(
             (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
           );
-          setLastReading(sorted[0]);
+          setRecentReadings(sorted.slice(0, 5));
         }
       })
       .catch(() => {
-        // Non-fatal — last reading summary is informational only
+        // Non-fatal — history table is informational only
       });
   }, []);
 
@@ -78,7 +78,8 @@ export default function Capture({ user }) {
   }
 
   function handleSaved(reading) {
-    setLastReading(reading);
+    // Prepend new reading and keep top 5
+    setRecentReadings(prev => [reading, ...prev].slice(0, 5));
     setImageData(null);
     setImagePreviewUrl(null);
     setCaptureState('idle');
@@ -130,25 +131,48 @@ export default function Capture({ user }) {
         />
       </div>
 
-      <div className="capture-last" data-testid="capture-last-reading">
-        {lastReading ? (
-          <>
-            <p className="capture-last-label">Last reading</p>
-            <p className="capture-last-date">
-              {formatDateTime(new Date(lastReading.timestamp))}
-            </p>
-            <p className="capture-last-value">
-              {lastReading.systolic} / {lastReading.diastolic}
-              <span className="capture-last-hr"> &hearts; {lastReading.heartRate}</span>
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="capture-last-label">Last reading</p>
-            <p className="capture-last-value">&mdash;</p>
-          </>
-        )}
+      <RecentReadingsTable readings={recentReadings} />
+    </div>
+  );
+}
+
+/**
+ * RecentReadingsTable — compact last-5 readings shown on the Capture screen.
+ */
+function RecentReadingsTable({ readings }) {
+  if (!readings.length) {
+    return (
+      <div className="recent-readings" data-testid="recent-readings">
+        <p className="recent-readings-empty">No readings yet — take your first reading above.</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="recent-readings" data-testid="recent-readings">
+      <p className="recent-readings-label">Recent readings</p>
+      <table className="recent-readings-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>BP</th>
+            <th>HR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {readings.map((r) => (
+            <tr key={r.id} data-testid={`recent-row-${r.id}`}>
+              <td className="recent-date">{formatShortDate(new Date(r.timestamp))}</td>
+              <td className="recent-bp">
+                <span className="recent-sys">{r.systolic ?? '—'}</span>
+                <span className="recent-sep">/</span>
+                <span className="recent-dia">{r.diastolic ?? '—'}</span>
+              </td>
+              <td className="recent-hr">{r.heartRate ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -156,9 +180,6 @@ export default function Capture({ user }) {
 /**
  * Format a Date as MM/DD/YY h:mm am/pm
  * Exported so Preview.jsx and Success.jsx can import it without circular deps.
- *
- * @param {Date} date
- * @returns {string}
  */
 export function formatDateTime(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -169,4 +190,15 @@ export function formatDateTime(date) {
   const ampm  = hours >= 12 ? 'pm' : 'am';
   hours = hours % 12 || 12;
   return `${month}/${day}/${year} ${hours}:${mins} ${ampm}`;
+}
+
+/** Format a Date as MM/DD h:mm am/pm (compact, no year) */
+function formatShortDate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day   = String(date.getDate()).padStart(2, '0');
+  let   hours = date.getHours();
+  const mins  = String(date.getMinutes()).padStart(2, '0');
+  const ampm  = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12 || 12;
+  return `${month}/${day} ${hours}:${mins}${ampm}`;
 }
