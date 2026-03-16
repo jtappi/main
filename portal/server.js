@@ -30,23 +30,30 @@ const GITHUB_RAW_LOG =
 const PLAYWRIGHT_REPORTS_DIR = process.env.PLAYWRIGHT_REPORTS_DIR ||
   path.join(__dirname, '../playwright-reports');
 
-// ── Trust proxy (behind Nginx) ─────────────────────────────────
+// ── Trust proxy (behind Nginx) ────────────────────────────────
 app.set('trust proxy', 1);
 
-// ── Security headers ───────────────────────────────────
+// ── Security headers ──────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'"],
-      styleSrc:   ["'self'", "'unsafe-inline'"],
-      imgSrc:     ["'self'", "data:"],
-      connectSrc: ["'self'"]
+      // Cloudflare injects its analytics beacon (beacon.min.js) into pages
+      // served through the Cloudflare proxy. Allow it so the script runs
+      // instead of being silently dropped.
+      scriptSrc:  ["'self'", "'unsafe-inline'", 'https://static.cloudflareinsights.com'],
+      // Google Fonts: the stylesheet is fetched from fonts.googleapis.com
+      // and the actual font files are served from fonts.gstatic.com.
+      styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc:     ["'self'", 'data:'],
+      // Cloudflare beacon posts analytics data back to its own endpoint.
+      connectSrc: ["'self'", 'https://cloudflareinsights.com'],
     }
   }
 }));
 
-// ── Sessions ──────────────────────────────────────────
+// ── Sessions ─────────────────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
@@ -62,21 +69,21 @@ app.use(session({
   }
 }));
 
-// ── Body parsing ──────────────────────────────────────
+// ── Body parsing ──────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ── Rate limiting on auth ───────────────────────────────────
+// ── Rate limiting on auth ──────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ───────────────────────────────────────
+// ── Static files ───────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ───────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 function loadProjects() {
   return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
@@ -111,7 +118,7 @@ function loadTestRunsLocal() {
   return parseJsonlLines(fs.readFileSync(LOG_FILE, 'utf8'));
 }
 
-// ── Routes: Root ───────────────────────────────────────
+// ── Routes: Root ─────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.user) return res.redirect('/dashboard');
   return res.redirect('/login');
@@ -136,7 +143,7 @@ app.get('/test-dashboard', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
 
-// ── Routes: Playwright reports (admin only) ────────────────────
+// ── Routes: Playwright reports (admin only) ────────────────────────────
 // Reports are deployed here by CI via rsync over SSH.
 // Directory structure: playwright-reports/{slug}/{portal|trackmyweek}/index.html
 // Slugs: PR-{number} | push-{short-sha} | on-demand-{run-id}
@@ -152,7 +159,7 @@ reportsRouter.use(express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' }
 reportsRouter.use((req, res) => res.status(404).send('Report not found.'));
 app.use('/playwright-reports', reportsRouter);
 
-// ── Routes: Auth ───────────────────────────────────────
+// ── Routes: Auth ─────────────────────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
   const { identifier, passwordHash } = req.body;
   if (!identifier || !passwordHash) {
@@ -190,7 +197,7 @@ app.get('/auth/session', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ── Routes: Admin — Users ───────────────────────────────────
+// ── Routes: Admin — Users ───────────────────────────────────────────────
 app.get('/admin/users', requireAdmin, (req, res) => {
   const usersFile = process.env.USERS_FILE;
   const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers()).map(safeUser);
@@ -240,7 +247,7 @@ app.put('/admin/users/:id/access', requireAdmin, (req, res) => {
   res.json(safeUser(updated));
 });
 
-// ── Routes: Admin — Projects ───────────────────────────────────
+// ── Routes: Admin — Projects ───────────────────────────────────────────────
 app.get('/admin/projects', requireAdmin, (req, res) => {
   res.json(loadProjects());
 });
@@ -254,7 +261,7 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json(visible);
 });
 
-// ── Routes: Test runs ───────────────────────────────────────
+// ── Routes: Test runs ────────────────────────────────────────────────────────────
 app.get('/api/test-runs', requireAdmin, (req, res) => {
   if (process.env.LOG_FILE) {
     return res.json(loadTestRunsLocal());
@@ -267,10 +274,10 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
     });
 });
 
-// ── Mount TrackMyWeek app (shares session automatically) ──────────────
+// ── Mount TrackMyWeek app (shares session automatically) ────────────────────
 app.use('/trackmyweek', require('../trackmyweek/server'));
 
-// ── Export for testing ─────────────────────────────────────────
+// ── Export for testing ───────────────────────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Portal running on port ${PORT}`);
