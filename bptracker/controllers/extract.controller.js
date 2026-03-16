@@ -1,33 +1,33 @@
 'use strict';
 
 /**
- * extract.controller.js — Claude Vision image extraction.
+ * extract.controller.js — Gemini Vision image extraction.
  *
  * POST /api/extract
  *
- * Accepts a base64-encoded image, calls the Anthropic API, parses and
- * validates the response, and returns a structured extraction result.
+ * Accepts a base64-encoded image, calls the Google Gemini API (free tier),
+ * parses and validates the response, and returns a structured extraction result.
  *
  * This endpoint NEVER saves data. It only returns extracted values for
  * the client to review before saving via POST /api/readings.
  *
- * The ANTHROPIC_API_KEY is read from process.env — never hardcoded.
- * The raw Claude response is never forwarded to the client.
+ * The GEMINI_API_KEY is read from process.env — never hardcoded.
+ * The raw Gemini response is never forwarded to the client.
  */
 
 const express = require('express');
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
 // Warn loudly on startup if the API key is missing so the problem is
 // immediately visible in pm2 logs rather than discovered on the first request.
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('[bptracker/extract] WARNING: ANTHROPIC_API_KEY is not set. ' +
+if (!process.env.GEMINI_API_KEY) {
+  console.error('[bptracker/extract] WARNING: GEMINI_API_KEY is not set. ' +
     'All extraction requests will fail. Add it to .env and restart.');
 } else {
-  console.log('[bptracker/extract] ANTHROPIC_API_KEY is present (' +
-    process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...)');
+  console.log('[bptracker/extract] GEMINI_API_KEY is present (' +
+    process.env.GEMINI_API_KEY.slice(0, 10) + '...)');
 }
 
 /** Plausible BP/HR ranges for server-side validation. */
@@ -57,10 +57,10 @@ Use "low" confidence when the image is blurry, partially obscured, or any value 
 Use null for any individual value you cannot read with confidence.`;
 
 /**
- * Parse the raw text response from Claude into a structured object.
+ * Parse the raw text response from Gemini into a structured object.
  * Returns null if the response cannot be parsed as valid JSON.
  */
-function parseClaudeResponse(text) {
+function parseGeminiResponse(text) {
   try {
     const cleaned = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
@@ -98,59 +98,41 @@ router.post('/', async (req, res) => {
   console.log('[bptracker/extract] POST /api/extract called');
   console.log('[bptracker/extract]   mediaType:', mediaType || 'not provided');
   console.log('[bptracker/extract]   imageData length:', imageData ? imageData.length : 0);
-  console.log('[bptracker/extract]   API key present:', !!process.env.ANTHROPIC_API_KEY);
+  console.log('[bptracker/extract]   API key present:', !!process.env.GEMINI_API_KEY);
 
   if (!imageData) {
     console.error('[bptracker/extract] Missing imageData in request body');
     return res.status(400).json({ error: 'imageData is required.' });
   }
 
-  const client = new Anthropic();
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
   let rawText;
   try {
-    console.log('[bptracker/extract] Calling Anthropic API...');
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 256,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType || 'image/jpeg',
-                data: imageData,
-              },
-            },
-            {
-              type: 'text',
-              text: EXTRACTION_PROMPT,
-            },
-          ],
+    console.log('[bptracker/extract] Calling Gemini API...');
+    const result = await model.generateContent([
+      EXTRACTION_PROMPT,
+      {
+        inlineData: {
+          mimeType: mediaType || 'image/jpeg',
+          data: imageData,
         },
-      ],
-    });
-    rawText = message.content
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('');
-    console.log('[bptracker/extract] Anthropic response received, rawText:', rawText);
+      },
+    ]);
+    rawText = result.response.text();
+    console.log('[bptracker/extract] Gemini response received, rawText:', rawText);
   } catch (err) {
-    console.error('[bptracker/extract] Anthropic API error:');
+    console.error('[bptracker/extract] Gemini API error:');
     console.error('  message:', err.message);
     console.error('  status:', err.status);
-    console.error('  error type:', err.error?.type);
-    console.error('  error detail:', JSON.stringify(err.error));
     console.error('  stack:', err.stack);
     return res.status(502).json({ error: 'extraction_failed', message: 'Extraction service unavailable.' });
   }
 
-  const parsed = parseClaudeResponse(rawText);
+  const parsed = parseGeminiResponse(rawText);
   if (!parsed) {
-    console.error('[bptracker/extract] Failed to parse Claude response:', rawText);
+    console.error('[bptracker/extract] Failed to parse Gemini response:', rawText);
     return res.status(502).json({ error: 'extraction_failed', message: 'Extraction service returned an unreadable response.' });
   }
 
@@ -172,5 +154,5 @@ router.post('/', async (req, res) => {
 });
 
 module.exports = router;
-module.exports.parseClaudeResponse = parseClaudeResponse;
+module.exports.parseGeminiResponse = parseGeminiResponse;
 module.exports.validateRanges = validateRanges;

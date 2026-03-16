@@ -4,7 +4,7 @@
  * extract.api.test.js — integration tests for POST /bptracker/api/extract
  *
  * jest.mock() calls are hoisted by Jest to the top of this file.
- * The Anthropic SDK constructor is mocked so no real API calls are made.
+ * The Google Generative AI SDK is mocked so no real API calls are made.
  */
 
 jest.mock('../../../core/auth/middleware', () => ({
@@ -26,12 +26,14 @@ jest.mock('../../lib/data', () => ({
   IMAGES_DIR:         '/tmp/bptracker-test/images',
 }));
 
-const mockCreate = jest.fn();
-jest.mock('@anthropic-ai/sdk', () =>
-  jest.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
-  }))
-);
+const mockGenerateContent = jest.fn();
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn().mockReturnValue({
+      generateContent: mockGenerateContent,
+    }),
+  })),
+}));
 
 const request = require('supertest');
 const express = require('express');
@@ -44,8 +46,8 @@ function buildApp(user) {
   return app;
 }
 
-function mockClaudeResponse(jsonPayload) {
-  return { content: [{ type: 'text', text: JSON.stringify(jsonPayload) }] };
+function mockGeminiResponse(jsonPayload) {
+  return { response: { text: () => JSON.stringify(jsonPayload) } };
 }
 
 beforeEach(() => {
@@ -60,8 +62,8 @@ const guestUser = { id: 'user-001', role: 'guest' };
 // ---------------------------------------------------------------------------
 describe('POST /bptracker/api/extract', () => {
   test('returns extracted values for a high-confidence response', async () => {
-    mockCreate.mockResolvedValue(
-      mockClaudeResponse({ systolic: 122, diastolic: 78, heartRate: 64, confidence: 'high' })
+    mockGenerateContent.mockResolvedValue(
+      mockGeminiResponse({ systolic: 122, diastolic: 78, heartRate: 64, confidence: 'high' })
     );
 
     const res = await request(buildApp(guestUser))
@@ -75,9 +77,9 @@ describe('POST /bptracker/api/extract', () => {
     expect(res.body.confidence).toBe('high');
   });
 
-  test('propagates low confidence from Claude to client', async () => {
-    mockCreate.mockResolvedValue(
-      mockClaudeResponse({ systolic: 130, diastolic: 85, heartRate: 70, confidence: 'low' })
+  test('propagates low confidence to client', async () => {
+    mockGenerateContent.mockResolvedValue(
+      mockGeminiResponse({ systolic: 130, diastolic: 85, heartRate: 70, confidence: 'low' })
     );
 
     const res = await request(buildApp(guestUser))
@@ -89,8 +91,8 @@ describe('POST /bptracker/api/extract', () => {
   });
 
   test('overrides confidence to low when a value is outside plausible range', async () => {
-    mockCreate.mockResolvedValue(
-      mockClaudeResponse({ systolic: 999, diastolic: 78, heartRate: 64, confidence: 'high' })
+    mockGenerateContent.mockResolvedValue(
+      mockGeminiResponse({ systolic: 999, diastolic: 78, heartRate: 64, confidence: 'high' })
     );
 
     const res = await request(buildApp(guestUser))
@@ -103,8 +105,8 @@ describe('POST /bptracker/api/extract', () => {
   });
 
   test('returns 422 image_unreadable when all values are null', async () => {
-    mockCreate.mockResolvedValue(
-      mockClaudeResponse({ systolic: null, diastolic: null, heartRate: null, confidence: 'low' })
+    mockGenerateContent.mockResolvedValue(
+      mockGeminiResponse({ systolic: null, diastolic: null, heartRate: null, confidence: 'low' })
     );
 
     const res = await request(buildApp(guestUser))
@@ -115,8 +117,8 @@ describe('POST /bptracker/api/extract', () => {
     expect(res.body.error).toBe('image_unreadable');
   });
 
-  test('returns 502 extraction_failed when Claude API throws', async () => {
-    mockCreate.mockRejectedValue(new Error('Network error'));
+  test('returns 502 extraction_failed when Gemini API throws', async () => {
+    mockGenerateContent.mockRejectedValue(new Error('Network error'));
 
     const res = await request(buildApp(guestUser))
       .post('/bptracker/api/extract')
@@ -126,9 +128,9 @@ describe('POST /bptracker/api/extract', () => {
     expect(res.body.error).toBe('extraction_failed');
   });
 
-  test('returns 502 extraction_failed when Claude returns unparseable output', async () => {
-    mockCreate.mockResolvedValue({
-      content: [{ type: 'text', text: 'Sorry, I cannot read this image.' }],
+  test('returns 502 extraction_failed when Gemini returns unparseable output', async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: { text: () => 'Sorry, I cannot read this image.' },
     });
 
     const res = await request(buildApp(guestUser))
@@ -145,6 +147,6 @@ describe('POST /bptracker/api/extract', () => {
       .send({});
 
     expect(res.status).toBe(400);
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 });
