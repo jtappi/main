@@ -125,52 +125,110 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Portal" >> $GITHUB_STEP_SUMMARY
           if [ -f portal/coverage/coverage-summary.json ]; then
-            node -e "
-              const s = require('./portal/coverage/coverage-summary.json').total;
-              console.log('| Metric | Coverage |');
-              console.log('|--------|----------|');
-              console.log('| Statements | ' + s.statements.pct + '% |');
-              console.log('| Branches | ' + s.branches.pct + '% |');
-              console.log('| Functions | ' + s.functions.pct + '% |');
-              console.log('| Lines | ' + s.lines.pct + '% |');
-            " >> $GITHUB_STEP_SUMMARY
+            node -e "const s = require('./portal/coverage/coverage-summary.json').total; console.log('| Metric | Coverage |'); console.log('|--------|----------|'); console.log('| Statements | ' + s.statements.pct + '% |'); console.log('| Branches | ' + s.branches.pct + '% |'); console.log('| Functions | ' + s.functions.pct + '% |'); console.log('| Lines | ' + s.lines.pct + '% |');" >> $GITHUB_STEP_SUMMARY
           else
             echo "Coverage report not found." >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### TrackMyWeek" >> $GITHUB_STEP_SUMMARY
           if [ -f trackmyweek/coverage/coverage-summary.json ]; then
-            node -e "
-              const s = require('./trackmyweek/coverage/coverage-summary.json').total;
-              console.log('| Metric | Coverage |');
-              console.log('|--------|----------|');
-              console.log('| Statements | ' + s.statements.pct + '% |');
-              console.log('| Branches | ' + s.branches.pct + '% |');
-              console.log('| Functions | ' + s.functions.pct + '% |');
-              console.log('| Lines | ' + s.lines.pct + '% |');
-            " >> $GITHUB_STEP_SUMMARY
+            node -e "const s = require('./trackmyweek/coverage/coverage-summary.json').total; console.log('| Metric | Coverage |'); console.log('|--------|----------|'); console.log('| Statements | ' + s.statements.pct + '% |'); console.log('| Branches | ' + s.branches.pct + '% |'); console.log('| Functions | ' + s.functions.pct + '% |'); console.log('| Lines | ' + s.lines.pct + '% |');" >> $GITHUB_STEP_SUMMARY
           else
             echo "Coverage report not found." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Post coverage summary as PR comment
         if: always() && github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            <!-- coverage-comment -->
-            ## 📊 Code Coverage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > /tmp/post-coverage-comment.js << 'SCRIPT'
+          const fs    = require('fs');
+          const https = require('https');
 
-            ### Portal
-            ${{ hashFiles('portal/coverage/coverage-summary.json') != '' && 'See job summary for details.' || 'Report not generated.' }}
+          function readSummary(p) {
+            if (!fs.existsSync(p)) return null;
+            return JSON.parse(fs.readFileSync(p, 'utf8')).total;
+          }
 
-            ### TrackMyWeek
-            ${{ hashFiles('trackmyweek/coverage/coverage-summary.json') != '' && 'See job summary for details.' || 'Report not generated.' }}
+          function table(s) {
+            if (!s) return '_Report not generated._';
+            return [
+              '| Metric | Coverage |',
+              '|--------|----------|',
+              '| Statements | ' + s.statements.pct + '% |',
+              '| Branches   | ' + s.branches.pct   + '% |',
+              '| Functions  | ' + s.functions.pct  + '% |',
+              '| Lines      | ' + s.lines.pct      + '% |',
+            ].join('\n');
+          }
 
-            Full HTML reports available as CI artifacts: **coverage-portal** and **coverage-trackmyweek** (retained 14 days).
-          comment-author: github-actions[bot]
-          body-includes: coverage-comment
+          const portal = readSummary('portal/coverage/coverage-summary.json');
+          const tmw    = readSummary('trackmyweek/coverage/coverage-summary.json');
+
+          const body = [
+            '<!-- coverage-comment -->',
+            '## \ud83d\udcca Code Coverage',
+            '',
+            '### Portal',
+            table(portal),
+            '',
+            '### TrackMyWeek',
+            table(tmw),
+            '',
+            'Full HTML reports: **coverage-portal** and **coverage-trackmyweek** CI artifacts (14-day retention).',
+          ].join('\n');
+
+          const payload = JSON.stringify({ body });
+          const [owner, repoName] = process.env.REPO.split('/');
+          const prNumber = process.env.PR_NUMBER;
+
+          const getOpts = {
+            hostname: 'api.github.com',
+            path: '/repos/' + owner + '/' + repoName + '/issues/' + prNumber + '/comments',
+            method: 'GET',
+            headers: {
+              Authorization: 'Bearer ' + process.env.GH_TOKEN,
+              'User-Agent': 'ci-coverage-bot',
+              Accept: 'application/vnd.github+json',
+            },
+          };
+
+          https.get(getOpts, res => {
+            let data = '';
+            res.on('data', c => { data += c; });
+            res.on('end', () => {
+              const comments = JSON.parse(data);
+              const existing = comments.find(c => c.body && c.body.startsWith('<!-- coverage-comment -->'));
+              const method = existing ? 'PATCH' : 'POST';
+              const path = existing
+                ? '/repos/' + owner + '/' + repoName + '/issues/comments/' + existing.id
+                : '/repos/' + owner + '/' + repoName + '/issues/' + prNumber + '/comments';
+              const postOpts = {
+                hostname: 'api.github.com',
+                path,
+                method,
+                headers: {
+                  Authorization: 'Bearer ' + process.env.GH_TOKEN,
+                  'User-Agent': 'ci-coverage-bot',
+                  Accept: 'application/vnd.github+json',
+                  'Content-Type': 'application/json',
+                  'Content-Length': Buffer.byteLength(payload),
+                },
+              };
+              const req = https.request(postOpts, r => {
+                r.resume();
+                r.on('end', () => console.log('Coverage comment posted (' + method + ' ' + r.statusCode + ')'));
+              });
+              req.on('error', e => { console.error(e); process.exit(1); });
+              req.write(payload);
+              req.end();
+            });
+          }).on('error', e => { console.error(e); process.exit(1); });
+          SCRIPT
+          node /tmp/post-coverage-comment.js
 
       - name: Log portal test run results
         if: always()
