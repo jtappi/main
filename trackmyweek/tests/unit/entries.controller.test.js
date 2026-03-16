@@ -56,7 +56,14 @@ describe('GET /trackmyweek/api/entries', () => {
     expect(res.body[0].notes).toMatch(/felt/i);
   });
 
-  test('filters by dateRange', async () => {
+  test('dateRange=alltime returns all entries without filtering', async () => {
+    const res = await request(app).get('/trackmyweek/api/entries?dateRange=alltime');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(2);
+  });
+
+  test('filters by dateRange=7days', async () => {
     const res = await request(app).get('/trackmyweek/api/entries?dateRange=7days');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
