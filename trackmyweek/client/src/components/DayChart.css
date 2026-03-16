@@ -22,7 +22,7 @@
 
 .day-chart-canvas {
   width: 100%;
-  height: 120px;
+  height: 160px;
   display: block;
   border-radius: var(--radius-sm);
 }
