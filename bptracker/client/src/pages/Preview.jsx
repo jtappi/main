@@ -11,24 +11,23 @@ import ManualEntry from '../components/ManualEntry.jsx';
  *   2b. image_unreadable: show error + Retake
  *   2c. extraction_failed: show ManualEntry fallback
  *   3. Save: call saveReading(), call onSaved(reading) on success
- *      On network error: show toast, keep user on this screen
+ *      On network error: show toast, keep user on this screen (data preserved)
  */
-export default function Preview({ imageData, imageType, imagePreviewUrl, onRetake, onSaved, user }) {
+export default function Preview({ imageData, imageType, imagePreviewUrl, onRetake, onSaved }) {
   const [extractState, setExtractState] = useState('loading'); // loading | success | unreadable | failed
-  const [systolic,   setSystolic]   = useState('');
-  const [diastolic,  setDiastolic]  = useState('');
-  const [heartRate,  setHeartRate]  = useState('');
-  const [confidence, setConfidence] = useState('high');
-  const [notes,      setNotes]      = useState('');
-  const [saving,     setSaving]     = useState(false);
-  const [saveError,  setSaveError]  = useState(null);
-  // Track whether user has manually edited any extracted value
-  const [userEdited, setUserEdited] = useState(false);
+  const [systolic,     setSystolic]     = useState('');
+  const [diastolic,    setDiastolic]    = useState('');
+  const [heartRate,    setHeartRate]    = useState('');
+  const [confidence,   setConfidence]   = useState('high');
+  const [notes,        setNotes]        = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [saveError,    setSaveError]    = useState(null);
+  const [userEdited,   setUserEdited]   = useState(false);
 
   useEffect(() => {
     extractReading(imageData, imageType)
       .then((result) => {
-        setSystolic(result.systolic !== null ? String(result.systolic) : '');
+        setSystolic(result.systolic  !== null ? String(result.systolic)  : '');
         setDiastolic(result.diastolic !== null ? String(result.diastolic) : '');
         setHeartRate(result.heartRate !== null ? String(result.heartRate) : '');
         setConfidence(result.confidence);
@@ -79,7 +78,7 @@ export default function Preview({ imageData, imageType, imagePreviewUrl, onRetak
     }
   }
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  // ── Loading ─────────────────────────────────────────────────────────────
   if (extractState === 'loading') {
     return (
       <div className="preview-view" data-testid="preview-view">
@@ -97,7 +96,7 @@ export default function Preview({ imageData, imageType, imagePreviewUrl, onRetak
     );
   }
 
-  // ── Unreadable state ───────────────────────────────────────────────────
+  // ── Unreadable ───────────────────────────────────────────────────────────
   if (extractState === 'unreadable') {
     return (
       <div className="preview-view" data-testid="preview-view">
@@ -120,7 +119,7 @@ export default function Preview({ imageData, imageType, imagePreviewUrl, onRetak
     );
   }
 
-  // ── Extraction failed — show manual entry ──────────────────────────────
+  // ── Extraction failed — show manual entry ───────────────────────────────────
   if (extractState === 'failed') {
     return (
       <div className="preview-view" data-testid="preview-view">
@@ -144,7 +143,7 @@ export default function Preview({ imageData, imageType, imagePreviewUrl, onRetak
     );
   }
 
-  // ── Success — show extracted values ────────────────────────────────────
+  // ── Success — extracted values ──────────────────────────────────────────────
   return (
     <div className="preview-view" data-testid="preview-view">
       <button className="preview-back-btn" onClick={onRetake} data-testid="preview-retake-btn">
@@ -205,7 +204,7 @@ export default function Preview({ imageData, imageType, imagePreviewUrl, onRetak
         <textarea
           id="preview-notes"
           className="preview-notes-input"
-          placeholder="Add a note&hellip;"
+          placeholder="Add a note…"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}

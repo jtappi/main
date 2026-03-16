@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getReadings, extractReading } from '../api/client.js';
-import { formatDateTime } from './Capture.jsx';
+import { getReadings } from '../api/client.js';
 import Preview from './Preview.jsx';
 
 /**
@@ -10,15 +9,16 @@ import Preview from './Preview.jsx';
  * Responsibilities:
  *   - Show greeting, live clock, last reading summary
  *   - Trigger native device camera via hidden file input
- *   - Read selected image as base64 and pass to Preview
+ *   - Read selected image as base64 and pass to Preview inline
  *   - Render Preview inline (not a separate route) so URL stays /bptracker
+ *     until the save completes, at which point we navigate to /bptracker/success
  */
 export default function Capture({ user }) {
-  const [now, setNow]               = useState(new Date());
-  const [lastReading, setLastReading] = useState(null);
+  const [now,          setNow]          = useState(new Date());
+  const [lastReading,  setLastReading]  = useState(null);
   const [captureState, setCaptureState] = useState('idle'); // idle | previewing
-  const [imageData, setImageData]   = useState(null);
-  const [imageType, setImageType]   = useState('image/jpeg');
+  const [imageData,    setImageData]    = useState(null);
+  const [imageType,    setImageType]    = useState('image/jpeg');
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -34,7 +34,6 @@ export default function Capture({ user }) {
     getReadings()
       .then((readings) => {
         if (readings.length > 0) {
-          // Sort newest first by timestamp
           const sorted = [...readings].sort(
             (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
           );
@@ -55,11 +54,10 @@ export default function Capture({ user }) {
   function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Reset input so the same file can be re-selected after a retake
+    // Reset so the same file can be re-selected after a retake
     e.target.value = '';
 
-    const mediaType = file.type || 'image/jpeg';
+    const mediaType  = file.type || 'image/jpeg';
     const previewUrl = URL.createObjectURL(file);
 
     const reader = new FileReader();
@@ -81,9 +79,9 @@ export default function Capture({ user }) {
 
   function handleSaved(reading) {
     setLastReading(reading);
-    setCaptureState('idle');
     setImageData(null);
     setImagePreviewUrl(null);
+    setCaptureState('idle');
     navigate('/bptracker/success', { state: { reading } });
   }
 
@@ -121,7 +119,6 @@ export default function Capture({ user }) {
           <span className="camera-btn-icon">&#128247;</span>
           <span className="camera-btn-label">Take Reading</span>
         </button>
-        {/* Hidden file input — triggers native camera on mobile */}
         <input
           ref={fileInputRef}
           type="file"
@@ -158,6 +155,7 @@ export default function Capture({ user }) {
 
 /**
  * Format a Date as MM/DD/YY h:mm am/pm
+ * Exported so Preview.jsx and Success.jsx can import it without circular deps.
  *
  * @param {Date} date
  * @returns {string}
