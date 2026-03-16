@@ -102,11 +102,16 @@ router.get('/', (req, res) => {
   }
 
   if (dateRange) {
-    const { start, end } = resolveDateRange(dateRange);
-    entries = entries.filter((e) => {
-      const ts = new Date(e.timestamp);
-      return ts >= start && ts <= end;
-    });
+    // resolveDateRange returns null for 'alltime' and unknown keys —
+    // null means no date filter, so only apply when a real range is returned.
+    const range = resolveDateRange(dateRange);
+    if (range) {
+      const { start, end } = range;
+      entries = entries.filter((e) => {
+        const ts = new Date(e.timestamp);
+        return ts >= start && ts <= end;
+      });
+    }
   }
 
   // Newest first
