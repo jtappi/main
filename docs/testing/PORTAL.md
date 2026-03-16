@@ -91,17 +91,21 @@ Smoke = a specific surface is broken if this fails, but the whole app still work
 | ✅ | `admin panel loads with users table populated` | Admin page renders and `/admin/users` returned data |
 | ✅ | `unauthenticated /admin redirects to login with returnTo` | Unauthenticated request gets 302 to `/login?returnTo=%2Fadmin` |
 | ✅ | `guest cannot access /admin (403)` | Authenticated non-admin gets 403 |
-| 🔴 | `test dashboard loads for admin user` | `/test-dashboard` route is reachable and renders |
+| ✅ | `test dashboard loads for admin user` | `/test-dashboard` route is reachable and renders (integration) |
 
 ### Integration — `tests/integration/portal.test.js`
 
 | Status | Test | What it verifies |
 |--------|------|------------------|
 | ✅ | `GET /login — returns 200 with HTML` | Login route is reachable |
+| ✅ | `GET /login — redirects to /dashboard when already authenticated` | Authenticated users are not shown login page |
 | ✅ | `GET / — redirects to /login when unauthenticated` | Root redirect works |
+| ✅ | `GET / — redirects to /dashboard when authenticated` | Authenticated root redirect works |
 | ✅ | `GET /dashboard — returns 200 for authenticated user` | Dashboard route serves HTML |
 | ✅ | `GET /admin — returns 200 for admin user` | Admin route serves HTML for admin |
+| ✅ | `GET /test-dashboard — returns 200 for admin, 403 for guest` | Test dashboard route auth boundary |
 | ✅ | `GET /api/projects — returns projects for authenticated guest` | Projects API returns data |
+| ✅ | `GET /admin/projects — returns all projects for admin` | Admin projects route serves data |
 
 ---
 
@@ -113,6 +117,7 @@ Regression = written to prevent a previously-fixed bug from returning.
 |--------|------|--------------|----------|
 | ✅ | `passwordHash never returned in any API response` | Password hash exposure | `tests/integration/portal.test.js` |
 | ✅ | `DELETE /admin/users/:id prevents self-deletion` | Admin self-lock | `tests/integration/portal.test.js` |
+| ✅ | `parseJsonlLines skips malformed JSON lines` | Dashboard crash on corrupt log | `tests/integration/portal.test.js` |
 
 ---
 
@@ -130,9 +135,13 @@ Full list in `tests/integration/portal.test.js`.
 ### Protected Routes
 | Status | Test |
 |--------|------|
+| ✅ | `GET /` — redirects to `/login` when unauth, `/dashboard` when auth |
+| ✅ | `GET /login` — 200 when unauth, redirects to `/dashboard` when auth |
 | ✅ | `GET /dashboard` — redirects to `/login?returnTo=%2Fdashboard` when unauth, 200 when auth |
 | ✅ | `GET /admin` — redirects to `/login?returnTo=%2Fadmin` when unauth, 403 for guest, 200 for admin |
+| ✅ | `GET /test-dashboard` — redirects to `/login?returnTo=...` when unauth, 403 for guest, 200 for admin |
 | ✅ | `GET /api/projects` — redirects to `/login?returnTo=...` when unauth, filtered for guest, all for admin |
+| ✅ | `GET /admin/projects` — 403 for guest, all projects for admin |
 
 ### Admin User CRUD
 | Status | Test |
@@ -141,8 +150,21 @@ Full list in `tests/integration/portal.test.js`.
 | ✅ | `POST /admin/users` — creates guest, returns 201, no passwordHash |
 | ✅ | `POST /admin/users` — 400 for missing fields |
 | ✅ | `PUT /admin/users/:id` — updates field, no passwordHash in response |
+| ✅ | `PUT /admin/users/:id` — 404 for unknown user |
 | ✅ | `DELETE /admin/users/:id` — removes user |
 | ✅ | `DELETE /admin/users/:id` — prevents self-deletion |
+| ✅ | `DELETE /admin/users/:id` — 404 for unknown user |
+| ✅ | `PUT /admin/users/:id/access` — updates project access, no passwordHash |
+| ✅ | `PUT /admin/users/:id/access` — 404 for unknown user |
+
+### Test Runs API
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/test-runs` — 403 for guest |
+| ✅ | `GET /api/test-runs` — reads local LOG_FILE when env var is set |
+| ✅ | `GET /api/test-runs` — returns [] when LOG_FILE does not exist |
+| ✅ | `GET /api/test-runs` — falls back to local log when remote fetch fails |
+| ✅ | `parseJsonlLines` — skips malformed JSON lines, returns valid entries |
 
 ---
 
@@ -154,12 +176,13 @@ Full list in `tests/integration/portal.test.js`.
 |--------|----------|-------|
 | ✅ | `hashPassword` | Returns 64-char hex, matches known SHA-256, different inputs differ |
 | ✅ | `loadUsers` | Returns array from fixture, throws on missing file |
+| ✅ | `saveUsers` | Writes to file and can be read back |
 | ✅ | `findUser` | Finds by email, finds by username, null for unknown |
 | ✅ | `authenticate` | Valid admin, valid guest, wrong password, unknown user, inactive user |
 | ✅ | `updateLastLogin` | Sets timestamp, no-op for unknown id |
 | ✅ | `getAllUsers` | Returns all users |
 | ✅ | `getUserById` | Returns correct user, null for unknown |
-| ✅ | `createUser` | Adds user with id, hashes password, does not store plaintext |
+| ✅ | `createUser` | Adds user with id, hashes password, does not store plaintext, defaults projectAccess to [] |
 | ✅ | `updateUser` | Updates field, hashes password if included, null for unknown |
 | ✅ | `deleteUser` | Removes user and returns true, false for unknown |
 
@@ -180,6 +203,5 @@ Do not remove an entry without adding the test.
 
 | Priority | Type | What to test | Notes |
 |----------|------|-------------|-------|
-| High | Smoke (E2E) | `/test-dashboard` loads for admin user | All admin users should be able to access the test dashboard |
-| Medium | Integration | `GET /test-dashboard` — 200 for admin, 403 for guest | Route-level auth boundary |
 | Medium | Integration | Admin project CRUD (`POST`, `PUT`, `DELETE /admin/projects`) | Not yet implemented in server or tested |
+| Low | Integration | `loadTestRunsRemote` success path | Requires mocking `https.get` to resolve with valid JSONL data |
