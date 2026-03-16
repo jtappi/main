@@ -4,6 +4,22 @@ Low-urgency items to revisit when time permits.
 
 ---
 
+## CI / Build
+
+- [ ] **Do not run E2E tests on merge for new subprojects that don't touch shared code**
+  Currently, every merge to `main` triggers the full CI pipeline including E2E tests.
+  For new subprojects (e.g. `bptracker`) that have no portal integration yet, running
+  E2E against the portal is wasteful and produces noise. The CI workflow should be
+  updated so that E2E runs are skipped or scoped to only the projects that were actually
+  changed. Options to evaluate:
+  1. **Path-based job conditions** — use `paths` filters on the E2E job so it only
+     runs when files under `portal/`, `tests/e2e/`, or `core/` are changed.
+  2. **Separate E2E workflow** — split E2E into its own `e2e.yml` triggered only on
+     changes to portal/core paths, rather than running in the main `ci.yml` for all pushes.
+  Resolve before Phase 7 (CI integration) of the bptracker build.
+
+---
+
 ## Security
 
 - [ ] **Replace port 22 forwarding with Tailscale**
