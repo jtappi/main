@@ -16,6 +16,22 @@ what tests exist and what new tests are required.
 
 ---
 
+## Playwright Guide
+
+**[PLAYWRIGHT.md](./PLAYWRIGHT.md)** — Patterns, pitfalls, and hard-won lessons for writing
+Playwright E2E tests in this repo. Read this before writing any new spec. Covers:
+
+- How CI starts and runs the server
+- The event delegation rule (no `onclick` on `innerHTML` elements)
+- Async action and DOM update patterns
+- Session and auth behavior in CI
+- Modal testing patterns
+- State cleanup requirements
+- Debugging failure symptoms and their causes
+- Checklist before committing a new spec
+
+---
+
 ## Testing Philosophy
 
 This repo follows a three-tier testing model based on industry best practices
@@ -66,6 +82,8 @@ See each project's catalog for the full breakdown.
    description what tests exist, what new tests the PR adds, and what existing tests were updated.
 5. **Missing tests** (`🔴`) are tracked in project catalogs as the authoritative backlog.
    Do not remove a `🔴` entry without adding the test.
+6. **Before writing any new Playwright spec, read `docs/testing/PLAYWRIGHT.md` in full.**
+   The patterns there reflect real CI failures — ignoring them will cause the same failures again.
 
 > **Backlog item:** CI tooling to auto-validate that new test files are referenced in the
 > appropriate `docs/testing/<PROJECT>.md`, and to auto-regenerate this index. Tracked in `docs/TODO.md`.
