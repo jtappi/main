@@ -10,8 +10,10 @@
  * middleware automatically — requireAuth works without any cross-port session
  * sharing.
  *
- * On startup, runs purgeExpiredImages() to enforce the 90-day image retention
- * policy. Safe to call every startup — it is idempotent.
+ * purgeExpiredImages() is called only when this file is run directly as a
+ * standalone dev server (require.main === module), NOT at require() time.
+ * This prevents the purge from firing during portal integration tests that
+ * re-require portal/server.js on every test via jest.resetModules().
  *
  * For local standalone development only, running this file directly with
  * NODE_ENV=development will spin up a temporary server on port 3002.
@@ -35,18 +37,6 @@ try {
 }
 if (process.env.NODE_ENV === 'development') {
   requireAuth = (_req, _res, next) => next();
-}
-
-// ---------------------------------------------------------------------------
-// Run image cleanup on startup
-// ---------------------------------------------------------------------------
-try {
-  const { purged } = purgeExpiredImages();
-  if (purged > 0) {
-    console.log(`[bptracker] Purged ${purged} expired image(s) on startup.`);
-  }
-} catch (err) {
-  console.error('[bptracker] Image purge failed on startup:', err.message);
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +70,17 @@ if (require.main === module) {
     console.error('Mount it in the portal instead.');
     process.exit(1);
   }
+
+  // Run image cleanup only on real server startup, not during tests
+  try {
+    const { purged } = purgeExpiredImages();
+    if (purged > 0) {
+      console.log(`[bptracker] Purged ${purged} expired image(s) on startup.`);
+    }
+  } catch (err) {
+    console.error('[bptracker] Image purge failed on startup:', err.message);
+  }
+
   const app  = express();
   const cors = require('cors');
   app.use(cors());
