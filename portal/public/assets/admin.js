@@ -48,10 +48,10 @@
         <td>${u.username}</td>
         <td>${u.role}</td>
         <td>
-          <button class="btn btn-sm ${u.active ? 'btn-outline' : 'btn-primary'}"
-            onclick="toggleActive('${u.id}', ${u.active})">
-            ${u.active ? 'Disable' : 'Enable'}
-          </button>
+          <span class="status-badge ${u.active ? 'status-active' : 'status-disabled'}"
+            data-testid="admin-status-badge-${u.id}">
+            ${u.active ? '&#10003; Active' : '&#10007; Disabled'}
+          </span>
         </td>
         <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
         <td>
@@ -62,7 +62,19 @@
           </div>
         </td>
         <td>
-          <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}', '${u.name}')">Delete</button>
+          <div class="action-btns">
+            <button class="btn btn-sm btn-primary"
+              data-testid="admin-edit-btn-${u.id}"
+              onclick="openEditModal('${u.id}')">Edit</button>
+            <button class="btn btn-sm ${u.active ? 'btn-outline' : 'btn-warning'}"
+              data-testid="admin-toggle-btn-${u.id}"
+              onclick="toggleActive('${u.id}', ${u.active})">
+              ${u.active ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn btn-sm btn-danger"
+              data-testid="admin-delete-btn-${u.id}"
+              onclick="deleteUser('${u.id}', '${u.name}')">Delete</button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -85,10 +97,79 @@
     loadUsers();
   };
 
+  // ── Edit User Modal ───────────────────────────────────────
+  let editingUserId = null;
+
+  window.openEditModal = async (id) => {
+    editingUserId = id;
+    const errEl = document.getElementById('edit-modal-error');
+    errEl.classList.add('hidden');
+    errEl.textContent = '';
+
+    // Fetch current user data
+    const res = await fetch('/admin/users');
+    const users = await res.json();
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+
+    document.getElementById('edit-name').value     = user.name     || '';
+    document.getElementById('edit-email').value    = user.email    || '';
+    document.getElementById('edit-username').value = user.username || '';
+    document.getElementById('edit-password').value = '';
+
+    // Render project checkboxes pre-checked
+    const access = user.projectAccess || [];
+    document.getElementById('edit-project-access').innerHTML =
+      `<div class="checkbox-group">${allProjects.map(p =>
+        `<label><input type="checkbox" value="${p.id}"${access.includes(p.id) ? ' checked' : ''}> ${p.icon} ${p.name}</label>`
+      ).join('')}</div>`;
+
+    document.getElementById('edit-user-modal').classList.remove('hidden');
+  };
+
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    document.getElementById('edit-user-modal').classList.add('hidden');
+    editingUserId = null;
+  });
+
+  document.getElementById('save-edit-btn').addEventListener('click', async () => {
+    const errEl = document.getElementById('edit-modal-error');
+    const name     = document.getElementById('edit-name').value.trim();
+    const email    = document.getElementById('edit-email').value.trim();
+    const username = document.getElementById('edit-username').value.trim();
+    const password = document.getElementById('edit-password').value;
+    const access   = [...document.querySelectorAll('#edit-project-access input:checked')]
+      .map(cb => cb.value);
+
+    if (!name || !email || !username) {
+      errEl.textContent = 'Name, email, and username are required.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const payload = { name, email, username, projectAccess: access };
+    if (password) payload.password = password;
+
+    const res = await fetch(`/admin/users/${editingUserId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      document.getElementById('edit-user-modal').classList.add('hidden');
+      editingUserId = null;
+      loadUsers();
+    } else {
+      const data = await res.json();
+      errEl.textContent = data.error || 'Failed to save changes.';
+      errEl.classList.remove('hidden');
+    }
+  });
+
   // ── Create User Modal ─────────────────────────────────────
   document.getElementById('create-user-btn').addEventListener('click', () => {
     document.getElementById('modal-error').classList.add('hidden');
-    // Render project checkboxes
     document.getElementById('new-project-access').innerHTML =
       `<div class="checkbox-group">${allProjects.map(p =>
         `<label><input type="checkbox" value="${p.id}"> ${p.icon} ${p.name}</label>`

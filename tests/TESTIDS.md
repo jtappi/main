@@ -50,14 +50,27 @@ Every testid here maps to at least one test. If you add a new element, add it he
 | `admin-projects-table` | table | Projects data table |
 | `admin-projects-tbody` | tbody | Projects table body |
 | `admin-create-user-modal` | div | Create guest modal overlay |
-| `admin-modal-error` | div | Modal error message |
+| `admin-modal-error` | div | Create modal error message |
 | `admin-new-name` | input | New user name field |
 | `admin-new-email` | input | New user email field |
 | `admin-new-username` | input | New user username field |
 | `admin-new-password` | input | New user password field |
-| `admin-project-access-checkboxes` | div | Project access checkbox group |
+| `admin-project-access-checkboxes` | div | Create modal project access checkbox group |
 | `admin-save-user-btn` | button | Save new user |
-| `admin-cancel-user-btn` | button | Cancel / close modal |
+| `admin-cancel-user-btn` | button | Cancel / close create modal |
+| `admin-edit-user-modal` | div | Edit user modal overlay |
+| `admin-edit-modal-error` | div | Edit modal error message |
+| `admin-edit-name` | input | Edit user name field |
+| `admin-edit-email` | input | Edit user email field |
+| `admin-edit-username` | input | Edit user username field |
+| `admin-edit-password` | input | Edit user password field (optional) |
+| `admin-edit-project-access` | div | Edit modal project access checkbox group |
+| `admin-save-edit-btn` | button | Save edited user |
+| `admin-cancel-edit-btn` | button | Cancel / close edit modal |
+| `admin-status-badge-{id}` | span | Active/Disabled status badge per user row (dynamic) |
+| `admin-edit-btn-{id}` | button | Edit button per user row (dynamic) |
+| `admin-toggle-btn-{id}` | button | Disable/Enable toggle per user row (dynamic) |
+| `admin-delete-btn-{id}` | button | Delete button per user row (dynamic) |
 
 ---
 
