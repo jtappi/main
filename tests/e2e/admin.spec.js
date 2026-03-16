@@ -19,9 +19,6 @@ async function loginAs(page, username, password) {
 
 // ── Auth boundaries ────────────────────────────────────────────────
 
-// Unauthenticated users are now redirected to /login?returnTo=%2Fadmin
-// instead of receiving a 403. The 403 behaviour only applies to authenticated
-// users who lack the admin role (see test below).
 test('unauthenticated /admin redirects to login with returnTo', async ({ request }) => {
   const res = await request.get(`${BASE}/admin`, { maxRedirects: 0 });
   expect(res.status()).toBe(302);
@@ -35,7 +32,6 @@ test('guest cannot access /admin (403)', async ({ page }) => {
 });
 
 // ── Smoke check ──────────────────────────────────────────────────
-// Confirms the admin page loads and the users API returned data.
 
 test('admin panel loads with users table populated', async ({ page }) => {
   await loginAs(page, ADMIN_USER, ADMIN_PASS);
@@ -44,4 +40,113 @@ test('admin panel loads with users table populated', async ({ page }) => {
   await expect(
     page.getByTestId('admin-users-tbody').locator('tr').first()
   ).toBeVisible({ timeout: 5000 });
+});
+
+// ── Status badge ─────────────────────────────────────────────────
+// Confirms Active column now shows a badge, not a button.
+
+test('active user shows status badge, not a toggle button in Active column', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  // Wait for table to populate
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+  // The e2e-admin user should have a status badge
+  const badge = page.getByTestId('admin-status-badge-e2e-admin-001');
+  await expect(badge).toBeVisible();
+  await expect(badge).toContainText('Active');
+});
+
+// ── Actions column — all three buttons present ───────────────────
+
+test('actions column has Edit, Disable, and Delete buttons for each user', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+  // Check all three action buttons exist for the e2e-guest user
+  await expect(page.getByTestId('admin-edit-btn-e2e-guest-001')).toBeVisible();
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toBeVisible();
+  await expect(page.getByTestId('admin-delete-btn-e2e-guest-001')).toBeVisible();
+});
+
+// ── Edit modal ───────────────────────────────────────────────────
+
+test('edit modal opens pre-filled with current user values', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+
+  await page.getByTestId('admin-edit-btn-e2e-guest-001').click();
+
+  const modal = page.getByTestId('admin-edit-user-modal');
+  await expect(modal).toBeVisible();
+  await expect(page.getByTestId('admin-edit-name')).toHaveValue('E2E Guest');
+  await expect(page.getByTestId('admin-edit-email')).toHaveValue('e2e-guest@test.local');
+  await expect(page.getByTestId('admin-edit-username')).toHaveValue('e2e-guest');
+  await expect(page.getByTestId('admin-edit-password')).toHaveValue('');
+});
+
+test('edit modal cancel closes without saving', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+
+  await page.getByTestId('admin-edit-btn-e2e-guest-001').click();
+  await expect(page.getByTestId('admin-edit-user-modal')).toBeVisible();
+
+  await page.getByTestId('admin-cancel-edit-btn').click();
+  await expect(page.getByTestId('admin-edit-user-modal')).toBeHidden();
+});
+
+test('saving an edit updates the users table', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+
+  await page.getByTestId('admin-edit-btn-e2e-guest-001').click();
+  await expect(page.getByTestId('admin-edit-user-modal')).toBeVisible();
+
+  // Change the display name
+  await page.getByTestId('admin-edit-name').fill('E2E Guest Edited');
+  await page.getByTestId('admin-save-edit-btn').click();
+
+  // Modal should close and table should reflect the change
+  await expect(page.getByTestId('admin-edit-user-modal')).toBeHidden();
+  await expect(page.getByTestId('admin-users-tbody')).toContainText('E2E Guest Edited');
+
+  // Restore original name so subsequent runs start clean
+  await page.getByTestId('admin-edit-btn-e2e-guest-001').click();
+  await page.getByTestId('admin-edit-name').fill('E2E Guest');
+  await page.getByTestId('admin-save-edit-btn').click();
+  await expect(page.getByTestId('admin-edit-user-modal')).toBeHidden();
+});
+
+// ── Disable / Enable toggle ───────────────────────────────────────
+
+test('disable toggle changes status badge to Disabled then back to Active', async ({ page }) => {
+  await loginAs(page, ADMIN_USER, ADMIN_PASS);
+  await page.goto(`${BASE}/admin`);
+  await expect(
+    page.getByTestId('admin-users-tbody').locator('tr').first()
+  ).toBeVisible({ timeout: 5000 });
+
+  // Disable e2e-guest
+  await page.getByTestId('admin-toggle-btn-e2e-guest-001').click();
+  const badge = page.getByTestId('admin-status-badge-e2e-guest-001');
+  await expect(badge).toContainText('Disabled', { timeout: 5000 });
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toContainText('Enable');
+
+  // Re-enable to leave state clean for other tests
+  await page.getByTestId('admin-toggle-btn-e2e-guest-001').click();
+  await expect(badge).toContainText('Active', { timeout: 5000 });
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toContainText('Disable');
 });
