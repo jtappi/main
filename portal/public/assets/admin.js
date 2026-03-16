@@ -1,7 +1,7 @@
 'use strict';
 
 (async function () {
-  // Tab switching
+  // ── Tab switching ─────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -11,16 +11,16 @@
     });
   });
 
-  // Logout
+  // ── Logout ────────────────────────────────────────────────
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetch('/auth/logout', { method: 'POST' });
     window.location.href = '/login';
   });
 
   let allProjects = [];
-  let allUsers = []; // cache for edit modal lookups
+  let allUsers    = [];
 
-  // ── Load Projects ────────────────────────────────────────
+  // ── Load Projects ─────────────────────────────────────────
   async function loadProjects() {
     const res = await fetch('/admin/projects');
     allProjects = await res.json();
@@ -37,10 +37,10 @@
     `).join('');
   }
 
-  // ── Load Users ───────────────────────────────────────────
+  // ── Load Users ────────────────────────────────────────────
   async function loadUsers() {
     const res = await fetch('/admin/users');
-    allUsers = await res.json(); // keep in module cache
+    allUsers = await res.json();
     const tbody = document.getElementById('users-tbody');
     tbody.innerHTML = allUsers.map(u => `
       <tr>
@@ -66,43 +66,56 @@
           <div class="action-btns">
             <button class="btn btn-sm btn-primary"
               data-testid="admin-edit-btn-${u.id}"
-              onclick="openEditModal('${u.id}')">Edit</button>
+              data-action="edit" data-id="${u.id}">Edit</button>
             <button class="btn btn-sm ${u.active ? 'btn-outline' : 'btn-warning'}"
               data-testid="admin-toggle-btn-${u.id}"
-              onclick="toggleActive('${u.id}', ${u.active})">
+              data-action="toggle" data-id="${u.id}" data-active="${u.active}">
               ${u.active ? 'Disable' : 'Enable'}
             </button>
             <button class="btn btn-sm btn-danger"
               data-testid="admin-delete-btn-${u.id}"
-              onclick="deleteUser('${u.id}', '${u.name}')">Delete</button>
+              data-action="delete" data-id="${u.id}" data-name="${u.name}">Delete</button>
           </div>
         </td>
       </tr>
     `).join('');
   }
 
-  // ── Toggle Active ─────────────────────────────────────────
-  window.toggleActive = async (id, current) => {
-    const res = await fetch(`/admin/users/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !current })
-    });
-    if (res.ok) await loadUsers();
-  };
+  // ── Event delegation on users tbody ───────────────────────
+  // Handles all row-level button actions without relying on window globals.
+  document.getElementById('users-tbody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
 
-  // ── Delete User ───────────────────────────────────────────
-  window.deleteUser = async (id, name) => {
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-    const res = await fetch(`/admin/users/${id}`, { method: 'DELETE' });
-    if (res.ok) await loadUsers();
-  };
+    const action = btn.dataset.action;
+    const id     = btn.dataset.id;
+
+    if (action === 'edit') {
+      openEditModal(id);
+    }
+
+    if (action === 'toggle') {
+      const current = btn.dataset.active === 'true';
+      const res = await fetch(`/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !current })
+      });
+      await loadUsers();
+    }
+
+    if (action === 'delete') {
+      const name = btn.dataset.name;
+      if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+      await fetch(`/admin/users/${id}`, { method: 'DELETE' });
+      await loadUsers();
+    }
+  });
 
   // ── Edit User Modal ───────────────────────────────────────
   let editingUserId = null;
 
-  // Uses the allUsers cache populated by loadUsers() — no extra fetch needed.
-  window.openEditModal = (id) => {
+  function openEditModal(id) {
     editingUserId = id;
     const errEl = document.getElementById('edit-modal-error');
     errEl.classList.add('hidden');
@@ -116,7 +129,6 @@
     document.getElementById('edit-username').value = user.username || '';
     document.getElementById('edit-password').value = '';
 
-    // Render project checkboxes pre-checked
     const access = user.projectAccess || [];
     document.getElementById('edit-project-access').innerHTML =
       `<div class="checkbox-group">${allProjects.map(p =>
@@ -124,7 +136,7 @@
       ).join('')}</div>`;
 
     document.getElementById('edit-user-modal').classList.remove('hidden');
-  };
+  }
 
   document.getElementById('cancel-edit-btn').addEventListener('click', () => {
     document.getElementById('edit-user-modal').classList.add('hidden');
@@ -132,7 +144,7 @@
   });
 
   document.getElementById('save-edit-btn').addEventListener('click', async () => {
-    const errEl = document.getElementById('edit-modal-error');
+    const errEl    = document.getElementById('edit-modal-error');
     const name     = document.getElementById('edit-name').value.trim();
     const email    = document.getElementById('edit-email').value.trim();
     const username = document.getElementById('edit-username').value.trim();
@@ -160,7 +172,7 @@
       editingUserId = null;
       await loadUsers();
     } else {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       errEl.textContent = data.error || 'Failed to save changes.';
       errEl.classList.remove('hidden');
     }
@@ -205,7 +217,7 @@
       document.getElementById('create-user-modal').classList.add('hidden');
       await loadUsers();
     } else {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       errEl.textContent = data.error || 'Failed to create user.';
       errEl.classList.remove('hidden');
     }
