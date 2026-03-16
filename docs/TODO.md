@@ -29,6 +29,56 @@ Low-urgency items to revisit when time permits.
 
 ---
 
+## Test Dashboard
+
+Items specifically tied to the Test Dashboard (`/test-dashboard`, `portal/public/assets/test-dashboard.js`).
+
+- [ ] **Not all test runs are being recorded in the dashboard**
+  The following run types are expected to appear in the dashboard but may be missing
+  or inconsistently logged:
+  - **PR Checks:** Unit, Integration, and E2E runs triggered by `pull_request` events
+  - **On Demand:** E2E runs triggered via `workflow_dispatch`
+  Investigate `scripts/log-test-run.js`, `logs/test-runs.jsonl`, and the CI log commit
+  steps to identify which run types are being dropped or logged under wrong project slugs.
+  Cross-reference with the dashboard filter options (branch, trigger, project) to confirm
+  what is actually arriving vs. what is expected.
+
+- [ ] **E2E test durations appear inaccurate on the dashboard**
+  Duration values shown for E2E suites do not reflect actual elapsed time. Investigate
+  how duration is captured in the Playwright JSON output (`/tmp/*-e2e-results.json`),
+  how `scripts/log-test-run.js` reads and stores it, and how `test-dashboard.js`
+  renders it. Determine whether the issue is at capture, storage, or display time.
+
+- [ ] **Add unit/integration tests for the Test Dashboard server-side code**
+  `portal/public/assets/test-dashboard.js` is client-side browser JavaScript and is
+  excluded from the current Jest coverage collection. Two approaches to consider:
+  1. **Extract pure logic** (data transformation, filtering, aggregation functions)
+     into a separate `portal/lib/dashboard-utils.js` module that can be unit tested
+     in Node with Jest — then the browser file imports from it.
+  2. **Add Playwright component tests** that render the dashboard page against a
+     mock `/api/test-runs` response and assert that suite cards, history rows, and
+     filters behave correctly.
+  The server-side route (`GET /api/test-runs`) already has integration test coverage.
+  This item is about the client-side rendering logic.
+
+- [ ] **Surface unit test coverage data on the Test Dashboard (or a new coverage dashboard)**
+  Currently, Jest coverage results are uploaded as CI artifacts and shown in the GitHub
+  Actions job summary and PR comments. They are not visible on the Test Dashboard.
+  Options to evaluate:
+  1. **Extend the existing Test Dashboard** — add a Coverage tab or section that reads
+     `coverage-summary.json` committed to the repo (similar to how `test-runs.jsonl`
+     is read from GitHub raw). This requires committing `coverage-summary.json` as part
+     of the CI run rather than only uploading it as an artifact.
+  2. **New Coverage Dashboard** — a separate admin page (`/coverage-dashboard`) that
+     reads committed coverage summaries and shows per-project trend lines over time.
+  3. **Integrate a dedicated service** (Codecov, Coveralls) — tracked separately under
+     Testing Infrastructure below. Provides history, PR diffs, and line-level annotation
+     without requiring a custom dashboard.
+  Decide on approach before building. The key question is whether coverage history over
+  time is needed (favours option 2 or 3) or just the latest snapshot (option 1 is sufficient).
+
+---
+
 ## Testing Infrastructure
 
 - [ ] **CI tooling: auto-validate test file references in `docs/testing/`**
@@ -59,12 +109,9 @@ is required to add or retain a per-file threshold exception.
 ### Portal
 | Metric | Current floor | Target |
 |--------|--------------|--------|
-| Branches | 65% | 100% |
-| Functions | 50% | 100% |
-| Lines | 79% | 90% |
-
-Uncovered lines in `server.js`: 90-111, 136, 234-240, 245, 259-266, 275-276.
-Primarily: remote log fetching, HTTPS path, and error handling branches.
+| Branches | 80% | 100% |
+| Functions | 85% | 100% |
+| Lines | 90% | 90% ✅ |
 
 ### TrackMyWeek
 | Metric | Current floor | Target |
@@ -90,4 +137,4 @@ Do not duplicate gap entries here.
 
 **Priority items to close next:**
 - [ ] `trackmyweek/controllers/prebuilt.controller.js` — write unit tests to reach target coverage
-- [ ] Portal `server.js` uncovered branches — add integration tests for HTTPS path and remote log fetching
+- [ ] Portal `server.js` — `loadTestRunsRemote` success path (mock `https.get` with valid JSONL stream)
