@@ -23,6 +23,18 @@ Low-urgency items to revisit when time permits.
 
 ## CI / Build
 
+- [ ] **Re-enable CI on push to main when a second contributor joins**
+  CI currently runs on `pull_request` only — the `push` trigger was removed on
+  2026-03-16 because this is a solo-contributor repo and running tests twice
+  (once on PR, once post-merge) added CI minutes with no safety benefit.
+
+  **To re-enable:** Add `push: branches: [main]` back to the `on:` block in
+  `.github/workflows/ci.yml` and remove this TODO item.
+
+  **Trigger:** Do this as soon as a second contributor opens their first PR.
+  With multiple contributors, post-merge CI catches integration regressions
+  that can't be caught on individual PRs.
+
 - [ ] **Split `ci.yml` into per-project workflow files**
   The current single `ci.yml` uses path filters to scope jobs, but as the monorepo
   grows this becomes increasingly complex to maintain — a CI change for one project
