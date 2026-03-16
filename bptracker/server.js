@@ -6,17 +6,8 @@
  * Exports a configured Express router that the portal mounts at /bptracker.
  * Does NOT start its own HTTP server.
  *
- * By mounting inside the portal, bptracker routes share the portal's session
- * middleware automatically — requireAuth works without any cross-port session
- * sharing.
- *
  * purgeExpiredImages() is called only when this file is run directly as a
- * standalone dev server (require.main === module), NOT at require() time.
- * This prevents the purge from firing during portal integration tests that
- * re-require portal/server.js on every test via jest.resetModules().
- *
- * For local standalone development only, running this file directly with
- * NODE_ENV=development will spin up a temporary server on port 3002.
+ * standalone dev server, NOT at require() time, to avoid firing during tests.
  */
 
 const path    = require('path');
@@ -44,8 +35,12 @@ if (process.env.NODE_ENV === 'development') {
 // ---------------------------------------------------------------------------
 const router = express.Router();
 
+// The extract endpoint receives a base64-encoded camera image which can be
+// several MB. The portal mounts express.json() with the default 100kb limit.
+// We apply a larger limit specifically for this route before requireAuth so
+// the body is parsed correctly regardless of the portal's global limit.
+router.use('/api/extract',  express.json({ limit: '10mb' }), requireAuth, extractController);
 router.use('/api/readings', requireAuth, readingsController);
-router.use('/api/extract',  requireAuth, extractController);
 
 // Static SPA — served from client/dist/
 const DIST = path.join(__dirname, 'client', 'dist');
@@ -71,7 +66,6 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  // Run image cleanup only on real server startup, not during tests
   try {
     const { purged } = purgeExpiredImages();
     if (purged > 0) {
@@ -84,7 +78,6 @@ if (require.main === module) {
   const app  = express();
   const cors = require('cors');
   app.use(cors());
-  app.use(express.json());
   app.use('/bptracker', router);
   const PORT = process.env.PORT || 3002;
   app.listen(PORT, () => {

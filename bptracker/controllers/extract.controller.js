@@ -20,6 +20,16 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const router = express.Router();
 
+// Warn loudly on startup if the API key is missing so the problem is
+// immediately visible in pm2 logs rather than discovered on the first request.
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error('[bptracker/extract] WARNING: ANTHROPIC_API_KEY is not set. ' +
+    'All extraction requests will fail. Add it to .env and restart.');
+} else {
+  console.log('[bptracker/extract] ANTHROPIC_API_KEY is present (' +
+    process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...)');
+}
+
 /** Plausible BP/HR ranges for server-side validation. */
 const RANGES = {
   systolic:  { min: 60,  max: 250 },
@@ -49,9 +59,6 @@ Use null for any individual value you cannot read with confidence.`;
 /**
  * Parse the raw text response from Claude into a structured object.
  * Returns null if the response cannot be parsed as valid JSON.
- *
- * @param {string} text
- * @returns {{ systolic: number|null, diastolic: number|null, heartRate: number|null, confidence: string }|null}
  */
 function parseClaudeResponse(text) {
   try {
@@ -67,9 +74,6 @@ function parseClaudeResponse(text) {
 /**
  * Validate extracted values against plausible ranges.
  * If any non-null value is outside its range, override confidence to 'low'.
- *
- * @param {{ systolic, diastolic, heartRate, confidence }} data
- * @returns {{ systolic, diastolic, heartRate, confidence }}
  */
 function validateRanges(data) {
   const result = { ...data };
@@ -91,7 +95,13 @@ function validateRanges(data) {
 router.post('/', async (req, res) => {
   const { imageData, mediaType } = req.body;
 
+  console.log('[bptracker/extract] POST /api/extract called');
+  console.log('[bptracker/extract]   mediaType:', mediaType || 'not provided');
+  console.log('[bptracker/extract]   imageData length:', imageData ? imageData.length : 0);
+  console.log('[bptracker/extract]   API key present:', !!process.env.ANTHROPIC_API_KEY);
+
   if (!imageData) {
+    console.error('[bptracker/extract] Missing imageData in request body');
     return res.status(400).json({ error: 'imageData is required.' });
   }
 
@@ -99,6 +109,7 @@ router.post('/', async (req, res) => {
 
   let rawText;
   try {
+    console.log('[bptracker/extract] Calling Anthropic API...');
     const message = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 256,
@@ -126,23 +137,32 @@ router.post('/', async (req, res) => {
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
       .join('');
+    console.log('[bptracker/extract] Anthropic response received, rawText:', rawText);
   } catch (err) {
-    console.error('[extract] Anthropic API error:', err.message);
+    console.error('[bptracker/extract] Anthropic API error:');
+    console.error('  message:', err.message);
+    console.error('  status:', err.status);
+    console.error('  error type:', err.error?.type);
+    console.error('  error detail:', JSON.stringify(err.error));
+    console.error('  stack:', err.stack);
     return res.status(502).json({ error: 'extraction_failed', message: 'Extraction service unavailable.' });
   }
 
   const parsed = parseClaudeResponse(rawText);
   if (!parsed) {
-    console.error('[extract] Failed to parse Claude response:', rawText);
+    console.error('[bptracker/extract] Failed to parse Claude response:', rawText);
     return res.status(502).json({ error: 'extraction_failed', message: 'Extraction service returned an unreadable response.' });
   }
 
   const validated = validateRanges(parsed);
+  console.log('[bptracker/extract] Validated result:', JSON.stringify(validated));
 
   if (validated.systolic === null && validated.diastolic === null && validated.heartRate === null) {
+    console.error('[bptracker/extract] All values null — image unreadable');
     return res.status(422).json({ error: 'image_unreadable', message: 'Could not read the monitor display. Please retake in better light.' });
   }
 
+  console.log('[bptracker/extract] Success — returning extracted values');
   res.json({
     systolic:   validated.systolic,
     diastolic:  validated.diastolic,

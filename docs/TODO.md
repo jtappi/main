@@ -20,6 +20,36 @@ Low-urgency items to revisit when time permits.
 
 ---
 
+## Observability
+
+- [ ] **Server-side logging per project with a log viewer dashboard**
+  Currently, application errors are only visible via `pm2 logs` on the Mac Mini.
+  There is no per-project log stream, no log history, and no way to view logs from
+  the browser. This makes debugging production issues (e.g. extraction failures in
+  bptracker) slow and requires SSH access.
+
+  **What to build:**
+  - A lightweight structured logger for each subproject that writes JSON log lines
+    to per-project log files (e.g. `logs/bptracker.jsonl`, `logs/portal.jsonl`).
+    Each entry includes: timestamp, level (info/warn/error), project, message, and
+    optional metadata object.
+  - A **Log Viewer** admin-only page at `/logs` on the portal that reads the log
+    files and displays them in a filterable table: filter by project, level, and
+    date range. Similar architecture to the existing Test Dashboard.
+  - Log rotation: cap each log file at a configurable size (e.g. 5MB) and keep
+    the last N rotated files. Never let logs grow unbounded.
+
+  **Why this matters:**
+  - Extraction failures in bptracker (Anthropic API errors, parse failures) are
+    currently invisible without SSH. A log viewer would surface these immediately.
+  - As more subprojects are added, a centralized log viewer becomes the primary
+    debugging tool for all runtime issues.
+
+  **Scope:** Design as a new subproject or as an extension of the portal admin panel.
+  Decide before building.
+
+---
+
 ## Security
 
 - [ ] **Replace port 22 forwarding with Tailscale**
