@@ -4,6 +4,35 @@ Low-urgency items to revisit when time permits.
 
 ---
 
+## BP Tracker — UI Improvements
+
+- [ ] **Display the last 5 readings on the Capture screen**
+  The Capture view currently shows only the single most recent reading below the camera
+  button. Replace this with a compact, clean table showing the last 5 readings so the
+  user has immediate context before taking a new one.
+
+  **What to build:**
+  - A small read-only table below the camera button: columns Date, Sys/Dia, Heart Rate.
+  - Newest first, max 5 rows, no pagination.
+  - Tapping a row does nothing (read-only on the Capture screen — editing is in Reports).
+  - Fetched via the existing `GET /bptracker/api/readings` call already used by Reports;
+    can be lifted into `App.jsx` and shared, or fetched independently in `Capture.jsx`.
+
+- [ ] **User-adjustable text size with cached preference**
+  Some users (especially when viewing BP readings) benefit from larger text. Add a
+  text-size control that persists across sessions.
+
+  **What to build:**
+  - A size toggle in the app header or settings area: Small / Medium (default) / Large.
+  - Applies a CSS class (e.g. `text-sm`, `text-md`, `text-lg`) to the app root that
+    scales key reading values and labels via CSS custom properties.
+  - Preference stored in `localStorage` under the key `bptracker-text-size` so it
+    survives page reloads and browser restarts.
+  - On app load, read the cached value and apply it before first render to avoid a
+    flash of default-sized text.
+
+---
+
 ## CI / Build
 
 - [ ] **Do not run E2E tests on merge for new subprojects that don't touch shared code**
