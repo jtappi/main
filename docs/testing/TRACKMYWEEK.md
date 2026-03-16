@@ -163,27 +163,50 @@ Full list in `trackmyweek/tests/unit/server.test.js`.
 
 ### `trackmyweek/tests/unit/entries.controller.test.js` — entries controller
 
-| Status | Coverage |
-|--------|----------|
-| ✅ | CRUD operations on entries via testApp (create, read, update, delete, validation) |
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/entries` — returns all, filters by category, keyword (text), keyword (notes), dateRange, sorted newest-first |
+| ✅ | `POST /api/entries` — creates entry, 400 missing text, 400 whitespace-only text, 400 missing category, 400 unknown category |
+| ✅ | `PUT /api/entries/:id` — updates text, updates to valid category, 400 unknown category, updates timestamp, 404 unknown id |
+| ✅ | `DELETE /api/entries/:id` — deletes entry, 404 unknown id |
+| ✅ | `GET /api/entries/autocomplete` — matches text, no match, query < 3 chars, absent param, max 3 results |
+| ✅ | `GET /api/entries/quickentry` — returns array, at most 5, has text/category/count, empty when no data, ranks by frequency, round-trip POST |
 
 ### `trackmyweek/tests/unit/categories.controller.test.js` — categories controller
 
-| Status | Coverage |
-|--------|----------|
-| ✅ | CRUD operations on categories via testApp (create, read, update, delete, validation) |
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/categories` — returns all, each has entryCount, entryCount reflects actual entries |
+| ✅ | `POST /api/categories` — creates category, defaults color, 400 missing name, 409 duplicate name (case-insensitive) |
+| ✅ | `PUT /api/categories/:id` — renames + cascades entries, updates icon/color only, 409 name conflict, 404 unknown id |
+| ✅ | `DELETE /api/categories/:id` — deletes, 409 entries exist without reassignTo, reassigns entries, 400 invalid reassignTo, 404 unknown id |
 
 ### `trackmyweek/tests/unit/questions.controller.test.js` — questions controller
 
-| Status | Coverage |
-|--------|----------|
-| ✅ | CRUD operations on questions via testApp (create, read, update, delete) |
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/questions` — returns all, unanswered first, answered sorted after unanswered |
+| ✅ | `POST /api/questions` — creates question, 400 missing text, 400 whitespace-only |
+| ✅ | `PUT /api/questions/:id` — sets answer + answeredAt, preserves existing answeredAt, clears answer to null, updates text only, 404 unknown id |
+| ✅ | `DELETE /api/questions/:id` — deletes question, 404 unknown id |
 
 ### `trackmyweek/tests/unit/reports.controller.test.js` — reports controller
 
-| Status | Coverage |
-|--------|----------|
-| ✅ | Prebuilt reports, saved report CRUD, report schema via testApp |
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/reports/schema` — returns all schema keys |
+| ✅ | `GET /api/reports` — returns all reports |
+| ✅ | `POST /api/reports` — creates report, defaults filterCategories to [], 400 missing fields, 400 invalid chartType |
+| ✅ | `GET /api/reports/:id/data` — alltime/category, filterCategories, frequencyPerDay measure, all groupBy dimensions, alltime total, dateRange filter, 404 unknown |
+| ✅ | `PUT /api/reports/:id` — updates name, updates multiple fields, 400 invalid chartType/measure/groupBy/dateRange, 404 unknown |
+| ✅ | `DELETE /api/reports/:id` — deletes report, 404 unknown id |
+
+### `trackmyweek/tests/unit/prebuilt.controller.test.js` — prebuilt controller *(new)*
+
+| Status | Test |
+|--------|------|
+| ✅ | `GET /api/prebuilt/trend` — returns dateRange/labels/values, labels are YYYY-MM-DD, values are non-negative integers, defaults to 7days, fallback for invalid param, accepts 30days, counts only recent entries, zero-fills all days |
+| ✅ | `GET /api/prebuilt/categories` — returns dateRange/labels/values, labels are strings, values are positive integers, defaults to 7days + excludes old entries, fallback for invalid param, accepts 30days, sorted descending, empty when no data |
 
 ### `trackmyweek/tests/unit/dateUtils.test.js` — `trackmyweek/lib/dateUtils.js`
 
