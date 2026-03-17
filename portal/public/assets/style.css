@@ -87,28 +87,28 @@ a:hover { text-decoration: underline; }
 .icon-btn:hover  { transform: translateY(-1px); }
 .icon-btn:active { transform: translateY(0); }
 
-/* Edit — teal, matches btn-primary */
+/* Edit — teal */
 .icon-btn-edit {
   background: var(--accent-soft);
   color: var(--accent);
 }
 .icon-btn-edit:hover { background: var(--accent); color: #fff; }
 
-/* Disable — amber/warning */
+/* Disable — amber */
 .icon-btn-disable {
   background: var(--warning-soft);
   color: var(--warning);
 }
 .icon-btn-disable:hover { background: var(--warning); color: #fff; }
 
-/* Enable — green, matches accent-2 */
+/* Enable — green */
 .icon-btn-enable {
   background: var(--accent-2-soft);
   color: #2a9e70;
 }
 .icon-btn-enable:hover { background: var(--accent-2); color: #fff; }
 
-/* Delete — red, matches btn-danger */
+/* Delete — red */
 .icon-btn-delete {
   background: var(--danger-soft);
   color: var(--danger);
@@ -327,6 +327,7 @@ a:hover { text-decoration: underline; }
 .status-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -339,6 +340,14 @@ a:hover { text-decoration: underline; }
 .status-active      { background: var(--accent-2-soft); color: #2a9e70; }
 .status-maintenance { background: #fff3e0; color: #b86e00; }
 .status-disabled    { background: var(--surface-2); color: var(--text-muted); }
+
+/* Icon-only status badge — used in the admin users Active column */
+.status-badge-icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+}
 
 .project-card .btn { align-self: flex-start; margin-top: 0.5rem; }
 .loading { color: var(--text-muted); font-size: 0.9rem; }
