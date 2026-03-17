@@ -43,16 +43,14 @@ test('admin panel loads with users table populated', async ({ page }) => {
 });
 
 // ── Status badge ─────────────────────────────────────────────────
-// Confirms Active column now shows a badge, not a button.
+// Confirms Active column shows a badge, not a button.
 
 test('active user shows status badge, not a toggle button in Active column', async ({ page }) => {
   await loginAs(page, ADMIN_USER, ADMIN_PASS);
   await page.goto(`${BASE}/admin`);
-  // Wait for table to populate
   await expect(
     page.getByTestId('admin-users-tbody').locator('tr').first()
   ).toBeVisible({ timeout: 5000 });
-  // The e2e-admin user should have a status badge
   const badge = page.getByTestId('admin-status-badge-e2e-admin-001');
   await expect(badge).toBeVisible();
   await expect(badge).toContainText('Active');
@@ -66,7 +64,6 @@ test('actions column has Edit, Disable, and Delete buttons for each user', async
   await expect(
     page.getByTestId('admin-users-tbody').locator('tr').first()
   ).toBeVisible({ timeout: 5000 });
-  // Check all three action buttons exist for the e2e-guest user
   await expect(page.getByTestId('admin-edit-btn-e2e-guest-001')).toBeVisible();
   await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toBeVisible();
   await expect(page.getByTestId('admin-delete-btn-e2e-guest-001')).toBeVisible();
@@ -115,11 +112,9 @@ test('saving an edit updates the users table', async ({ page }) => {
   await page.getByTestId('admin-edit-btn-e2e-guest-001').click();
   await expect(page.getByTestId('admin-edit-user-modal')).toBeVisible();
 
-  // Change the display name
   await page.getByTestId('admin-edit-name').fill('E2E Guest Edited');
   await page.getByTestId('admin-save-edit-btn').click();
 
-  // Modal should close and table should reflect the change
   await expect(page.getByTestId('admin-edit-user-modal')).toBeHidden();
   await expect(page.getByTestId('admin-users-tbody')).toContainText('E2E Guest Edited');
 
@@ -143,10 +138,13 @@ test('disable toggle changes status badge to Disabled then back to Active', asyn
   await page.getByTestId('admin-toggle-btn-e2e-guest-001').click();
   const badge = page.getByTestId('admin-status-badge-e2e-guest-001');
   await expect(badge).toContainText('Disabled', { timeout: 5000 });
-  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toContainText('Enable');
+  // Button is now icon-only — verify state via title attribute and CSS class
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toHaveAttribute('title', 'Enable user');
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toHaveClass(/icon-btn-enable/);
 
   // Re-enable to leave state clean for other tests
   await page.getByTestId('admin-toggle-btn-e2e-guest-001').click();
   await expect(badge).toContainText('Active', { timeout: 5000 });
-  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toContainText('Disable');
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toHaveAttribute('title', 'Disable user');
+  await expect(page.getByTestId('admin-toggle-btn-e2e-guest-001')).toHaveClass(/icon-btn-disable/);
 });
