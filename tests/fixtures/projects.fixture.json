@@ -9,11 +9,20 @@
     "createdAt": "2026-01-01T00:00:00.000Z"
   },
   {
+    "id": "bptracker",
+    "name": "BP Tracker",
+    "description": "Log and track your blood pressure readings.",
+    "route": "/bptracker",
+    "port": 3002,
+    "status": "active",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
     "id": "disabled-project",
     "name": "Disabled Project",
     "description": "This project is disabled.",
     "route": "/disabled",
-    "port": 3002,
+    "port": 3003,
     "status": "disabled",
     "createdAt": "2026-01-01T00:00:00.000Z"
   }
