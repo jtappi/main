@@ -106,9 +106,24 @@ input::placeholder, textarea::placeholder {
    Layout
    ============================================================ */
 
+/*
+ * .app — outer shell, stacks PortalTopBar above the body.
+ * flex-direction: column so the top bar spans full width and
+ * the sidebar + content area sit below it as a horizontal row.
+ */
 .app {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
+}
+
+/*
+ * .app-body — horizontal row containing the sidebar nav and
+ * the main content. flex: 1 so it fills remaining height.
+ */
+.app-body {
+  display: flex;
+  flex: 1;
 }
 
 .main-content {
