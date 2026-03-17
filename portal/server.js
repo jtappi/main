@@ -109,6 +109,16 @@ function loadTestRunsLocal() {
   return parseJsonlLines(fs.readFileSync(LOG_FILE, 'utf8'));
 }
 
+/**
+ * getAccessibleProjects — returns the active projects visible to a session user.
+ * Admins see all projects. Guests see only their projectAccess intersection.
+ */
+function getAccessibleProjects(user) {
+  const all = loadProjects();
+  if (user.role === 'admin') return all;
+  return all.filter(p => p.status === 'active' && user.projectAccess.includes(p.id));
+}
+
 // ── Routes: Root ─────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.user) return res.redirect('/dashboard');
@@ -120,7 +130,23 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
+/**
+ * GET /dashboard
+ *
+ * Smart redirect logic:
+ *   - Admin users always land on the dashboard.
+ *   - Non-admin users with exactly one active accessible project are redirected
+ *     directly to that project's route — no dashboard stop.
+ *   - Everyone else (multi-project users) sees the dashboard.
+ */
 app.get('/dashboard', requireAuth, (req, res) => {
+  const user     = req.session.user;
+  const projects = getAccessibleProjects(user);
+
+  if (user.role !== 'admin' && projects.length === 1) {
+    return res.redirect(projects[0].route);
+  }
+
   res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
