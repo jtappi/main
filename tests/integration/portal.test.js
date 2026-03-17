@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// ── Fixture setup ─────────────────────────────────────────────────────
+// ── Fixture setup ────────────────────────────────────────────────────
 const USERS_FIXTURE    = path.join(__dirname, '../fixtures/users.fixture.json');
 const PROJECTS_FIXTURE = path.join(__dirname, '../fixtures/projects.fixture.json');
 
@@ -28,7 +28,7 @@ afterEach(() => {
   delete process.env.LOG_FILE;
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
 async function loginAs(agent, username, password = 'test') {
   const hash = require('crypto')
     .createHash('sha256').update(password).digest('hex');
@@ -37,7 +37,7 @@ async function loginAs(agent, username, password = 'test') {
     .send({ identifier: username, passwordHash: hash });
 }
 
-// ── Root redirect ────────────────────────────────────────────────────────────
+// ── Root redirect ───────────────────────────────────────────────────────────────
 describe('GET /', () => {
   test('redirects to /login when unauthenticated', async () => {
     const res = await request(app).get('/');
@@ -54,7 +54,7 @@ describe('GET /', () => {
   });
 });
 
-// ── Login page ───────────────────────────────────────────────────────────────
+// ── Login page ────────────────────────────────────────────────────────────────────
 describe('GET /login', () => {
   test('returns 200 with HTML', async () => {
     const res = await request(app).get('/login');
@@ -140,7 +140,7 @@ describe('POST /auth/logout', () => {
   });
 });
 
-// ── Protected routes ────────────────────────────────────────────────────────────
+// ── Protected routes ───────────────────────────────────────────────────────────────
 describe('GET /dashboard', () => {
   test('redirects to /login?returnTo=%2Fdashboard when unauthenticated', async () => {
     const res = await request(app).get('/dashboard');
@@ -148,11 +148,29 @@ describe('GET /dashboard', () => {
     expect(res.headers.location).toBe('/login?returnTo=%2Fdashboard');
   });
 
-  test('returns 200 for authenticated user', async () => {
+  test('returns 200 for multi-project guest', async () => {
+    // testguest has 2 projects (trackmyweek + bptracker) — lands on the dashboard
     const agent = request.agent(app);
     await loginAs(agent, 'testguest');
     const res = await agent.get('/dashboard');
     expect(res.status).toBe(200);
+  });
+
+  test('returns 200 for admin regardless of project count', async () => {
+    // Admins always see the dashboard
+    const agent = request.agent(app);
+    await loginAs(agent, 'testadmin');
+    const res = await agent.get('/dashboard');
+    expect(res.status).toBe(200);
+  });
+
+  test('redirects single-project guest directly to their project', async () => {
+    // testsingle has only trackmyweek — bypasses dashboard
+    const agent = request.agent(app);
+    await loginAs(agent, 'testsingle');
+    const res = await agent.get('/dashboard');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/trackmyweek');
   });
 });
 
@@ -200,7 +218,7 @@ describe('GET /test-dashboard', () => {
   });
 });
 
-// ── API: projects ──────────────────────────────────────────────────────────────
+// ── API: projects ───────────────────────────────────────────────────────────────────────
 describe('GET /api/projects', () => {
   test('redirects to /login?returnTo=%2Fapi%2Fprojects when unauthenticated', async () => {
     const res = await request(app).get('/api/projects');
@@ -222,11 +240,11 @@ describe('GET /api/projects', () => {
     await loginAs(agent, 'testadmin');
     const res = await agent.get('/api/projects');
     expect(res.status).toBe(200);
-    expect(res.body.length).toBe(2);
+    expect(res.body.length).toBe(3);
   });
 });
 
-// ── Admin: projects ──────────────────────────────────────────────────────────────
+// ── Admin: projects ────────────────────────────────────────────────────────────────────────
 describe('GET /admin/projects', () => {
   test('returns all projects for admin', async () => {
     const agent = request.agent(app);
@@ -234,7 +252,7 @@ describe('GET /admin/projects', () => {
     const res = await agent.get('/admin/projects');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(2);
+    expect(res.body.length).toBe(3);
   });
 
   test('returns 403 for guest', async () => {
@@ -245,7 +263,7 @@ describe('GET /admin/projects', () => {
   });
 });
 
-// ── Admin: user management ───────────────────────────────────────────────────────────
+// ── Admin: user management ───────────────────────────────────────────────────────────────────
 describe('Admin user CRUD', () => {
   test('GET /admin/users returns user list for admin', async () => {
     const agent = request.agent(app);
@@ -349,7 +367,7 @@ describe('Admin user CRUD', () => {
   });
 });
 
-// ── API: test-runs ──────────────────────────────────────────────────────────────
+// ── API: test-runs ────────────────────────────────────────────────────────────────────────
 describe('GET /api/test-runs', () => {
   test('returns 403 for guest', async () => {
     const agent = request.agent(app);
@@ -388,13 +406,9 @@ describe('GET /api/test-runs', () => {
   });
 
   test('falls back to local log when remote fetch fails', async () => {
-    // Set LOG_FILE to a real file so the fallback has something to return.
-    // The remote path is taken when LOG_FILE is NOT set, so we need to
-    // mock https to simulate a network failure and verify the fallback fires.
     const tmpLog = path.join(os.tmpdir(), `test-runs-fallback-${Date.now()}.jsonl`);
     fs.writeFileSync(tmpLog, JSON.stringify({ project: 'fallback', passed: 1 }) + '\n');
 
-    // Inject a failing https mock before requiring the server
     jest.resetModules();
     jest.mock('https', () => ({
       get: (_url, _cb) => ({
@@ -402,15 +416,9 @@ describe('GET /api/test-runs', () => {
       })
     }));
 
-    // LOG_FILE must be unset so server takes the remote branch
     delete process.env.LOG_FILE;
-    // Override LOG_FILE constant by pointing it at our tmp file via env
-    // The fallback reads LOG_FILE env var, so set it now
     process.env.LOG_FILE = tmpLog;
 
-    // Re-require with mocked https — LOG_FILE set means local path is taken
-    // instead. To hit the fallback we need LOG_FILE unset but https failing.
-    // Reset again: unset LOG_FILE, require fresh server, then set for fallback.
     delete process.env.LOG_FILE;
     jest.resetModules();
     jest.mock('https', () => ({
@@ -419,15 +427,12 @@ describe('GET /api/test-runs', () => {
       })
     }));
     process.env.LOG_FILE = tmpLog;
-    // The server reads LOG_FILE at request time, not module load time.
-    // Clear it so the remote branch is entered, then restore for fallback.
     const appWithMock = require('../../portal/server');
     delete process.env.LOG_FILE;
 
     const agent = request.agent(appWithMock);
     await loginAs(agent, 'testadmin');
     const res = await agent.get('/api/test-runs');
-    // Remote fails — fallback reads LOG_FILE which is now unset — returns []
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
 
@@ -436,7 +441,7 @@ describe('GET /api/test-runs', () => {
   });
 });
 
-// ── Helpers: parseJsonlLines ───────────────────────────────────────────────────────
+// ── Helpers: parseJsonlLines ────────────────────────────────────────────────────────────────────
 describe('parseJsonlLines (via GET /api/test-runs)', () => {
   test('skips malformed JSON lines and returns valid ones', async () => {
     const tmpLog = path.join(os.tmpdir(), `test-runs-malformed-${Date.now()}.jsonl`);

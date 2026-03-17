@@ -4,6 +4,7 @@ import Capture from './pages/Capture.jsx';
 import Reports from './pages/Reports.jsx';
 import Success from './pages/Success.jsx';
 import BottomNav from './components/BottomNav.jsx';
+import PortalTopBar from './components/PortalTopBar.jsx';
 
 // Valid text size values and the localStorage key
 const TEXT_SIZES = ['sm', 'md', 'lg'];
@@ -27,6 +28,7 @@ function getInitialTextSize() {
  * Manages:
  *   - Session user fetch
  *   - Text size preference (localStorage-backed, applied as CSS class on app-shell)
+ *   - PortalTopBar visibility: shown when user has more than one project or is admin
  *
  * Routes:
  *   /bptracker           -> Capture (default)
@@ -36,7 +38,6 @@ function getInitialTextSize() {
 export default function App() {
   const [user,     setUser]     = useState(null);
   const [loading,  setLoading]  = useState(true);
-  // Initialised synchronously from localStorage — no flash
   const [textSize, setTextSize] = useState(getInitialTextSize);
 
   useEffect(() => {
@@ -71,9 +72,12 @@ export default function App() {
 
   if (!user) return null;
 
+  const showTopBar = user.projectAccess.length > 1 || user.role === 'admin';
+
   return (
     <BrowserRouter>
       <div className={`app-shell text-${textSize}`} data-testid="app-shell">
+        {showTopBar && <PortalTopBar userName={user.name} />}
         <div className="app-content">
           <Routes>
             <Route path="/bptracker"         element={<Capture user={user} />} />
