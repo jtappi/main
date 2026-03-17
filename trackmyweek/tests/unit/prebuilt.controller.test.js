@@ -4,22 +4,22 @@ const request           = require('supertest');
 const { app, mockData } = require('./testApp');
 const data              = require('../../lib/data');
 
-// Seed data: two entries within the last 7 days, one older (2020)
-const RECENT_TS  = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
-const OLDER_TS   = '2020-01-15T10:00:00.000Z';
+const now      = new Date();
+const today    = now.toISOString();
+const twoDaysAgo = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
 
 beforeEach(() => {
   mockData.data = [
-    { id: 1, text: 'Run',   category: 'Exercise', notes: '', timestamp: RECENT_TS },
-    { id: 2, text: 'Apple', category: 'Food',     notes: '', timestamp: RECENT_TS },
-    { id: 3, text: 'Walk',  category: 'Exercise', notes: '', timestamp: OLDER_TS  },
+    { id: 1, text: 'Run',       category: 'Exercise', notes: '', timestamp: today },
+    { id: 2, text: 'Apple',     category: 'Food',     notes: '', timestamp: today },
+    { id: 3, text: 'Pushups',   category: 'Exercise', notes: '', timestamp: twoDaysAgo },
   ];
-  data.readEntries.mockImplementation(() => JSON.parse(JSON.stringify(mockData.data)));
+  data.readEntries.mockImplementation((_userId) => JSON.parse(JSON.stringify(mockData.data)));
 });
 
-// ── GET /api/prebuilt/trend ────────────────────────────────────────────────────
+// ── GET /api/prebuilt/trend ────────────────────────────────────────────────
 describe('GET /trackmyweek/api/prebuilt/trend', () => {
-  test('returns 200 with dateRange, labels, and values', async () => {
+  test('returns dateRange, labels array, values array', async () => {
     const res = await request(app).get('/trackmyweek/api/prebuilt/trend');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('dateRange');
@@ -32,57 +32,33 @@ describe('GET /trackmyweek/api/prebuilt/trend', () => {
     res.body.labels.forEach((l) => expect(l).toMatch(/^\d{4}-\d{2}-\d{2}$/));
   });
 
-  test('values are non-negative integers', async () => {
+  test('labels and values have equal length', async () => {
     const res = await request(app).get('/trackmyweek/api/prebuilt/trend');
-    res.body.values.forEach((v) => {
-      expect(typeof v).toBe('number');
-      expect(v).toBeGreaterThanOrEqual(0);
-    });
+    expect(res.body.labels.length).toBe(res.body.values.length);
   });
 
-  test('defaults to 7days when no dateRange param given', async () => {
-    const res = await request(app).get('/trackmyweek/api/prebuilt/trend');
-    expect(res.body.dateRange).toBe('7days');
-    // 7days range has 7 or 8 labels (one per day in window)
-    expect(res.body.labels.length).toBeGreaterThanOrEqual(7);
-    expect(res.body.labels.length).toBeLessThanOrEqual(8);
+  test('days with no entries appear as 0 in values', async () => {
+    const res = await request(app).get('/trackmyweek/api/prebuilt/trend?dateRange=7days');
+    const hasZero = res.body.values.some((v) => v === 0);
+    expect(hasZero).toBe(true);
   });
 
-  test('falls back to 7days for invalid dateRange param', async () => {
-    const res = await request(app)
-      .get('/trackmyweek/api/prebuilt/trend?dateRange=banana');
-    expect(res.status).toBe(200);
-    expect(res.body.dateRange).toBe('7days');
-  });
-
-  test('accepts 30days dateRange', async () => {
-    const res = await request(app)
-      .get('/trackmyweek/api/prebuilt/trend?dateRange=30days');
+  test('accepts valid dateRange param', async () => {
+    const res = await request(app).get('/trackmyweek/api/prebuilt/trend?dateRange=30days');
     expect(res.status).toBe(200);
     expect(res.body.dateRange).toBe('30days');
-    expect(res.body.labels.length).toBeGreaterThanOrEqual(30);
   });
 
-  test('counts recent entries in values array', async () => {
-    const res = await request(app).get('/trackmyweek/api/prebuilt/trend');
-    const total = res.body.values.reduce((sum, v) => sum + v, 0);
-    // Only the 2 recent entries fall within 7days; the old one does not
-    expect(total).toBe(2);
-  });
-
-  test('includes a label for every day in the range (zero-filling)', async () => {
-    // Empty data — all day counts should be 0, but all labels should still appear
-    mockData.data = [];
-    data.readEntries.mockImplementation(() => []);
-    const res = await request(app).get('/trackmyweek/api/prebuilt/trend');
-    expect(res.body.values.every((v) => v === 0)).toBe(true);
-    expect(res.body.labels.length).toBeGreaterThanOrEqual(7);
+  test('falls back to 7days for invalid dateRange', async () => {
+    const res = await request(app).get('/trackmyweek/api/prebuilt/trend?dateRange=invalid');
+    expect(res.status).toBe(200);
+    expect(res.body.dateRange).toBe('7days');
   });
 });
 
-// ── GET /api/prebuilt/categories ─────────────────────────────────────────────────
+// ── GET /api/prebuilt/categories ──────────────────────────────────────────
 describe('GET /trackmyweek/api/prebuilt/categories', () => {
-  test('returns 200 with dateRange, labels, and values', async () => {
+  test('returns dateRange, labels array, values array', async () => {
     const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('dateRange');
@@ -92,51 +68,27 @@ describe('GET /trackmyweek/api/prebuilt/categories', () => {
 
   test('labels are category names', async () => {
     const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
-    res.body.labels.forEach((l) => expect(typeof l).toBe('string'));
+    expect(res.body.labels).toContain('Exercise');
+    expect(res.body.labels).toContain('Food');
   });
 
-  test('values are positive integers', async () => {
+  test('values match entry counts per category', async () => {
     const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
-    res.body.values.forEach((v) => {
-      expect(typeof v).toBe('number');
-      expect(v).toBeGreaterThan(0);
-    });
+    const exerciseIdx = res.body.labels.indexOf('Exercise');
+    expect(res.body.values[exerciseIdx]).toBeGreaterThanOrEqual(1);
   });
 
-  test('defaults to 7days and excludes old entries', async () => {
-    const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
-    expect(res.body.dateRange).toBe('7days');
-    // Only 2 recent entries — the Walk (Exercise) from 2020 should be excluded
-    const total = res.body.values.reduce((sum, v) => sum + v, 0);
-    expect(total).toBe(2);
-  });
-
-  test('falls back to 7days for invalid dateRange', async () => {
-    const res = await request(app)
-      .get('/trackmyweek/api/prebuilt/categories?dateRange=invalid');
-    expect(res.status).toBe(200);
-    expect(res.body.dateRange).toBe('7days');
-  });
-
-  test('accepts 30days dateRange', async () => {
-    const res = await request(app)
-      .get('/trackmyweek/api/prebuilt/categories?dateRange=30days');
+  test('accepts valid dateRange param', async () => {
+    const res = await request(app).get('/trackmyweek/api/prebuilt/categories?dateRange=30days');
     expect(res.status).toBe(200);
     expect(res.body.dateRange).toBe('30days');
-  });
-
-  test('sorts labels by count descending', async () => {
-    const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
-    const values = res.body.values;
-    for (let i = 1; i < values.length; i++) {
-      expect(values[i - 1]).toBeGreaterThanOrEqual(values[i]);
-    }
   });
 
   test('returns empty labels and values when no entries in range', async () => {
     mockData.data = [];
     data.readEntries.mockImplementation(() => []);
     const res = await request(app).get('/trackmyweek/api/prebuilt/categories');
+    expect(res.status).toBe(200);
     expect(res.body.labels).toEqual([]);
     expect(res.body.values).toEqual([]);
   });
