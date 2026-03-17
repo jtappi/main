@@ -9,6 +9,8 @@
  * POST   /api/reports               — create saved report
  * PUT    /api/reports/:id           — update report config or name
  * DELETE /api/reports/:id           — delete saved report
+ *
+ * All operations are scoped to req.session.user.id.
  */
 
 const express = require('express');
@@ -27,7 +29,6 @@ const {
 } = require('../lib/schema');
 const { resolveDateRange, deriveFields } = require('../lib/dateUtils');
 
-// Valid keys for fast validation
 const VALID_CHART_TYPES = CHART_TYPES.map((c) => c.key);
 const VALID_DATE_RANGES  = DATE_RANGES.map((d) => d.key);
 const VALID_GROUP_BY     = GROUP_BY_OPTIONS.map((g) => g.key);
@@ -35,7 +36,6 @@ const VALID_MEASURES     = MEASURES.map((m) => m.key);
 
 // ---------------------------------------------------------------------------
 // GET /api/reports/schema
-// Must be defined before /:id routes.
 // ---------------------------------------------------------------------------
 
 router.get('/schema', (req, res) => {
@@ -47,7 +47,8 @@ router.get('/schema', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/', (req, res) => {
-  res.json(readReports());
+  const userId = req.session.user.id;
+  res.json(readReports(userId));
 });
 
 // ---------------------------------------------------------------------------
@@ -55,10 +56,11 @@ router.get('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post('/', (req, res) => {
+  const userId = req.session.user.id;
   const { name, chartType, measure, groupBy, filterCategories, dateRange } = req.body;
 
   const errors = [];
-  if (!name || !name.trim())              errors.push('name is required');
+  if (!name || !name.trim())                  errors.push('name is required');
   if (!VALID_CHART_TYPES.includes(chartType)) errors.push(`invalid chartType: ${chartType}`);
   if (!VALID_MEASURES.includes(measure))      errors.push(`invalid measure: ${measure}`);
   if (!VALID_GROUP_BY.includes(groupBy))      errors.push(`invalid groupBy: ${groupBy}`);
@@ -66,9 +68,9 @@ router.post('/', (req, res) => {
 
   if (errors.length) return res.status(400).json({ errors });
 
-  const reports    = readReports();
-  const now        = new Date().toISOString();
-  const newReport  = {
+  const reports   = readReports(userId);
+  const now       = new Date().toISOString();
+  const newReport = {
     id:               nextIntId(reports),
     name:             name.trim(),
     chartType,
@@ -81,7 +83,7 @@ router.post('/', (req, res) => {
   };
 
   reports.push(newReport);
-  writeReports(reports);
+  writeReports(userId, reports);
 
   res.status(201).json(newReport);
 });
@@ -91,8 +93,9 @@ router.post('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.put('/:id', (req, res) => {
+  const userId  = req.session.user.id;
   const id      = parseInt(req.params.id, 10);
-  const reports = readReports();
+  const reports = readReports(userId);
   const index   = reports.findIndex((r) => r.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Report not found' });
@@ -118,7 +121,7 @@ router.put('/:id', (req, res) => {
     updatedAt: new Date().toISOString(),
   };
 
-  writeReports(reports);
+  writeReports(userId, reports);
   res.json(reports[index]);
 });
 
@@ -127,31 +130,32 @@ router.put('/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.delete('/:id', (req, res) => {
+  const userId  = req.session.user.id;
   const id      = parseInt(req.params.id, 10);
-  const reports = readReports();
+  const reports = readReports(userId);
   const index   = reports.findIndex((r) => r.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Report not found' });
 
   reports.splice(index, 1);
-  writeReports(reports);
+  writeReports(userId, reports);
 
   res.json({ deleted: id });
 });
 
 // ---------------------------------------------------------------------------
 // GET /api/reports/:id/data
-// Runs the report against current entries and returns chart-ready data.
 // ---------------------------------------------------------------------------
 
 router.get('/:id/data', (req, res) => {
+  const userId  = req.session.user.id;
   const id      = parseInt(req.params.id, 10);
-  const reports = readReports();
+  const reports = readReports(userId);
   const report  = reports.find((r) => r.id === id);
 
   if (!report) return res.status(404).json({ error: 'Report not found' });
 
-  const data = runReport(report);
+  const data = runReport(report, userId);
   res.json(data);
 });
 
@@ -159,12 +163,10 @@ router.get('/:id/data', (req, res) => {
 // Report engine
 // ---------------------------------------------------------------------------
 
-function runReport(report) {
-  // resolveDateRange returns null for 'alltime' — null means no date filter
-  const range   = resolveDateRange(report.dateRange);
-  let entries   = readEntries();
+function runReport(report, userId) {
+  const range = resolveDateRange(report.dateRange);
+  let entries = readEntries(userId);
 
-  // Date filter — only applied when a range is specified
   if (range) {
     const { start, end } = range;
     entries = entries.filter((e) => {
@@ -173,12 +175,10 @@ function runReport(report) {
     });
   }
 
-  // Category filter
   if (report.filterCategories && report.filterCategories.length > 0) {
     entries = entries.filter((e) => report.filterCategories.includes(e.category));
   }
 
-  // Group entries by the chosen dimension
   const groups = {};
   for (const entry of entries) {
     const key = getDimensionKey(entry, report.groupBy);

@@ -7,6 +7,8 @@
  * POST   /api/categories           — create category
  * PUT    /api/categories/:id       — update category (name cascades to entries)
  * DELETE /api/categories/:id       — delete (requires reassignTo if entries exist)
+ *
+ * All operations are scoped to req.session.user.id.
  */
 
 const express = require('express');
@@ -24,10 +26,10 @@ const {
 // ---------------------------------------------------------------------------
 
 router.get('/', (req, res) => {
-  const categories = readCategories();
-  const entries    = readEntries();
+  const userId     = req.session.user.id;
+  const categories = readCategories(userId);
+  const entries    = readEntries(userId);
 
-  // Annotate each category with its entry count
   const result = categories.map((cat) => ({
     ...cat,
     entryCount: entries.filter((e) => e.category === cat.name).length,
@@ -41,13 +43,14 @@ router.get('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post('/', (req, res) => {
+  const userId              = req.session.user.id;
   const { name, icon, color } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'name is required' });
   }
 
-  const categories = readCategories();
+  const categories = readCategories(userId);
 
   if (categories.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())) {
     return res.status(409).json({ error: `Category already exists: ${name.trim()}` });
@@ -62,19 +65,19 @@ router.post('/', (req, res) => {
   };
 
   categories.push(newCategory);
-  writeCategories(categories);
+  writeCategories(userId, categories);
 
   res.status(201).json(newCategory);
 });
 
 // ---------------------------------------------------------------------------
 // PUT /api/categories/:id
-// If name changes, cascades to all entries atomically.
 // ---------------------------------------------------------------------------
 
 router.put('/:id', (req, res) => {
+  const userId     = req.session.user.id;
   const id         = parseInt(req.params.id, 10);
-  const categories = readCategories();
+  const categories = readCategories(userId);
   const index      = categories.findIndex((c) => c.id === id);
 
   if (index === -1) {
@@ -85,7 +88,6 @@ router.put('/:id', (req, res) => {
   const oldName = categories[index].name;
 
   if (name && name.trim() !== oldName) {
-    // Check uniqueness
     const conflict = categories.find(
       (c) => c.id !== id && c.name.toLowerCase() === name.trim().toLowerCase()
     );
@@ -103,15 +105,14 @@ router.put('/:id', (req, res) => {
     ...(color !== undefined && { color: color.trim() }),
   };
 
-  writeCategories(categories);
+  writeCategories(userId, categories);
 
-  // Cascade rename to all entries atomically
   if (newName !== oldName) {
-    const entries = readEntries();
+    const entries = readEntries(userId);
     const updated = entries.map((e) =>
       e.category === oldName ? { ...e, category: newName } : e
     );
-    writeEntries(updated);
+    writeEntries(userId, updated);
   }
 
   res.json(categories[index]);
@@ -119,12 +120,12 @@ router.put('/:id', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // DELETE /api/categories/:id
-// Blocked if entries exist unless ?reassignTo=<categoryName> is provided.
 // ---------------------------------------------------------------------------
 
 router.delete('/:id', (req, res) => {
+  const userId     = req.session.user.id;
   const id         = parseInt(req.params.id, 10);
-  const categories = readCategories();
+  const categories = readCategories(userId);
   const index      = categories.findIndex((c) => c.id === id);
 
   if (index === -1) {
@@ -132,7 +133,7 @@ router.delete('/:id', (req, res) => {
   }
 
   const catName  = categories[index].name;
-  const entries  = readEntries();
+  const entries  = readEntries(userId);
   const affected = entries.filter((e) => e.category === catName);
 
   if (affected.length > 0) {
@@ -140,8 +141,8 @@ router.delete('/:id', (req, res) => {
 
     if (!reassignTo) {
       return res.status(409).json({
-        error:       `Category "${catName}" has ${affected.length} entries. Provide ?reassignTo=<categoryName> to reassign them.`,
-        entryCount:  affected.length,
+        error:      `Category "${catName}" has ${affected.length} entries. Provide ?reassignTo=<categoryName> to reassign them.`,
+        entryCount: affected.length,
       });
     }
 
@@ -155,11 +156,11 @@ router.delete('/:id', (req, res) => {
     const reassigned = entries.map((e) =>
       e.category === catName ? { ...e, category: target.name } : e
     );
-    writeEntries(reassigned);
+    writeEntries(userId, reassigned);
   }
 
   categories.splice(index, 1);
-  writeCategories(categories);
+  writeCategories(userId, categories);
 
   res.json({ deleted: id, reassigned: affected.length });
 });

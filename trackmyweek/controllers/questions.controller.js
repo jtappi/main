@@ -7,6 +7,8 @@
  * POST   /api/questions        — create question
  * PUT    /api/questions/:id    — update text or answer
  * DELETE /api/questions/:id    — delete question
+ *
+ * All operations are scoped to req.session.user.id.
  */
 
 const express = require('express');
@@ -22,9 +24,9 @@ const {
 // ---------------------------------------------------------------------------
 
 router.get('/', (req, res) => {
-  const questions = readQuestions();
+  const userId    = req.session.user.id;
+  const questions = readQuestions(userId);
 
-  // Unanswered first, then by createdAt descending
   questions.sort((a, b) => {
     if (!a.answer && b.answer)  return -1;
     if (a.answer  && !b.answer) return  1;
@@ -39,24 +41,25 @@ router.get('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post('/', (req, res) => {
+  const userId   = req.session.user.id;
   const { question } = req.body;
 
   if (!question || !question.trim()) {
     return res.status(400).json({ error: 'question text is required' });
   }
 
-  const questions   = readQuestions();
+  const questions   = readQuestions(userId);
   const now         = new Date().toISOString();
   const newQuestion = {
-    id:          nextTimestampId(),
-    question:    question.trim(),
-    answer:      null,
-    createdAt:   now,
-    answeredAt:  null,
+    id:         nextTimestampId(),
+    question:   question.trim(),
+    answer:     null,
+    createdAt:  now,
+    answeredAt: null,
   };
 
   questions.push(newQuestion);
-  writeQuestions(questions);
+  writeQuestions(userId, questions);
 
   res.status(201).json(newQuestion);
 });
@@ -66,8 +69,9 @@ router.post('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.put('/:id', (req, res) => {
+  const userId    = req.session.user.id;
   const id        = parseInt(req.params.id, 10);
-  const questions = readQuestions();
+  const questions = readQuestions(userId);
   const index     = questions.findIndex((q) => q.id === id);
 
   if (index === -1) {
@@ -77,8 +81,8 @@ router.put('/:id', (req, res) => {
   const { question, answer } = req.body;
   const existing             = questions[index];
 
-  const wasAnswered  = !!existing.answer;
-  const nowAnswered  = answer !== undefined ? !!answer : wasAnswered;
+  const wasAnswered = !!existing.answer;
+  const nowAnswered = answer !== undefined ? !!answer : wasAnswered;
 
   questions[index] = {
     ...existing,
@@ -90,7 +94,7 @@ router.put('/:id', (req, res) => {
         : existing.answeredAt,
   };
 
-  writeQuestions(questions);
+  writeQuestions(userId, questions);
   res.json(questions[index]);
 });
 
@@ -99,8 +103,9 @@ router.put('/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.delete('/:id', (req, res) => {
+  const userId    = req.session.user.id;
   const id        = parseInt(req.params.id, 10);
-  const questions = readQuestions();
+  const questions = readQuestions(userId);
   const index     = questions.findIndex((q) => q.id === id);
 
   if (index === -1) {
@@ -108,7 +113,7 @@ router.delete('/:id', (req, res) => {
   }
 
   questions.splice(index, 1);
-  writeQuestions(questions);
+  writeQuestions(userId, questions);
 
   res.json({ deleted: id });
 });

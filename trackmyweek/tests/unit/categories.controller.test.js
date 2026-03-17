@@ -12,10 +12,10 @@ const BASE_CATS = [
 beforeEach(() => {
   mockData.categories = JSON.parse(JSON.stringify(BASE_CATS));
   mockData.data = [];
-  data.readCategories.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.categories)));
-  data.writeCategories.mockImplementation((arr) => { mockData.categories = arr; });
-  data.readEntries.mockImplementation(()    => JSON.parse(JSON.stringify(mockData.data)));
-  data.writeEntries.mockImplementation((arr) => { mockData.data = arr; });
+  data.readCategories.mockImplementation((_userId)      => JSON.parse(JSON.stringify(mockData.categories)));
+  data.writeCategories.mockImplementation((_userId, arr) => { mockData.categories = arr; });
+  data.readEntries.mockImplementation((_userId)         => JSON.parse(JSON.stringify(mockData.data)));
+  data.writeEntries.mockImplementation((_userId, arr)   => { mockData.data = arr; });
 });
 
 // ── GET /api/categories ─────────────────────────────────────────────────────
@@ -90,7 +90,6 @@ describe('PUT /trackmyweek/api/categories/:id', () => {
       .send({ name: 'Nutrition' });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Nutrition');
-    // Cascade: entry should now use the new name
     expect(mockData.data.every((e) => e.category === 'Nutrition')).toBe(true);
   });
 
