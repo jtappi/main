@@ -1,0 +1,76 @@
+/*
+ * PortalTopBar.css — BP Tracker
+ *
+ * Matches portal/public/assets/style.css top-bar visual language.
+ * Kept in sync manually with trackmyweek/client/src/components/PortalTopBar.css.
+ */
+
+.portal-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2eaf2;
+  box-shadow: 0 1px 3px rgba(26, 37, 53, 0.07);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+.portal-top-bar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #6b7f96;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.portal-top-bar__back:hover {
+  color: #4fb8c4;
+  background: #d6f0f3;
+  text-decoration: none;
+}
+
+.portal-top-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.portal-top-bar__user {
+  font-size: 0.8rem;
+  color: #6b7f96;
+  background: #e8f0f7;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #d0dce8;
+  white-space: nowrap;
+}
+
+.portal-top-bar__signout {
+  background: transparent;
+  border: 1.5px solid #d0dce8;
+  color: #6b7f96;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.portal-top-bar__signout:hover {
+  border-color: #4fb8c4;
+  color: #4fb8c4;
+  background: #d6f0f3;
+}
