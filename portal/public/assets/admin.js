@@ -1,5 +1,15 @@
 'use strict';
 
+// ── SVG icon helpers ─────────────────────────────────────────────────────────
+const ICON = {
+  edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  disable: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+  enable:  `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  delete:  `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  active:  `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  disabled:`<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+};
+
 (async function () {
   // ── Tab switching ─────────────────────────────────────────
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -51,7 +61,7 @@
         <td>
           <span class="status-badge ${u.active ? 'status-active' : 'status-disabled'}"
             data-testid="admin-status-badge-${u.id}">
-            ${u.active ? '\u2713 Active' : '\u2717 Disabled'}
+            ${u.active ? ICON.active + ' Active' : ICON.disabled + ' Disabled'}
           </span>
         </td>
         <td>${u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}</td>
@@ -64,17 +74,20 @@
         </td>
         <td>
           <div class="action-btns">
-            <button class="btn btn-sm btn-primary"
+            <button class="icon-btn icon-btn-edit"
               data-testid="admin-edit-btn-${u.id}"
-              data-action="edit" data-id="${u.id}">Edit</button>
-            <button class="btn btn-sm ${u.active ? 'btn-outline' : 'btn-warning'}"
+              data-action="edit" data-id="${u.id}"
+              title="Edit user">${ICON.edit}</button>
+            <button class="icon-btn ${u.active ? 'icon-btn-disable' : 'icon-btn-enable'}"
               data-testid="admin-toggle-btn-${u.id}"
-              data-action="toggle" data-id="${u.id}" data-active="${u.active}">
-              ${u.active ? 'Disable' : 'Enable'}
+              data-action="toggle" data-id="${u.id}" data-active="${u.active}"
+              title="${u.active ? 'Disable user' : 'Enable user'}">
+              ${u.active ? ICON.disable : ICON.enable}
             </button>
-            <button class="btn btn-sm btn-danger"
+            <button class="icon-btn icon-btn-delete"
               data-testid="admin-delete-btn-${u.id}"
-              data-action="delete" data-id="${u.id}" data-name="${u.name}">Delete</button>
+              data-action="delete" data-id="${u.id}" data-name="${u.name}"
+              title="Delete user">${ICON.delete}</button>
           </div>
         </td>
       </tr>
@@ -82,7 +95,6 @@
   }
 
   // ── Event delegation on users tbody ───────────────────────
-  // Handles all row-level button actions without relying on window globals.
   document.getElementById('users-tbody').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
@@ -96,7 +108,7 @@
 
     if (action === 'toggle') {
       const current = btn.dataset.active === 'true';
-      const res = await fetch(`/admin/users/${id}`, {
+      await fetch(`/admin/users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !current })
