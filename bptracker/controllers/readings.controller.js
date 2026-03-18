@@ -7,6 +7,12 @@
  * PUT and DELETE enforce ownership — a guest can only modify their own records.
  * Admin can read all records but cannot modify another user's record
  * (ownership check applies to all roles on mutating operations).
+ *
+ * Legacy records: readings saved before user scoping was introduced have no
+ * userId field (undefined/null). These are treated as owned by the requesting
+ * user when that user is admin, since prior to user isolation there was only
+ * one user. Guests will never see legacy records (filterByUserId excludes them)
+ * so they can never attempt to mutate one.
  */
 
 const express = require('express');
@@ -20,6 +26,23 @@ const {
 } = require('../lib/data');
 
 const router = express.Router();
+
+/**
+ * ownershipCheck — returns true if the requesting user may mutate this record.
+ *
+ * Rules:
+ *   1. If the reading has a userId that matches the requester — allowed.
+ *   2. If the reading has no userId (legacy record pre-dating user isolation)
+ *      AND the requester is admin — allowed. The admin is the only user who
+ *      can see legacy records (filterByUserId passes them through for admins),
+ *      so this is safe.
+ *   3. Everything else — denied.
+ */
+function canMutate(reading, userId, role) {
+  if (reading.userId === userId) return true;
+  if (!reading.userId && role === 'admin') return true;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/readings
@@ -39,7 +62,6 @@ router.get('/', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/readings
-// Save a new reading. Requires systolic, diastolic, heartRate, timestamp.
 // ---------------------------------------------------------------------------
 router.post('/', (req, res) => {
   try {
@@ -86,12 +108,10 @@ router.post('/', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // PUT /api/readings/:id
-// Update notes or corrected values on an existing reading.
-// Only the reading's owner may edit it.
 // ---------------------------------------------------------------------------
 router.put('/:id', (req, res) => {
   try {
-    const { id: userId } = req.session.user;
+    const { id: userId, role } = req.session.user;
     const { id } = req.params;
 
     const all = readReadings();
@@ -100,7 +120,7 @@ router.put('/:id', (req, res) => {
     if (!existing) {
       return res.status(404).json({ error: 'Reading not found.' });
     }
-    if (existing.userId !== userId) {
+    if (!canMutate(existing, userId, role)) {
       return res.status(403).json({ error: 'You do not have permission to edit this reading.' });
     }
 
@@ -124,11 +144,10 @@ router.put('/:id', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // DELETE /api/readings/:id
-// Delete a reading. Only the reading's owner may delete it.
 // ---------------------------------------------------------------------------
 router.delete('/:id', (req, res) => {
   try {
-    const { id: userId } = req.session.user;
+    const { id: userId, role } = req.session.user;
     const { id } = req.params;
 
     const all = readReadings();
@@ -137,7 +156,7 @@ router.delete('/:id', (req, res) => {
     if (!existing) {
       return res.status(404).json({ error: 'Reading not found.' });
     }
-    if (existing.userId !== userId) {
+    if (!canMutate(existing, userId, role)) {
       return res.status(403).json({ error: 'You do not have permission to delete this reading.' });
     }
 
