@@ -1,25 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getReadings } from '../api/client.js';
+import { getReadings, saveReading } from '../api/client.js';
 import Preview from './Preview.jsx';
+import ManualEntry from '../components/ManualEntry.jsx';
 
 /**
  * Capture — main capture view.
  *
- * Responsibilities:
- *   - Show greeting, live clock, last 5 readings mini-table
- *   - Trigger native device camera via hidden file input
- *   - Read selected image as base64 and pass to Preview inline
- *   - Render Preview inline (not a separate route) so URL stays /bptracker
- *     until the save completes, at which point we navigate to /bptracker/success
+ * captureState:
+ *   'idle'       — default: camera button + manual entry button
+ *   'previewing' — photo taken, showing Preview inline
+ *   'manual'     — manual entry form shown inline (no photo)
  */
 export default function Capture({ user }) {
-  const [now,           setNow]           = useState(new Date());
-  const [recentReadings, setRecentReadings] = useState([]);
-  const [captureState,  setCaptureState]  = useState('idle'); // idle | previewing
-  const [imageData,     setImageData]     = useState(null);
-  const [imageType,     setImageType]     = useState('image/jpeg');
-  const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
+  const [now,              setNow]              = useState(new Date());
+  const [recentReadings,   setRecentReadings]   = useState([]);
+  const [captureState,     setCaptureState]     = useState('idle');
+  const [imageData,        setImageData]        = useState(null);
+  const [imageType,        setImageType]        = useState('image/jpeg');
+  const [imagePreviewUrl,  setImagePreviewUrl]  = useState(null);
+  const [saving,           setSaving]           = useState(false);
+  const [saveError,        setSaveError]        = useState(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -54,7 +55,6 @@ export default function Capture({ user }) {
   function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Reset so the same file can be re-selected after a retake
     e.target.value = '';
 
     const mediaType  = file.type || 'image/jpeg';
@@ -77,8 +77,8 @@ export default function Capture({ user }) {
     setCaptureState('idle');
   }
 
+  // Called by Preview after a successful photo-based save
   function handleSaved(reading) {
-    // Prepend new reading and keep top 5
     setRecentReadings(prev => [reading, ...prev].slice(0, 5));
     setImageData(null);
     setImagePreviewUrl(null);
@@ -86,6 +86,51 @@ export default function Capture({ user }) {
     navigate('/bptracker/success', { state: { reading } });
   }
 
+  // Called by ManualEntry when the user submits values directly
+  async function handleManualSave(values) {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const reading = await saveReading({
+        ...values,
+        timestamp:            new Date().toISOString(),
+        extractionConfidence: 'manual',
+        notes:                null,
+      });
+      setRecentReadings(prev => [reading, ...prev].slice(0, 5));
+      setCaptureState('idle');
+      navigate('/bptracker/success', { state: { reading } });
+    } catch (err) {
+      setSaveError('Could not save reading. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Manual entry state ─────────────────────────────────────────────────
+  if (captureState === 'manual') {
+    return (
+      <div className="capture-view" data-testid="capture-view">
+        <div className="capture-header">
+          <p className="capture-greeting" data-testid="capture-greeting">
+            Hello, {firstName}
+          </p>
+        </div>
+        <div className="manual-entry-inline" data-testid="manual-entry-section">
+          <p className="manual-entry-heading">Enter Reading Manually</p>
+          <ManualEntry
+            onSave={handleManualSave}
+            onCancel={() => { setSaveError(null); setCaptureState('idle'); }}
+            saving={saving}
+            saveError={saveError}
+            cancelLabel="Cancel"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Preview state ───────────────────────────────────────────────────────
   if (captureState === 'previewing') {
     return (
       <Preview
@@ -99,6 +144,7 @@ export default function Capture({ user }) {
     );
   }
 
+  // ── Idle state ────────────────────────────────────────────────────────────
   return (
     <div className="capture-view" data-testid="capture-view">
       <div className="capture-header">
@@ -130,6 +176,14 @@ export default function Capture({ user }) {
           data-testid="capture-file-input"
         />
       </div>
+
+      <button
+        className="manual-entry-btn"
+        data-testid="capture-manual-btn"
+        onClick={() => setCaptureState('manual')}
+      >
+        Enter manually
+      </button>
 
       <RecentReadingsTable readings={recentReadings} />
     </div>
@@ -177,10 +231,6 @@ function RecentReadingsTable({ readings }) {
   );
 }
 
-/**
- * Format a Date as MM/DD/YY h:mm am/pm
- * Exported so Preview.jsx and Success.jsx can import it without circular deps.
- */
 export function formatDateTime(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day   = String(date.getDate()).padStart(2, '0');
@@ -192,7 +242,6 @@ export function formatDateTime(date) {
   return `${month}/${day}/${year} ${hours}:${mins} ${ampm}`;
 }
 
-/** Format a Date as MM/DD h:mm am/pm (compact, no year) */
 function formatShortDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day   = String(date.getDate()).padStart(2, '0');

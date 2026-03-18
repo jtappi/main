@@ -7,16 +7,25 @@ const RANGES = {
 };
 
 /**
- * ManualEntry — fallback form shown when Claude Vision extraction fails.
+ * ManualEntry — numeric entry form for BP values.
  *
- * Validates that each entered value is an integer within plausible range.
- * Calls onSave({ systolic, diastolic, heartRate }) with parsed integers.
+ * Used in two contexts:
+ *   1. Preview.jsx — after Claude Vision extraction fails.
+ *      Props: onSave, onRetake ("Retake" button), saving, saveError
+ *
+ *   2. Capture.jsx — when the user taps "Enter manually" without a photo.
+ *      Props: onSave, onCancel ("Cancel" button), saving, saveError, cancelLabel
+ *
+ * The secondary button label is controlled by `cancelLabel` (default: 'Retake').
+ * The secondary action is `onCancel` when provided, otherwise `onRetake`.
  */
-export default function ManualEntry({ onSave, onRetake, saving, saveError }) {
+export default function ManualEntry({ onSave, onRetake, onCancel, saving, saveError, cancelLabel = 'Retake' }) {
   const [systolic,  setSystolic]  = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [heartRate, setHeartRate] = useState('');
   const [errors,    setErrors]    = useState({});
+
+  const handleCancel = onCancel || onRetake;
 
   function validate() {
     const errs = {};
@@ -106,11 +115,11 @@ export default function ManualEntry({ onSave, onRetake, saving, saveError }) {
       <div className="preview-actions">
         <button
           className="btn-secondary"
-          onClick={onRetake}
+          onClick={handleCancel}
           disabled={saving}
-          data-testid="manual-retake-btn"
+          data-testid="manual-cancel-btn"
         >
-          Retake
+          {cancelLabel}
         </button>
         <button
           className="btn-primary"
