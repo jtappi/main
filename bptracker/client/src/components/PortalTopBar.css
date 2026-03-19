@@ -21,6 +21,15 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * When there is no Dashboard back link (single-project guest),
+ * align everything to the right so the user chip and Sign out
+ * don't float in the centre of an otherwise empty bar.
+ */
+.portal-top-bar--no-back {
+  justify-content: flex-end;
+}
+
 .portal-top-bar__back {
   display: inline-flex;
   align-items: center;

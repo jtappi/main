@@ -13,25 +13,29 @@ import './styles/global.css';
 /**
  * AppShell — rendered inside RequireAuth so it has access to SessionContext.
  *
- * Layout when PortalTopBar is shown:
+ * Layout:
  *
  *   ┌─────────────────────────────────────┐
- *   │ PortalTopBar (full width, sticky)   │  ← z-index 200
+ *   │ PortalTopBar (full width, sticky)   │  ← always shown, z-index 200
  *   ├────────┬────────────────────────────┤
  *   │ Nav    │ Main content               │  ← nav fixed, top offset by bar height
  *   │ sidebar│                            │
  *   └────────┴────────────────────────────┘
  *
- * When showTopBar is true the `.has-top-bar` class is added to `.app`.
- * global.css uses this to push the fixed nav down below the bar.
+ * The PortalTopBar is always rendered. `.has-top-bar` is always applied to
+ * `.app` so the fixed sidebar nav is always correctly offset below the bar.
+ *
+ * showDashboardLink is true for admins and multi-project users.
+ * Single-project guests are auto-redirected here by the portal and have no
+ * dashboard to return to, so the back link is hidden for them.
  */
 function AppShell() {
-  const user       = useSession();
-  const showTopBar = user && (user.projectAccess.length > 1 || user.role === 'admin');
+  const user = useSession();
+  const showDashboardLink = user && (user.projectAccess.length > 1 || user.role === 'admin');
 
   return (
-    <div className={`app${showTopBar ? ' has-top-bar' : ''}`}>
-      {showTopBar && <PortalTopBar userName={user.name} />}
+    <div className="app has-top-bar">
+      <PortalTopBar userName={user?.name} showDashboardLink={showDashboardLink} />
       <div className="app-body">
         <Navigation />
         <main className="main-content">

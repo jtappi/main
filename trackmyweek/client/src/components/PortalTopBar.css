@@ -1,11 +1,8 @@
 /*
- * PortalTopBar.css
+ * PortalTopBar.css — TrackMyWeek
  *
- * Matches the portal's top-bar visual language (style.css) so the bar
- * feels like a continuous chrome across both the portal and subprojects.
- *
- * Uses the same font, spacing, and color tokens as portal/public/assets/style.css.
- * Colour values are kept in sync manually since this is a separate build.
+ * Matches portal/public/assets/style.css top-bar visual language.
+ * Kept in sync manually with bptracker/client/src/components/PortalTopBar.css.
  */
 
 .portal-top-bar {
@@ -22,6 +19,15 @@
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 0.875rem;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * When there is no Dashboard back link (single-project guest),
+ * align everything to the right so the user chip and Sign out
+ * don't float in the centre of an otherwise empty bar.
+ */
+.portal-top-bar--no-back {
+  justify-content: flex-end;
 }
 
 .portal-top-bar__back {
