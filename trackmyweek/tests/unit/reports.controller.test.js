@@ -21,10 +21,10 @@ beforeEach(() => {
     { id: 2, name: 'Food',     icon: '\ud83c\udf4e', color: '#e74c3c', createdAt: new Date().toISOString() },
   ];
   mockData.reports = [JSON.parse(JSON.stringify(BASE_REPORT))];
-  data.readEntries.mockImplementation(()     => JSON.parse(JSON.stringify(mockData.data)));
-  data.readCategories.mockImplementation(()  => JSON.parse(JSON.stringify(mockData.categories)));
-  data.readReports.mockImplementation(()     => JSON.parse(JSON.stringify(mockData.reports)));
-  data.writeReports.mockImplementation((arr) => { mockData.reports = arr; });
+  data.readEntries.mockImplementation((_userId)      => JSON.parse(JSON.stringify(mockData.data)));
+  data.readCategories.mockImplementation((_userId)   => JSON.parse(JSON.stringify(mockData.categories)));
+  data.readReports.mockImplementation((_userId)      => JSON.parse(JSON.stringify(mockData.reports)));
+  data.writeReports.mockImplementation((_userId, arr) => { mockData.reports = arr; });
 });
 
 // ── GET /api/reports/schema ───────────────────────────────────────────────────

@@ -14,7 +14,7 @@ function makeTempUsers() {
   return tmp;
 }
 
-// ── hashPassword ────────────────────────────────────────────────────────
+// ── hashPassword ──────────────────────────────────────────────────────────
 describe('hashPassword', () => {
   test('returns 64-char hex string', () => {
     const h = auth.hashPassword('test');
@@ -57,7 +57,7 @@ describe('saveUsers', () => {
   });
 });
 
-// ── findUser ────────────────────────────────────────────────────────────────────
+// ── findUser ─────────────────────────────────────────────────────────────────────
 describe('findUser', () => {
   test('finds by email', () => {
     const u = auth.findUser('admin@test.com', FIXTURE);
@@ -105,7 +105,7 @@ describe('authenticate', () => {
   });
 });
 
-// ── updateLastLogin ───────────────────────────────────────────────────────────────
+// ── updateLastLogin ─────────────────────────────────────────────────────────────────
 describe('updateLastLogin', () => {
   test('sets lastLogin timestamp on user', () => {
     const tmp = makeTempUsers();
@@ -122,15 +122,16 @@ describe('updateLastLogin', () => {
   });
 });
 
-// ── getAllUsers ─────────────────────────────────────────────────────────────────────
+// ── getAllUsers ───────────────────────────────────────────────────────────────────────────
 describe('getAllUsers', () => {
   test('returns all users', () => {
     const users = auth.getAllUsers(FIXTURE);
-    expect(users.length).toBe(3);
+    // fixture has: testadmin, testguest, testsingle, inactiveuser
+    expect(users.length).toBe(4);
   });
 });
 
-// ── getUserById ────────────────────────────────────────────────────────────────────
+// ── getUserById ──────────────────────────────────────────────────────────────────────────
 describe('getUserById', () => {
   test('returns correct user', () => {
     const u = auth.getUserById('test-guest-001', FIXTURE);
@@ -142,7 +143,7 @@ describe('getUserById', () => {
   });
 });
 
-// ── createUser ──────────────────────────────────────────────────────────────────────
+// ── createUser ──────────────────────────────────────────────────────────────────────────
 describe('createUser', () => {
   test('adds user and returns it with an id', () => {
     const tmp = makeTempUsers();
@@ -178,7 +179,7 @@ describe('createUser', () => {
   });
 });
 
-// ── updateUser ──────────────────────────────────────────────────────────────────────
+// ── updateUser ──────────────────────────────────────────────────────────────────────────
 describe('updateUser', () => {
   test('updates a field', () => {
     const tmp = makeTempUsers();
@@ -199,7 +200,7 @@ describe('updateUser', () => {
   });
 });
 
-// ── deleteUser ──────────────────────────────────────────────────────────────────────
+// ── deleteUser ──────────────────────────────────────────────────────────────────────────
 describe('deleteUser', () => {
   test('removes user and returns true', () => {
     const tmp = makeTempUsers();

@@ -1,19 +1,11 @@
 'use strict';
 
-// Shared project icon SVG — replaces all emoji icons
-const PROJECT_ICON_SVG = `
+// Fallback icon rendered when a project has no icon field in projects.json
+const DEFAULT_ICON = `
   <svg class="project-icon-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <rect x="5" y="18" width="90" height="77" rx="10" fill="#6b7f96"/>
     <rect x="5" y="28" width="90" height="67" rx="8" fill="#fff"/>
     <rect x="5" y="28" width="90" height="18" fill="#6b7f96"/>
-    <rect x="25" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
-    <rect x="65" y="10" width="10" height="20" rx="5" fill="#4fb8c4"/>
-    <line x1="5" y1="60" x2="95" y2="60" stroke="#d0dce8" stroke-width="2"/>
-    <line x1="5" y1="76" x2="95" y2="76" stroke="#d0dce8" stroke-width="2"/>
-    <line x1="32" y1="46" x2="32" y2="92" stroke="#d0dce8" stroke-width="2"/>
-    <line x1="52" y1="46" x2="52" y2="92" stroke="#d0dce8" stroke-width="2"/>
-    <line x1="72" y1="46" x2="72" y2="92" stroke="#d0dce8" stroke-width="2"/>
-    <polyline points="22,68 34,80 58,52" stroke="#4fb8c4" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </svg>
 `;
 
@@ -50,7 +42,7 @@ const PROJECT_ICON_SVG = `
   grid.innerHTML = projects.map(p => `
     <div class="project-card">
       <div class="project-card-header">
-        ${PROJECT_ICON_SVG}
+        ${p.icon || DEFAULT_ICON}
         <span class="project-name">${p.name}</span>
       </div>
       <p class="project-desc">${p.description}</p>

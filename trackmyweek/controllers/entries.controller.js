@@ -9,6 +9,8 @@
  * POST   /api/entries                        — create entry
  * PUT    /api/entries/:id                    — update any field
  * DELETE /api/entries/:id                    — delete entry
+ *
+ * All operations are scoped to req.session.user.id.
  */
 
 const express = require('express');
@@ -23,14 +25,14 @@ const { resolveDateRange } = require('../lib/dateUtils');
 
 // ---------------------------------------------------------------------------
 // GET /api/entries/autocomplete?q=
-// Must be defined before /:id to avoid route conflict.
 // ---------------------------------------------------------------------------
 
 router.get('/autocomplete', (req, res) => {
-  const q = (req.query.q || '').toLowerCase().trim();
+  const userId = req.session.user.id;
+  const q      = (req.query.q || '').toLowerCase().trim();
   if (q.length < 3) return res.json([]);
 
-  const entries = readEntries();
+  const entries = readEntries(userId);
   const seen    = new Set();
   const matches = [];
 
@@ -48,17 +50,12 @@ router.get('/autocomplete', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/entries/quickentry
-// Top 5 most frequently logged entry texts, newest-weighted.
-// Returns { text, category, count } — category is the most recently used
-// category for that text, required so the client can POST it back directly.
 // ---------------------------------------------------------------------------
 
 router.get('/quickentry', (req, res) => {
-  const entries = readEntries();
+  const userId  = req.session.user.id;
+  const entries = readEntries(userId);
 
-  // Track count and most-recent category per text.
-  // Entries are stored newest-first, so the first time we see a text
-  // is already the most recent occurrence.
   const counts   = {};
   const category = {};
 
@@ -80,11 +77,11 @@ router.get('/quickentry', (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/entries
-// Query params: category, keyword, dateRange
 // ---------------------------------------------------------------------------
 
 router.get('/', (req, res) => {
-  let entries = readEntries();
+  const userId = req.session.user.id;
+  let entries  = readEntries(userId);
 
   const { category, keyword, dateRange } = req.query;
 
@@ -102,8 +99,6 @@ router.get('/', (req, res) => {
   }
 
   if (dateRange) {
-    // resolveDateRange returns null for 'alltime' and unknown keys —
-    // null means no date filter, so only apply when a real range is returned.
     const range = resolveDateRange(dateRange);
     if (range) {
       const { start, end } = range;
@@ -114,7 +109,6 @@ router.get('/', (req, res) => {
     }
   }
 
-  // Newest first
   entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   res.json(entries);
@@ -125,6 +119,7 @@ router.get('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post('/', (req, res) => {
+  const userId              = req.session.user.id;
   const { text, category, notes } = req.body;
 
   if (!text || !text.trim()) {
@@ -134,14 +129,13 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'category is required' });
   }
 
-  // Validate category exists
-  const categories = readCategories();
+  const categories = readCategories(userId);
   if (!categories.find((c) => c.name === category)) {
     return res.status(400).json({ error: `Unknown category: ${category}` });
   }
 
-  const entries   = readEntries();
-  const newEntry  = {
+  const entries  = readEntries(userId);
+  const newEntry = {
     id:        nextIntId(entries),
     text:      text.trim(),
     category:  category.trim(),
@@ -150,7 +144,7 @@ router.post('/', (req, res) => {
   };
 
   entries.unshift(newEntry);
-  writeEntries(entries);
+  writeEntries(userId, entries);
 
   res.status(201).json(newEntry);
 });
@@ -160,8 +154,9 @@ router.post('/', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.put('/:id', (req, res) => {
+  const userId  = req.session.user.id;
   const id      = parseInt(req.params.id, 10);
-  const entries = readEntries();
+  const entries = readEntries(userId);
   const index   = entries.findIndex((e) => e.id === id);
 
   if (index === -1) {
@@ -171,7 +166,7 @@ router.put('/:id', (req, res) => {
   const { text, category, notes, timestamp } = req.body;
 
   if (category) {
-    const categories = readCategories();
+    const categories = readCategories(userId);
     if (!categories.find((c) => c.name === category)) {
       return res.status(400).json({ error: `Unknown category: ${category}` });
     }
@@ -186,7 +181,7 @@ router.put('/:id', (req, res) => {
   };
 
   entries[index] = updated;
-  writeEntries(entries);
+  writeEntries(userId, entries);
 
   res.json(updated);
 });
@@ -196,8 +191,9 @@ router.put('/:id', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.delete('/:id', (req, res) => {
+  const userId  = req.session.user.id;
   const id      = parseInt(req.params.id, 10);
-  const entries = readEntries();
+  const entries = readEntries(userId);
   const index   = entries.findIndex((e) => e.id === id);
 
   if (index === -1) {
@@ -205,7 +201,7 @@ router.delete('/:id', (req, res) => {
   }
 
   entries.splice(index, 1);
-  writeEntries(entries);
+  writeEntries(userId, entries);
 
   res.json({ deleted: id });
 });

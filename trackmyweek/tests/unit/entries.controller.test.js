@@ -13,9 +13,9 @@ beforeEach(() => {
     { id: 1, name: 'Health',   icon: '\u2764\ufe0f', color: '#e74c3c', createdAt: new Date().toISOString() },
     { id: 2, name: 'Exercise', icon: '\ud83c\udfc3', color: '#2ecc71', createdAt: new Date().toISOString() },
   ];
-  data.readEntries.mockImplementation(()     => JSON.parse(JSON.stringify(mockData.data)));
-  data.writeEntries.mockImplementation((arr) => { mockData.data = arr; });
-  data.readCategories.mockImplementation(()  => JSON.parse(JSON.stringify(mockData.categories)));
+  data.readEntries.mockImplementation((_userId)      => JSON.parse(JSON.stringify(mockData.data)));
+  data.writeEntries.mockImplementation((_userId, arr) => { mockData.data = arr; });
+  data.readCategories.mockImplementation((_userId)   => JSON.parse(JSON.stringify(mockData.categories)));
 });
 
 // ── GET /api/entries ─────────────────────────────────────────────────────

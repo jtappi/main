@@ -3,23 +3,17 @@
 /**
  * prebuilt.controller.js
  *
- * Serves data for the two pinned pre-built reports that are always
- * available on the report dashboard.
- *
  * GET /api/prebuilt/trend?dateRange=7days
- *   Returns entries-per-day counts for the "Entries Over Time" trend chart.
- *   Response: { dateRange, labels: ["2026-03-06", ...], values: [3, 1, ...] }
- *
  * GET /api/prebuilt/categories?dateRange=7days
- *   Returns per-category entry counts for the "Category Breakdown" pie chart.
- *   Response: { dateRange, labels: ["Food", ...], values: [5, 3, ...] }
+ *
+ * All operations are scoped to req.session.user.id.
  */
 
 const express = require('express');
 const router  = express.Router();
-const { readEntries }               = require('../lib/data');
-const { resolveDateRange, deriveFields } = require('../lib/dateUtils');
-const { DATE_RANGES }               = require('../lib/schema');
+const { readEntries }                       = require('../lib/data');
+const { resolveDateRange, deriveFields }    = require('../lib/dateUtils');
+const { DATE_RANGES }                       = require('../lib/schema');
 
 const VALID_DATE_RANGES = DATE_RANGES.map((d) => d.key);
 const DEFAULT_RANGE     = '7days';
@@ -36,14 +30,14 @@ function getDateRange(query) {
 // ---------------------------------------------------------------------------
 
 router.get('/trend', (req, res) => {
+  const userId          = req.session.user.id;
   const { key, start, end } = getDateRange(req.query);
 
-  const entries = readEntries().filter((e) => {
+  const entries = readEntries(userId).filter((e) => {
     const ts = new Date(e.timestamp);
     return ts >= start && ts <= end;
   });
 
-  // Build a label for every day in the range so days with 0 entries appear
   const dayCounts = {};
   const cursor    = new Date(start);
   while (cursor <= end) {
@@ -68,9 +62,10 @@ router.get('/trend', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/categories', (req, res) => {
+  const userId          = req.session.user.id;
   const { key, start, end } = getDateRange(req.query);
 
-  const entries = readEntries().filter((e) => {
+  const entries = readEntries(userId).filter((e) => {
     const ts = new Date(e.timestamp);
     return ts >= start && ts <= end;
   });

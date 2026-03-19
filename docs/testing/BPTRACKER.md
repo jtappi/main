@@ -4,15 +4,15 @@
 **Path:** `bptracker/`
 **Port:** 3002
 **Stack:** Node.js + Express + React + Vite + Chart.js
-**Status:** Pre-build (no tests yet)
 
 ---
 
 ## Overview
 
 BP Tracker is a mobile-first blood pressure logging app. Users photograph their BP monitor;
-Claude Vision extracts the readings automatically. All tests are scoped to the bptracker
-subproject. Auth is inherited from `core/` and is not re-tested here.
+Gemini Vision extracts the readings automatically. Manual entry is also available directly
+from the Capture screen. All tests are scoped to the bptracker subproject. Auth is
+inherited from `core/` and is not re-tested here.
 
 ---
 
@@ -22,19 +22,16 @@ subproject. Auth is inherited from `core/` and is not re-tested here.
 bptracker/
 +-- tests/
 |   +-- unit/
-|   |   +-- data.test.js             <- lib/data.js I/O helpers
-|   |   +-- extract.test.js          <- Claude Vision response parsing + validation
-|   |   +-- readings.test.js         <- readings controller CRUD logic
+|   |   +-- data.test.js                   <- lib/data.js I/O helpers
+|   |   +-- readings.controller.test.js    <- readings controller CRUD (20 tests) ✅
 |   +-- integration/
-|       +-- readings.api.test.js     <- all readings API routes
-|       +-- extract.api.test.js      <- POST /extract with mocked Claude
+|       +-- extract.api.test.js            <- POST /api/extract (7 tests) ✅
+|       +-- readings.api.test.js           <- readings API (see below)
 +-- client/
     +-- tests/
         +-- e2e/
-            +-- global-setup.js
-            +-- global-teardown.js
-            +-- capture.spec.js
-            +-- reports.spec.js
+            +-- capture.spec.js            <- not yet written 🔴
+            +-- reports.spec.js            <- not yet written 🔴
 ```
 
 ---
@@ -45,97 +42,98 @@ bptracker/
 
 | Test | Classification | Status |
 |------|---------------|--------|
-| readReadings returns empty array when file does not exist | Unit | 🔴 |
-| readReadings returns parsed array when file exists | Unit | 🔴 |
-| writeReadings persists data to file | Unit | 🔴 |
-| filterByUserId returns only matching records | Unit | 🔴 |
-| filterByUserId returns all records for admin role | Unit | 🔴 |
-| appendReading adds record and returns updated array | Unit | 🔴 |
-| updateReading edits matching record by id | Unit | 🔴 |
-| updateReading returns null when id not found | Unit | 🔴 |
-| deleteReading removes matching record | Unit | 🔴 |
-| deleteReading returns false when id not found | Unit | 🔴 |
+| readReadings seeds from template when file does not exist | Unit | ✅ |
+| readReadings returns parsed array when file exists | Unit | ✅ |
+| writeReadings persists data to file | Unit | ✅ |
+| filterByUserId returns only matching records for guest | Unit | ✅ |
+| filterByUserId returns all records for admin role | Unit | ✅ |
+| appendReading adds record and returns updated array | Unit | ✅ |
+| updateReading edits matching record by id | Unit | ✅ |
+| updateReading returns null when id not found | Unit | ✅ |
+| deleteReading removes matching record | Unit | ✅ |
+| deleteReading returns false when id not found | Unit | ✅ |
+| purgeExpiredImages deletes files older than retention window | Unit | ✅ |
+| purgeExpiredImages skips files within retention window | Unit | ✅ |
 
-### `tests/unit/extract.test.js` — `controllers/extract.controller.js`
+### `tests/unit/readings.controller.test.js` — `controllers/readings.controller.js`
 
-| Test | Classification | Status |
-|------|---------------|--------|
-| parseClaudeResponse returns structured object for valid JSON | Unit | 🔴 |
-| parseClaudeResponse returns extraction_failed for unparseable output | Unit | 🔴 |
-| validateRanges passes all values within plausible range | Unit | 🔴 |
-| validateRanges overrides confidence to low for out-of-range systolic | Unit | 🔴 |
-| validateRanges overrides confidence to low for out-of-range diastolic | Unit | 🔴 |
-| validateRanges overrides confidence to low for out-of-range heart rate | Unit | 🔴 |
-| validateRanges handles null values without throwing | Unit | 🔴 |
-| all-null response returns image_unreadable error state | Unit | 🔴 |
-
-### `tests/unit/readings.test.js` — `controllers/readings.controller.js`
+Added in PR #109. Updated in PR #110 (extractionConfidence validation).
 
 | Test | Classification | Status |
 |------|---------------|--------|
-| getReadings returns scoped readings for guest | Unit | 🔴 |
-| getReadings returns all readings for admin | Unit | 🔴 |
-| createReading saves record with correct userId and timestamp | Unit | 🔴 |
-| createReading rejects missing required fields | Unit | 🔴 |
-| updateReading allows owner to edit notes | Unit | 🔴 |
-| updateReading rejects edit by non-owner guest | Unit | 🔴 |
-| deleteReading removes record for owner | Unit | 🔴 |
-| deleteReading rejects deletion by non-owner guest | Unit | 🔴 |
+| GET — admin receives all readings including legacy | Integration | ✅ |
+| GET — guest receives only their own readings | Integration | ✅ |
+| GET — guest does not receive legacy readings without userId | Integration | ✅ |
+| DELETE — admin can delete their own reading | Integration | ✅ |
+| DELETE — admin can delete a legacy reading without userId | Integration | ✅ |
+| DELETE — admin cannot delete another user's reading (403) | Integration | ✅ |
+| DELETE — guest can delete their own reading | Integration | ✅ |
+| DELETE — guest cannot delete another user's reading (403) | Integration | ✅ |
+| DELETE — returns 404 for unknown id | Integration | ✅ |
+| PUT — admin can edit their own reading | Integration | ✅ |
+| PUT — admin can edit a legacy reading without userId | Integration | ✅ |
+| PUT — admin cannot edit another user's reading (403) | Integration | ✅ |
+| PUT — guest can edit their own reading | Integration | ✅ |
+| PUT — returns 400 when no valid fields provided | Integration | ✅ |
+| PUT — returns 404 for unknown id | Integration | ✅ |
+| PUT — returns 400 when extractionConfidence is not a valid value | Integration | ✅ |
+| PUT — accepts valid extractionConfidence values (high, low, manual) | Integration | ✅ |
+| POST — creates a reading with the session userId | Integration | ✅ |
+| POST — returns 400 when required fields are missing | Integration | ✅ |
+| POST — returns 400 when systolic is not an integer | Integration | ✅ |
 
 ---
 
 ## Integration Tests
 
-### `tests/integration/readings.api.test.js`
+### `tests/integration/extract.api.test.js` — `controllers/extract.controller.js`
+
+Added in PR #110.
 
 | Test | Classification | Status |
 |------|---------------|--------|
-| GET /bptracker/api/readings — unauthenticated returns 401 | Integration | 🔴 |
-| GET /bptracker/api/readings — guest returns own readings only | Integration | 🔴 |
-| GET /bptracker/api/readings — admin returns all readings | Integration | 🔴 |
-| POST /bptracker/api/readings — saves reading and returns 201 | Integration | 🔴 |
-| POST /bptracker/api/readings — rejects invalid payload with 400 | Integration | 🔴 |
-| PUT /bptracker/api/readings/:id — owner can update notes | Integration | 🔴 |
-| PUT /bptracker/api/readings/:id — non-owner returns 403 | Integration | 🔴 |
-| DELETE /bptracker/api/readings/:id — owner can delete | Integration | 🔴 |
-| DELETE /bptracker/api/readings/:id — non-owner returns 403 | Integration | 🔴 |
+| POST /api/extract — returns extracted values for high-confidence response | Integration | ✅ |
+| POST /api/extract — propagates low confidence to client | Integration | ✅ |
+| POST /api/extract — overrides confidence to low when value is outside plausible range | Integration | ✅ |
+| POST /api/extract — returns 422 image_unreadable when all values are null | Integration | ✅ |
+| POST /api/extract — returns 502 extraction_failed when Gemini API throws | Integration | ✅ |
+| POST /api/extract — returns 502 extraction_failed when Gemini returns unparseable output | Integration | ✅ |
+| POST /api/extract — returns 400 when imageData is missing | Integration | ✅ |
 
-### `tests/integration/extract.api.test.js`
+### Remaining integration gaps
 
 | Test | Classification | Status |
 |------|---------------|--------|
-| POST /bptracker/api/extract — unauthenticated returns 401 | Integration | 🔴 |
-| POST /bptracker/api/extract — valid image returns extracted values | Integration | 🔴 |
-| POST /bptracker/api/extract — Claude returns low confidence, propagated to client | Integration | 🔴 |
-| POST /bptracker/api/extract — Claude API failure returns extraction_failed | Integration | 🔴 |
-| POST /bptracker/api/extract — all-null values returns image_unreadable | Integration | 🔴 |
-| POST /bptracker/api/extract — out-of-range values override confidence to low | Integration | 🔴 |
+| GET /bptracker/api/readings — unauthenticated returns 401/redirect | Integration | 🔴 |
+| POST /bptracker/api/extract — unauthenticated returns 401/redirect | Integration | 🔴 |
 
 ---
 
 ## E2E Tests
 
-### `client/tests/e2e/capture.spec.js`
+### `client/tests/e2e/capture.spec.js` — not yet written
 
 | Test | Classification | Status |
 |------|---------------|--------|
 | Capture view loads with user name and current date | Smoke | 🔴 |
 | Camera button triggers file input | Smoke | 🔴 |
+| "Enter manually" button appears on Capture screen | Smoke | 🔴 |
+| PortalTopBar is always visible with Sign out button | Smoke | 🔴 |
+| Single-project guest sees Sign out but not Dashboard link | Critical | 🔴 |
+| Multi-project user sees both Dashboard link and Sign out | Critical | 🔴 |
+| Tapping "Enter manually" shows ManualEntry form inline | Critical | 🔴 |
+| Manual entry form validates and saves, shows success screen | Critical | 🔴 |
+| Cancel on manual entry returns to idle Capture screen | Critical | 🔴 |
 | After image selected, extracted values appear on preview screen | Critical | 🔴 |
-| Low confidence warning shown when confidence = low | Critical | 🔴 |
-| Extracted values are editable before saving | Critical | 🔴 |
 | Save Reading succeeds and shows success screen | Critical | 🔴 |
-| Success screen auto-dismisses after 3 seconds | Smoke | 🔴 |
 | Retake returns user to capture view without saving | Critical | 🔴 |
 | Manual entry form shown when extraction fails | Critical | 🔴 |
 
-### `client/tests/e2e/reports.spec.js`
+### `client/tests/e2e/reports.spec.js` — not yet written
 
 | Test | Classification | Status |
 |------|---------------|--------|
 | Reports view loads and summary cards render | Smoke | 🔴 |
-| Trend chart renders with correct data lines | Critical | 🔴 |
-| Date range selector updates chart and table | Critical | 🔴 |
 | History table shows readings newest first | Smoke | 🔴 |
 | Delete reading removes it from history table | Critical | 🔴 |
 | Inline notes edit persists after save | Critical | 🔴 |
@@ -144,44 +142,49 @@ bptracker/
 
 ## data-testid Inventory
 
-To be populated in `tests/TESTIDS.md` as components are built in Phase 4+.
-
-Expected testids (not yet implemented):
+Full inventory lives in `tests/TESTIDS.md`. BP Tracker testids added so far:
 
 | Component | data-testid | Notes |
 |-----------|-------------|-------|
-| Capture.jsx | `capture-greeting` | User name + date display |
-| Capture.jsx | `capture-camera-btn` | Primary camera trigger button |
-| Capture.jsx | `capture-last-reading` | Last reading summary |
-| Preview.jsx | `preview-image` | Image preview element |
-| Preview.jsx | `preview-systolic` | Editable systolic input |
-| Preview.jsx | `preview-diastolic` | Editable diastolic input |
-| Preview.jsx | `preview-heartrate` | Editable heart rate input |
-| Preview.jsx | `preview-confidence-warning` | Low confidence warning banner |
-| Preview.jsx | `preview-notes` | Optional notes input |
-| Preview.jsx | `preview-retake-btn` | Retake button |
-| Preview.jsx | `preview-save-btn` | Save Reading button |
-| Success.jsx | `success-message` | Confirmation message |
+| App.jsx / PortalTopBar | `portal-top-bar` | Always rendered (was conditional) |
+| App.jsx / PortalTopBar | `portal-back-link` | Only when showDashboardLink=true |
+| App.jsx / PortalTopBar | `portal-top-bar-user` | Always rendered |
+| App.jsx / PortalTopBar | `portal-top-bar-signout` | Always rendered |
+| Capture.jsx | `capture-view` | Outer container, all states |
+| Capture.jsx | `capture-greeting` | Idle + manual states |
+| Capture.jsx | `capture-datetime` | Idle state only |
+| Capture.jsx | `capture-camera-btn` | Idle state only |
+| Capture.jsx | `capture-file-input` | Hidden file input |
+| Capture.jsx | `capture-manual-btn` | "Enter manually" button, idle state |
+| Capture.jsx | `manual-entry-section` | Inline manual form wrapper, manual state |
+| Capture.jsx | `recent-readings` | Recent readings table |
+| ManualEntry.jsx | `manual-entry` | Form container |
+| ManualEntry.jsx | `manual-systolic` | Systolic input |
+| ManualEntry.jsx | `manual-diastolic` | Diastolic input |
+| ManualEntry.jsx | `manual-heartrate` | Heart rate input |
+| ManualEntry.jsx | `manual-save-error` | Save error message |
+| ManualEntry.jsx | `manual-cancel-btn` | Secondary button ("Retake" from Preview, "Cancel" from Capture) |
+| ManualEntry.jsx | `manual-save-btn` | Primary save button |
+| Preview.jsx | `preview-view` | Outer container |
+| Preview.jsx | `preview-retake-btn` | Back button |
+| Preview.jsx | `preview-image` | Photo thumbnail |
+| Preview.jsx | `preview-extracting` | Spinner |
+| Preview.jsx | `preview-systolic` | Systolic input |
+| Preview.jsx | `preview-diastolic` | Diastolic input |
+| Preview.jsx | `preview-heartrate` | Heart rate input |
+| Preview.jsx | `preview-notes` | Notes textarea |
+| Preview.jsx | `preview-save-btn` | Save button |
+| Success.jsx | `success-view` | Outer container |
 | Success.jsx | `success-reading-summary` | Saved values display |
 | Success.jsx | `success-done-btn` | Done button |
 | Success.jsx | `success-reports-btn` | View Reports button |
-| ManualEntry.jsx | `manual-systolic` | Manual systolic input |
-| ManualEntry.jsx | `manual-diastolic` | Manual diastolic input |
-| ManualEntry.jsx | `manual-heartrate` | Manual heart rate input |
-| Reports.jsx | `reports-summary-cards` | Summary cards container |
-| Reports.jsx | `reports-trend-chart` | Chart.js canvas |
-| Reports.jsx | `reports-date-range` | Date range selector |
-| Reports.jsx | `reports-history-table` | History table |
-| BottomNav.jsx | `nav-capture-btn` | Capture tab |
-| BottomNav.jsx | `nav-reports-btn` | Reports tab |
 
 ---
 
 ## Coverage Targets
 
-Per `CLAUDE.md` Section 17 and `bptracker/SPEC.md` Section 13.
-
-Floors to be set after first test run. Aspirational targets:
+Per `CLAUDE.md` Section 17. Floors to be set after first CI run with coverage.
+Aspirational targets:
 
 | Metric | Target |
 |--------|--------|

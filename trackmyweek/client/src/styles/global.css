@@ -47,6 +47,13 @@
   /* Nav */
   --nav-height: 60px;
   --nav-width:  220px;
+
+  /*
+   * Height of the PortalTopBar when present.
+   * Must stay in sync with the padding + line-height in PortalTopBar.css.
+   * Used to push the fixed sidebar nav below the bar.
+   */
+  --portal-bar-height: 44px;
 }
 
 /* Base reset */
@@ -106,9 +113,24 @@ input::placeholder, textarea::placeholder {
    Layout
    ============================================================ */
 
+/*
+ * .app — outer shell, stacks PortalTopBar above the body.
+ * flex-direction: column so the top bar spans full width and
+ * the sidebar + content area sit below it as a horizontal row.
+ */
 .app {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
+}
+
+/*
+ * .app-body — horizontal row containing the sidebar nav and
+ * the main content. flex: 1 so it fills remaining height.
+ */
+.app-body {
+  display: flex;
+  flex: 1;
 }
 
 .main-content {
@@ -116,6 +138,15 @@ input::placeholder, textarea::placeholder {
   padding: var(--space-xl);
   margin-left: var(--nav-width);
   max-width: 1200px;
+}
+
+/*
+ * When the PortalTopBar is present (.has-top-bar on .app), the fixed
+ * sidebar nav must start below the bar instead of at the very top of
+ * the viewport. The mobile bottom-nav needs no adjustment.
+ */
+.has-top-bar .nav {
+  top: var(--portal-bar-height);
 }
 
 /* ============================================================
@@ -247,5 +278,10 @@ input::placeholder, textarea::placeholder {
     margin-left: 0;
     margin-bottom: var(--nav-height);
     padding: var(--space-md);
+  }
+
+  /* On mobile the nav is at the bottom — no top offset needed */
+  .has-top-bar .nav {
+    top: auto;
   }
 }

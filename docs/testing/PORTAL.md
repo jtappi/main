@@ -91,6 +91,12 @@ Smoke = a specific surface is broken if this fails, but the whole app still work
 | ✅ | `admin panel loads with users table populated` | Admin page renders and `/admin/users` returned data |
 | ✅ | `unauthenticated /admin redirects to login with returnTo` | Unauthenticated request gets 302 to `/login?returnTo=%2Fadmin` |
 | ✅ | `guest cannot access /admin (403)` | Authenticated non-admin gets 403 |
+| ✅ | `active user shows status badge, not a toggle button in Active column` | Active column is now a badge, not an action button |
+| ✅ | `actions column has Edit, Disable, and Delete buttons for each user` | All three action buttons render in the Actions column |
+| ✅ | `edit modal opens pre-filled with current user values` | Edit modal pre-populates name, email, username; password blank |
+| ✅ | `edit modal cancel closes without saving` | Cancel hides modal without making any API call |
+| ✅ | `saving an edit updates the users table` | PUT /admin/users/:id is called and table re-renders with new values |
+| ✅ | `disable toggle changes status badge to Disabled then back to Active` | Toggle button changes badge and its own label correctly |
 | ✅ | `test dashboard loads for admin user` | `/test-dashboard` route is reachable and renders (integration) |
 
 ### Integration — `tests/integration/portal.test.js`

@@ -33,35 +33,26 @@ const PLAYWRIGHT_REPORTS_DIR = process.env.PLAYWRIGHT_REPORTS_DIR ||
 // ── Trust proxy (behind Nginx) ────────────────────────────────
 app.set('trust proxy', 1);
 
-// ── Security headers ──────────────────────────────────────
+// ── Security headers ──────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // Cloudflare injects its analytics beacon (beacon.min.js) into pages
-      // served through the Cloudflare proxy. Allow it so the script runs
-      // instead of being silently dropped.
       scriptSrc:  ["'self'", "'unsafe-inline'", 'https://static.cloudflareinsights.com'],
-      // Google Fonts: the stylesheet is fetched from fonts.googleapis.com
-      // and the actual font files are served from fonts.gstatic.com.
       styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc:    ["'self'", 'https://fonts.gstatic.com'],
       imgSrc:     ["'self'", 'data:'],
-      // Cloudflare beacon posts analytics data back to its own endpoint.
       connectSrc: ["'self'", 'https://cloudflareinsights.com'],
     }
   }
 }));
 
-// ── Sessions ─────────────────────────────────────────────────────
+// ── Sessions ───────────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    // secure:true requires HTTPS. In CI the server runs over plain HTTP, so
-    // we must disable it when CI=true even though NODE_ENV=production is set.
-    // In real production (NODE_ENV=production, no CI env var) secure stays true.
     secure:   process.env.NODE_ENV === 'production' && !process.env.CI,
     httpOnly: true,
     sameSite: 'lax',
@@ -69,21 +60,23 @@ app.use(session({
   }
 }));
 
-// ── Body parsing ──────────────────────────────────────────────────
-app.use(express.json());
+// ── Body parsing ──────────────────────────────────────────
+// Limit raised to 10mb to support bptracker image uploads (phone camera photos
+// sent as base64 are typically 2-5mb).
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
-// ── Rate limiting on auth ──────────────────────────────────────────────
+// ── Rate limiting on auth ───────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ───────────────────────────────────────────────────
+// ── Static files ────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ───────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 function loadProjects() {
   return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
@@ -101,7 +94,6 @@ function parseJsonlLines(text) {
     .filter(Boolean);
 }
 
-// Fetch log from GitHub raw — always current, no git pull needed
 function loadTestRunsRemote() {
   return new Promise((resolve, reject) => {
     https.get(GITHUB_RAW_LOG, (res) => {
@@ -112,13 +104,22 @@ function loadTestRunsRemote() {
   });
 }
 
-// Fallback: read from local filesystem (used in tests via LOG_FILE env var)
 function loadTestRunsLocal() {
   if (!fs.existsSync(LOG_FILE)) return [];
   return parseJsonlLines(fs.readFileSync(LOG_FILE, 'utf8'));
 }
 
-// ── Routes: Root ─────────────────────────────────────────────────────
+/**
+ * getAccessibleProjects — returns the active projects visible to a session user.
+ * Admins see all projects. Guests see only their projectAccess intersection.
+ */
+function getAccessibleProjects(user) {
+  const all = loadProjects();
+  if (user.role === 'admin') return all;
+  return all.filter(p => p.status === 'active' && user.projectAccess.includes(p.id));
+}
+
+// ── Routes: Root ─────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (req.session && req.session.user) return res.redirect('/dashboard');
   return res.redirect('/login');
@@ -129,12 +130,26 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
+/**
+ * GET /dashboard
+ *
+ * Smart redirect logic:
+ *   - Admin users always land on the dashboard.
+ *   - Non-admin users with exactly one active accessible project are redirected
+ *     directly to that project’s route — no dashboard stop.
+ *   - Everyone else (multi-project users) sees the dashboard.
+ */
 app.get('/dashboard', requireAuth, (req, res) => {
+  const user     = req.session.user;
+  const projects = getAccessibleProjects(user);
+
+  if (user.role !== 'admin' && projects.length === 1) {
+    return res.redirect(projects[0].route);
+  }
+
   res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
-// requireAuth handles unauthenticated users (redirects to /login?returnTo=...).
-// requireAdmin handles authenticated non-admins (returns 403).
 app.get('/admin', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/admin.html'));
 });
@@ -143,15 +158,7 @@ app.get('/test-dashboard', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
 
-// ── Routes: Playwright reports (admin only) ────────────────────────────
-// Reports are deployed here by CI via rsync over SSH.
-// Directory structure: playwright-reports/{slug}/{portal|trackmyweek}/index.html
-// Slugs: PR-{number} | push-{short-sha} | on-demand-{run-id}
-//
-// A dedicated Router is used so that express.static's directory index
-// resolution (dir/ → dir/index.html) works correctly when mounted at a
-// sub-path. Using app.use() with multiple handlers inline prevents the
-// trailing-slash redirect that static needs to find index.html.
+// ── Routes: Playwright reports (admin only) ──────────────────────────
 const reportsRouter = express.Router();
 reportsRouter.use(requireAuth);
 reportsRouter.use(requireAdmin);
@@ -159,7 +166,7 @@ reportsRouter.use(express.static(PLAYWRIGHT_REPORTS_DIR, { index: 'index.html' }
 reportsRouter.use((req, res) => res.status(404).send('Report not found.'));
 app.use('/playwright-reports', reportsRouter);
 
-// ── Routes: Auth ─────────────────────────────────────────────────────
+// ── Routes: Auth ─────────────────────────────────────────────────
 app.post('/auth/login', authLimiter, (req, res) => {
   const { identifier, passwordHash } = req.body;
   if (!identifier || !passwordHash) {
@@ -197,7 +204,7 @@ app.get('/auth/session', (req, res) => {
   return res.json({ authenticated: false });
 });
 
-// ── Routes: Admin — Users ───────────────────────────────────────────────
+// ── Routes: Admin — Users ─────────────────────────────────────────────
 app.get('/admin/users', requireAdmin, (req, res) => {
   const usersFile = process.env.USERS_FILE;
   const users = (usersFile ? auth.getAllUsers(usersFile) : auth.getAllUsers()).map(safeUser);
@@ -247,7 +254,7 @@ app.put('/admin/users/:id/access', requireAdmin, (req, res) => {
   res.json(safeUser(updated));
 });
 
-// ── Routes: Admin — Projects ───────────────────────────────────────────────
+// ── Routes: Admin — Projects ─────────────────────────────────────────────
 app.get('/admin/projects', requireAdmin, (req, res) => {
   res.json(loadProjects());
 });
@@ -261,7 +268,7 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json(visible);
 });
 
-// ── Routes: Test runs ────────────────────────────────────────────────────────────
+// ── Routes: Test runs ──────────────────────────────────────────────────
 app.get('/api/test-runs', requireAdmin, (req, res) => {
   if (process.env.LOG_FILE) {
     return res.json(loadTestRunsLocal());
@@ -274,10 +281,12 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
     });
 });
 
-// ── Mount TrackMyWeek app (shares session automatically) ────────────────────
-app.use('/trackmyweek', require('../trackmyweek/server'));
+// ── Mount sub-apps (share session automatically) ─────────────────────────────
+app.use('/trackmyweek',  require('../trackmyweek/server'));
+app.use('/bptracker',    require('../bptracker/server'));
+app.use('/prisondonkey', require('../prisondonkey/server'));
 
-// ── Export for testing ───────────────────────────────────────────────────────────────
+// ── Export for testing ────────────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Portal running on port ${PORT}`);

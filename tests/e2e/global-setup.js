@@ -10,8 +10,9 @@
  * can remove them cleanly without touching real accounts.
  *
  * Credentials:
- *   Admin : username=e2e-admin  password=e2epassword
- *   Guest : username=e2e-guest  password=e2epassword
+ *   Admin      : username=e2e-admin  password=e2epassword  (admin role, 2 projects)
+ *   Guest      : username=e2e-guest  password=e2epassword  (guest, 2 projects — hits dashboard)
+ *   SingleUser : username=e2e-single password=e2epassword  (guest, 1 project — bypasses dashboard)
  */
 
 const path = require('path');
@@ -27,13 +28,23 @@ const TEST_USERS = [
     username: 'e2e-admin',
     password: 'e2epassword',
     role: 'admin',
-    projectAccess: ['trackmyweek']
+    projectAccess: ['trackmyweek', 'bptracker']
   },
   {
+    // Two-project guest — lands on dashboard (used by existing dashboard tests)
     id: 'e2e-guest-001',
     name: 'E2E Guest',
     email: 'e2e-guest@test.local',
     username: 'e2e-guest',
+    password: 'e2epassword',
+    projectAccess: ['trackmyweek', 'bptracker']
+  },
+  {
+    // One-project guest — bypasses dashboard and lands directly in trackmyweek
+    id: 'e2e-single-001',
+    name: 'E2E Single',
+    email: 'e2e-single@test.local',
+    username: 'e2e-single',
     password: 'e2epassword',
     projectAccess: ['trackmyweek']
   }
@@ -43,11 +54,9 @@ module.exports = async function globalSetup() {
   const users = auth.loadUsers(USERS_FILE);
 
   for (const testUser of TEST_USERS) {
-    // Remove any stale copy from a previous interrupted run
     const existing = users.findIndex(u => u.id === testUser.id);
     if (existing !== -1) users.splice(existing, 1);
 
-    // Insert with known stable ID so teardown can find it by ID
     const newUser = {
       id: testUser.id,
       name: testUser.name,
