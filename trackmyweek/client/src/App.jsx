@@ -16,18 +16,21 @@ import './styles/global.css';
  * Layout when PortalTopBar is shown:
  *
  *   ┌─────────────────────────────────────┐
- *   │ PortalTopBar (full width, sticky)          │
- *   ├────────┳────────────────────────────┤
- *   │ Nav     │ Main content                       │
- *   │ sidebar │                                    │
- *   └────────┷────────────────────────────┘
+ *   │ PortalTopBar (full width, sticky)   │
+ *   ├────────┬────────────────────────────┤
+ *   │ Nav    │ Main content               │
+ *   │sidebar │                            │
+ *   └────────┴────────────────────────────┘
+ *
+ * The `has-top-bar` class on `.app` tells the fixed `.nav` to offset its
+ * `top` by `--portal-bar-height` so it doesn't overlap the header.
  */
 function AppShell() {
   const user       = useSession();
   const showTopBar = user && (user.projectAccess.length > 1 || user.role === 'admin');
 
   return (
-    <div className="app">
+    <div className={`app${showTopBar ? ' has-top-bar' : ''}`}>
       {showTopBar && <PortalTopBar userName={user.name} />}
       <div className="app-body">
         <Navigation />
