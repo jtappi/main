@@ -18,5 +18,15 @@
     "status": "active",
     "createdAt": "2026-03-16T00:00:00.000Z",
     "icon": "<svg class=\"project-icon-svg\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M50 85 C50 85 15 62 15 38 C15 26 24 18 35 18 C42 18 48 22 50 27 C52 22 58 18 65 18 C76 18 85 26 85 38 C85 62 50 85 50 85 Z\" fill=\"#ef4444\"/></svg>"
+  },
+  {
+    "id": "prisondonkey",
+    "name": "Prison Donkey",
+    "description": "Creative studio. Making things that matter from the inside out.",
+    "route": "/prisondonkey",
+    "port": 3003,
+    "status": "active",
+    "createdAt": "2026-03-19T00:00:00.000Z",
+    "icon": "<svg class=\"project-icon-svg\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"5\" y=\"5\" width=\"90\" height=\"90\" rx=\"4\" fill=\"#1A1714\"/><text x=\"50\" y=\"62\" font-family=\"Impact,sans-serif\" font-size=\"46\" fill=\"#E8550A\" text-anchor=\"middle\" letter-spacing=\"1\">PD</text><line x1=\"15\" y1=\"72\" x2=\"85\" y2=\"72\" stroke=\"#E8550A\" stroke-width=\"4\"/></svg>"
   }
 ]

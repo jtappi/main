@@ -47,7 +47,7 @@ app.use(helmet({
   }
 }));
 
-// ── Sessions ─────────────────────────────────────────────────
+// ── Sessions ───────────────────────────────────────────────
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
@@ -60,7 +60,7 @@ app.use(session({
   }
 }));
 
-// ── Body parsing ────────────────────────────────────────────
+// ── Body parsing ──────────────────────────────────────────
 // Limit raised to 10mb to support bptracker image uploads (phone camera photos
 // sent as base64 are typically 2-5mb).
 app.use(express.json({ limit: '10mb' }));
@@ -73,10 +73,10 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-// ── Static files ───────────────────────────────────────────────
+// ── Static files ────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helpers ─────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 function loadProjects() {
   return JSON.parse(fs.readFileSync(PROJECTS_FILE, 'utf8'));
 }
@@ -136,7 +136,7 @@ app.get('/login', (req, res) => {
  * Smart redirect logic:
  *   - Admin users always land on the dashboard.
  *   - Non-admin users with exactly one active accessible project are redirected
- *     directly to that project's route — no dashboard stop.
+ *     directly to that project’s route — no dashboard stop.
  *   - Everyone else (multi-project users) sees the dashboard.
  */
 app.get('/dashboard', requireAuth, (req, res) => {
@@ -158,7 +158,7 @@ app.get('/test-dashboard', requireAuth, requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/test-dashboard.html'));
 });
 
-// ── Routes: Playwright reports (admin only) ────────────────────────────
+// ── Routes: Playwright reports (admin only) ──────────────────────────
 const reportsRouter = express.Router();
 reportsRouter.use(requireAuth);
 reportsRouter.use(requireAdmin);
@@ -268,7 +268,7 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json(visible);
 });
 
-// ── Routes: Test runs ──────────────────────────────────────────────────────
+// ── Routes: Test runs ──────────────────────────────────────────────────
 app.get('/api/test-runs', requireAdmin, (req, res) => {
   if (process.env.LOG_FILE) {
     return res.json(loadTestRunsLocal());
@@ -281,11 +281,12 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
     });
 });
 
-// ── Mount sub-apps (share session automatically) ───────────────────────────
-app.use('/trackmyweek', require('../trackmyweek/server'));
-app.use('/bptracker',   require('../bptracker/server'));
+// ── Mount sub-apps (share session automatically) ─────────────────────────────
+app.use('/trackmyweek',  require('../trackmyweek/server'));
+app.use('/bptracker',    require('../bptracker/server'));
+app.use('/prisondonkey', require('../prisondonkey/server'));
 
-// ── Export for testing ─────────────────────────────────────────────────────────
+// ── Export for testing ────────────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Portal running on port ${PORT}`);
