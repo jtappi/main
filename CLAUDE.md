@@ -37,6 +37,31 @@ When the human must run a command manually, Claude must:
    cannot accomplish the task (e.g. generating a lock file requires running npm locally).
 4. **Test every command block mentally** before sending it. If a command depends on state
    (current branch, file existence, env vars), make that state explicit in the block.
+5. **Never put a `cd` and its follow-up command in the same fenced block on separate lines
+   unless they are joined with `&&`.** Two lines that look like:
+   ```
+   cd ~/apps/main/bptracker/client
+   npm run build
+   ```
+   are two separate commands — a human copying both lines at once will run them as one
+   string and get a `command not found` error. Always use one of these safe patterns:
+
+   **Pattern A — `&&` chain (preferred for short sequences):**
+   ```bash
+   cd ~/apps/main/bptracker/client && npm run build
+   ```
+
+   **Pattern B — separate fenced blocks with a label (preferred for longer sequences):**
+   ```bash
+   cd ~/apps/main
+   git pull origin main
+   ```
+   ```bash
+   cd ~/apps/main/bptracker/client
+   npm run build
+   ```
+
+   Never rely on the human to mentally parse which lines belong together.
 
 This rule exists because ambiguous command blocks have caused branch mixups, zsh errors,
 and wasted cycles that could have been avoided entirely.
@@ -65,9 +90,13 @@ cd ~/apps/main
 git fetch origin
 git checkout <branch-name>
 git pull origin <branch-name>
-cd <subproject-dir>
+```
+```bash
+cd ~/apps/main/<subproject-dir>
 npm install
-cd ..
+```
+```bash
+cd ~/apps/main
 git add <subproject-dir>/package-lock.json
 git commit -m "chore(<subproject>): add package-lock.json"
 git push origin <branch-name>
@@ -735,26 +764,40 @@ cp <old-repo>/src/data.json trackmyweek/data/data.json
 
 ---
 
-## 14. Client Build Rules — TrackMyWeek
+## 14. Client Build Rules — TrackMyWeek and BP Tracker
 
-`trackmyweek/client/dist/` is gitignored and must be built locally after every pull that
-changes client source files. The portal serves this directory as static files — without it
-the app returns a 404.
+`trackmyweek/client/dist/` and `bptracker/client/dist/` are gitignored and must be built
+locally after every pull that changes client source files. The portal serves these directories
+as static files — without a current build the app returns a 404 or serves stale code.
 
 **Rebuild required when any of these change:**
-- `trackmyweek/client/src/**`
-- `trackmyweek/client/index.html`
-- `trackmyweek/client/vite.config.js`
+- `trackmyweek/client/src/**` or `bptracker/client/src/**`
+- `trackmyweek/client/index.html` or `bptracker/client/index.html`
+- `trackmyweek/client/vite.config.js` or `bptracker/client/vite.config.js`
 
 **Rebuild NOT required for server-side changes** (controllers, lib, portal).
 
-**Build command:**
+**Build commands — run each block separately:**
+
+For TrackMyWeek:
+```bash
+cd ~/apps/main
+git pull origin main
+```
 ```bash
 cd ~/apps/main/trackmyweek/client
 npm run build
 ```
 
-The same rule applies to `bptracker/client/dist/` once the client is built in Phase 3.
+For BP Tracker:
+```bash
+cd ~/apps/main
+git pull origin main
+```
+```bash
+cd ~/apps/main/bptracker/client
+npm run build
+```
 
 See `docs/DEPLOY.md` for the full deploy workflow.
 
@@ -773,16 +816,22 @@ git pull origin main
 pm2 restart portal
 ```
 
-If the trackmyweek client was also changed (anything under `trackmyweek/client/src/`,
-`trackmyweek/client/index.html`, or `trackmyweek/client/vite.config.js`), also rebuild:
+If the trackmyweek or bptracker client was also changed, rebuild after the pull:
 
 ```bash
 cd ~/apps/main/trackmyweek/client
 npm run build
 ```
 
+or
+
+```bash
+cd ~/apps/main/bptracker/client
+npm run build
+```
+
 **Claude must include these commands in every PR description** that touches server-side
-code, so the human is never left guessing what to run after merging.
+or client-side code, so the human is never left guessing what to run after merging.
 
 ---
 
