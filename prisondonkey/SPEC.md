@@ -4,8 +4,8 @@
 **Port (dev standalone):** 3003
 **Stack:** Node.js + Express + React + Vite
 
-## Phase 1 — Current (this PR)
-- Landing page with brand identity
+## Phase 1 — Current
+- Landing page: wordmark + logo hero, no other content
 - Portal integration (projects.json, portal mount, dashboard card)
 
 ## Phase 2 — TBD
