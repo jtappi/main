@@ -23,7 +23,10 @@ bptracker/
 +-- tests/
 |   +-- unit/
 |   |   +-- data.test.js                   <- lib/data.js I/O helpers
-|   |   +-- readings.controller.test.js    <- readings controller CRUD (15 tests) ✅
+|   |   +-- readings.controller.test.js    <- readings controller CRUD (20 tests) ✅
+|   +-- integration/
+|       +-- extract.api.test.js            <- POST /api/extract (7 tests) ✅
+|       +-- readings.api.test.js           <- readings API (see below)
 +-- client/
     +-- tests/
         +-- e2e/
@@ -54,7 +57,7 @@ bptracker/
 
 ### `tests/unit/readings.controller.test.js` — `controllers/readings.controller.js`
 
-Added in PR #109.
+Added in PR #109. Updated in PR #110 (extractionConfidence validation).
 
 | Test | Classification | Status |
 |------|---------------|--------|
@@ -73,6 +76,8 @@ Added in PR #109.
 | PUT — guest can edit their own reading | Integration | ✅ |
 | PUT — returns 400 when no valid fields provided | Integration | ✅ |
 | PUT — returns 404 for unknown id | Integration | ✅ |
+| PUT — returns 400 when extractionConfidence is not a valid value | Integration | ✅ |
+| PUT — accepts valid extractionConfidence values (high, low, manual) | Integration | ✅ |
 | POST — creates a reading with the session userId | Integration | ✅ |
 | POST — returns 400 when required fields are missing | Integration | ✅ |
 | POST — returns 400 when systolic is not an integer | Integration | ✅ |
@@ -81,13 +86,26 @@ Added in PR #109.
 
 ## Integration Tests
 
+### `tests/integration/extract.api.test.js` — `controllers/extract.controller.js`
+
+Added in PR #110.
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| POST /api/extract — returns extracted values for high-confidence response | Integration | ✅ |
+| POST /api/extract — propagates low confidence to client | Integration | ✅ |
+| POST /api/extract — overrides confidence to low when value is outside plausible range | Integration | ✅ |
+| POST /api/extract — returns 422 image_unreadable when all values are null | Integration | ✅ |
+| POST /api/extract — returns 502 extraction_failed when Gemini API throws | Integration | ✅ |
+| POST /api/extract — returns 502 extraction_failed when Gemini returns unparseable output | Integration | ✅ |
+| POST /api/extract — returns 400 when imageData is missing | Integration | ✅ |
+
+### Remaining integration gaps
+
 | Test | Classification | Status |
 |------|---------------|--------|
 | GET /bptracker/api/readings — unauthenticated returns 401/redirect | Integration | 🔴 |
 | POST /bptracker/api/extract — unauthenticated returns 401/redirect | Integration | 🔴 |
-| POST /bptracker/api/extract — valid image returns extracted values | Integration | 🔴 |
-| POST /bptracker/api/extract — Gemini API failure returns extraction_failed | Integration | 🔴 |
-| POST /bptracker/api/extract — all-null values returns image_unreadable | Integration | 🔴 |
 
 ---
 

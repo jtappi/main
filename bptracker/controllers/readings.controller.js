@@ -27,6 +27,9 @@ const {
 
 const router = express.Router();
 
+/** Allowed values for the extractionConfidence field. */
+const VALID_CONFIDENCE = ['high', 'low', 'manual'];
+
 /**
  * ownershipCheck — returns true if the requesting user may mutate this record.
  *
@@ -82,8 +85,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'heartRate must be an integer or null.' });
     }
 
-    const validConfidence = ['high', 'low', 'manual'];
-    const confidence = validConfidence.includes(extractionConfidence) ? extractionConfidence : 'manual';
+    const confidence = VALID_CONFIDENCE.includes(extractionConfidence) ? extractionConfidence : 'manual';
 
     const reading = {
       id:                   uuidv4(),
@@ -128,6 +130,14 @@ router.put('/:id', (req, res) => {
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    // Validate extractionConfidence if provided
+    if (updates.extractionConfidence !== undefined &&
+        !VALID_CONFIDENCE.includes(updates.extractionConfidence)) {
+      return res.status(400).json({
+        error: `extractionConfidence must be one of: ${VALID_CONFIDENCE.join(', ')}.`,
+      });
     }
 
     if (Object.keys(updates).length === 0) {

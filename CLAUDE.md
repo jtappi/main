@@ -145,6 +145,7 @@ Every subproject that has a `package.json` must have a committed, fully-resolved
 | `trackmyweek/package-lock.json` | trackmyweek server |
 | `trackmyweek/client/package-lock.json` | trackmyweek client |
 | `bptracker/package-lock.json` | bptracker server |
+| `bptracker/client/package-lock.json` | bptracker client |
 
 When a new subproject is added, add its lock file row to this table in the same PR as
 the `package.json`.
@@ -525,12 +526,13 @@ This is a monorepo. Package ownership is split intentionally:
 | Vite, React, chart.js | `trackmyweek/client/package.json` | Client build only — no Playwright here |
 | Vite, React, chart.js | `bptracker/client/package.json` | Client build only — no Playwright here |
 
-**Lock files — all five must exist in the repo:**
+**Lock files — all six must exist in the repo:**
 - `package-lock.json` — root
 - `portal/package-lock.json` — portal
 - `trackmyweek/package-lock.json` — trackmyweek server
 - `trackmyweek/client/package-lock.json` — trackmyweek client
 - `bptracker/package-lock.json` — bptracker server
+- `bptracker/client/package-lock.json` — bptracker client
 
 If any is missing, CI will fail with `npm ci` errors. After any `npm install` in any
 location, immediately commit the resulting lock file.
@@ -552,6 +554,7 @@ cd portal && npm install
 cd trackmyweek && npm install
 cd trackmyweek/client && npm install
 cd bptracker && npm install
+cd bptracker/client && npm install
 ```
 
 ---
@@ -632,6 +635,8 @@ cd bptracker && npm install
 | TrackMyWeek client package-lock.json | `trackmyweek/client/package-lock.json` (must exist in repo) |
 | BP Tracker server package.json | `bptracker/package.json` |
 | BP Tracker server package-lock.json | `bptracker/package-lock.json` (must exist in repo) |
+| BP Tracker client package.json | `bptracker/client/package.json` (Vite + React only, no Playwright) |
+| BP Tracker client package-lock.json | `bptracker/client/package-lock.json` (must exist in repo) |
 | CI workflow | `.github/workflows/ci.yml` |
 | Test run logs | `logs/test-runs.jsonl` (append-only, never deleted) |
 | Log script | `scripts/log-test-run.js` |
@@ -667,6 +672,7 @@ cd bptracker && npm install
 - [ ] `trackmyweek/package-lock.json` exists and is committed
 - [ ] `trackmyweek/client/package-lock.json` exists and is committed
 - [ ] `bptracker/package-lock.json` exists and is committed
+- [ ] `bptracker/client/package-lock.json` exists and is committed
 - [ ] No deprecated dependencies introduced — `npm install` output is clean (Section 0.55)
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
 - [ ] No element ID changed without updating `docs/HTML_JS_CONTRACT.md`
