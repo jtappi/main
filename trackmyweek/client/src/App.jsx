@@ -16,18 +16,21 @@ import './styles/global.css';
  * Layout when PortalTopBar is shown:
  *
  *   ┌─────────────────────────────────────┐
- *   │ PortalTopBar (full width, sticky)          │
- *   ├────────┳────────────────────────────┤
- *   │ Nav     │ Main content                       │
- *   │ sidebar │                                    │
- *   └────────┷────────────────────────────┘
+ *   │ PortalTopBar (full width, sticky)   │  ← z-index 200
+ *   ├────────┬────────────────────────────┤
+ *   │ Nav    │ Main content               │  ← nav fixed, top offset by bar height
+ *   │ sidebar│                            │
+ *   └────────┴────────────────────────────┘
+ *
+ * When showTopBar is true the `.has-top-bar` class is added to `.app`.
+ * global.css uses this to push the fixed nav down below the bar.
  */
 function AppShell() {
   const user       = useSession();
   const showTopBar = user && (user.projectAccess.length > 1 || user.role === 'admin');
 
   return (
-    <div className="app">
+    <div className={`app${showTopBar ? ' has-top-bar' : ''}`}>
       {showTopBar && <PortalTopBar userName={user.name} />}
       <div className="app-body">
         <Navigation />
