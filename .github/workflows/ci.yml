@@ -75,6 +75,9 @@ jobs:
             trackmyweek/package-lock.json
             bptracker/package-lock.json
 
+      - name: Clear npm cache
+        run: npm cache clean --force
+
       - name: Install root dependencies
         run: npm ci
 
@@ -311,6 +314,9 @@ jobs:
             trackmyweek/package-lock.json
             trackmyweek/client/package-lock.json
             bptracker/package-lock.json
+
+      - name: Clear npm cache
+        run: npm cache clean --force
 
       - name: Install root dependencies
         run: npm ci
