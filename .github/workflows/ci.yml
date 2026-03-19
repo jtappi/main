@@ -80,7 +80,6 @@ jobs:
             portal/package-lock.json
             trackmyweek/package-lock.json
             bptracker/package-lock.json
-            prisondonkey/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -98,7 +97,7 @@ jobs:
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
-        run: npm ci
+        run: npm install
         working-directory: prisondonkey
 
       - name: Bootstrap data files
@@ -322,7 +321,6 @@ jobs:
             trackmyweek/package-lock.json
             trackmyweek/client/package-lock.json
             bptracker/package-lock.json
-            prisondonkey/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -344,7 +342,7 @@ jobs:
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
-        run: npm ci
+        run: npm install
         working-directory: prisondonkey
 
       - name: Cache Playwright browsers
