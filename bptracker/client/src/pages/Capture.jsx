@@ -58,6 +58,8 @@ export default function Capture({ user }) {
     e.target.value = '';
 
     const mediaType  = file.type || 'image/jpeg';
+    // Create object URL for preview; revoked in handleRetake and handleSaved
+    // to avoid accumulating blob URLs across multiple photos in one session.
     const previewUrl = URL.createObjectURL(file);
 
     const reader = new FileReader();
@@ -72,6 +74,7 @@ export default function Capture({ user }) {
   }
 
   function handleRetake() {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImageData(null);
     setImagePreviewUrl(null);
     setCaptureState('idle');
@@ -79,6 +82,7 @@ export default function Capture({ user }) {
 
   // Called by Preview after a successful photo-based save
   function handleSaved(reading) {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setRecentReadings(prev => [reading, ...prev].slice(0, 5));
     setImageData(null);
     setImagePreviewUrl(null);

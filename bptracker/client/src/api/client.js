@@ -78,7 +78,7 @@ export async function deleteReading(id) {
 }
 
 /**
- * Send a base64 image to the server for Claude Vision extraction.
+ * Send a base64 image to the server for Gemini Vision extraction.
  * Returns extracted values — does NOT save the reading.
  *
  * @param {string} imageData - base64-encoded image string

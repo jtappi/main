@@ -205,6 +205,24 @@ describe('PUT /api/readings/:id', () => {
       .send({ notes: 'Ghost' });
     expect(res.status).toBe(404);
   });
+
+  test('returns 400 when extractionConfidence is not a valid value', async () => {
+    const res = await request(makeApp(ADMIN_USER))
+      .put('/api/readings/r-001')
+      .send({ extractionConfidence: 'bogus' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/extractionConfidence/);
+  });
+
+  test('accepts valid extractionConfidence values', async () => {
+    for (const confidence of ['high', 'low', 'manual']) {
+      const res = await request(makeApp(ADMIN_USER))
+        .put('/api/readings/r-001')
+        .send({ extractionConfidence: confidence });
+      expect(res.status).toBe(200);
+      expect(res.body.extractionConfidence).toBe(confidence);
+    }
+  });
 });
 
 // ── POST /api/readings ─────────────────────────────────────────────────────────────────
