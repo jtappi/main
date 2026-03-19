@@ -118,6 +118,9 @@ Added in PR #110.
 | Capture view loads with user name and current date | Smoke | 🔴 |
 | Camera button triggers file input | Smoke | 🔴 |
 | "Enter manually" button appears on Capture screen | Smoke | 🔴 |
+| PortalTopBar is always visible with Sign out button | Smoke | 🔴 |
+| Single-project guest sees Sign out but not Dashboard link | Critical | 🔴 |
+| Multi-project user sees both Dashboard link and Sign out | Critical | 🔴 |
 | Tapping "Enter manually" shows ManualEntry form inline | Critical | 🔴 |
 | Manual entry form validates and saves, shows success screen | Critical | 🔴 |
 | Cancel on manual entry returns to idle Capture screen | Critical | 🔴 |
@@ -143,6 +146,10 @@ Full inventory lives in `tests/TESTIDS.md`. BP Tracker testids added so far:
 
 | Component | data-testid | Notes |
 |-----------|-------------|-------|
+| App.jsx / PortalTopBar | `portal-top-bar` | Always rendered (was conditional) |
+| App.jsx / PortalTopBar | `portal-back-link` | Only when showDashboardLink=true |
+| App.jsx / PortalTopBar | `portal-top-bar-user` | Always rendered |
+| App.jsx / PortalTopBar | `portal-top-bar-signout` | Always rendered |
 | Capture.jsx | `capture-view` | Outer container, all states |
 | Capture.jsx | `capture-greeting` | Idle + manual states |
 | Capture.jsx | `capture-datetime` | Idle state only |

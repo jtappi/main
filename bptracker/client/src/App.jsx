@@ -28,7 +28,9 @@ function getInitialTextSize() {
  * Manages:
  *   - Session user fetch
  *   - Text size preference (localStorage-backed, applied as CSS class on app-shell)
- *   - PortalTopBar visibility: shown when user has more than one project or is admin
+ *   - PortalTopBar: always shown. showDashboardLink is true only for admins
+ *     and multi-project users — single-project guests have no dashboard to
+ *     return to (the portal auto-redirected them here directly).
  *
  * Routes:
  *   /bptracker           -> Capture (default)
@@ -72,12 +74,12 @@ export default function App() {
 
   if (!user) return null;
 
-  const showTopBar = user.projectAccess.length > 1 || user.role === 'admin';
+  const showDashboardLink = user.projectAccess.length > 1 || user.role === 'admin';
 
   return (
     <BrowserRouter>
-      <div className={`app-shell text-${textSize}`} data-testid="app-shell">
-        {showTopBar && <PortalTopBar userName={user.name} />}
+      <div className="app-shell text-${textSize}" data-testid="app-shell">
+        <PortalTopBar userName={user.name} showDashboardLink={showDashboardLink} />
         <div className="app-content">
           <Routes>
             <Route path="/bptracker"         element={<Capture user={user} />} />
