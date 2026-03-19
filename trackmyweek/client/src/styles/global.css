@@ -47,6 +47,14 @@
   /* Nav */
   --nav-height: 60px;
   --nav-width:  220px;
+
+  /*
+   * Height of the PortalTopBar when it is visible.
+   * Must stay in sync with the actual rendered height of .portal-top-bar
+   * (padding: 0.6rem 1.5rem + line-height ≈ 44px).
+   * Used to offset the fixed sidebar so it starts below the top bar.
+   */
+  --portal-bar-height: 44px;
 }
 
 /* Base reset */
@@ -131,6 +139,15 @@ input::placeholder, textarea::placeholder {
   padding: var(--space-xl);
   margin-left: var(--nav-width);
   max-width: 1200px;
+}
+
+/*
+ * When the PortalTopBar is visible (.has-top-bar on .app), the fixed
+ * sidebar must start below it rather than at the top of the viewport.
+ * The mobile nav sits at the bottom and is unaffected.
+ */
+.has-top-bar .nav {
+  top: var(--portal-bar-height);
 }
 
 /* ============================================================
@@ -262,5 +279,10 @@ input::placeholder, textarea::placeholder {
     margin-left: 0;
     margin-bottom: var(--nav-height);
     padding: var(--space-md);
+  }
+
+  /* Mobile nav sits at the bottom — top offset never applies */
+  .has-top-bar .nav {
+    top: auto;
   }
 }
