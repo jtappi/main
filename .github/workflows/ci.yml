@@ -1,11 +1,5 @@
 name: CI
 
-# CI runs on pull_request only — not on push to main.
-# Rationale: this is a solo-contributor repo. Tests run on the PR before merge,
-# which is sufficient. Running again post-merge on every push to main adds CI
-# minutes with no safety benefit when there is only one contributor.
-#
-# TODO (docs/TODO.md): Re-enable push trigger when a second contributor joins.
 on:
   pull_request:
     branches: [main]
@@ -81,6 +75,9 @@ jobs:
             trackmyweek/package-lock.json
             bptracker/package-lock.json
 
+      - name: Clear npm cache
+        run: npm cache clean --force
+
       - name: Install root dependencies
         run: npm ci
 
@@ -93,7 +90,7 @@ jobs:
         working-directory: trackmyweek
 
       - name: Install bptracker dependencies
-        run: npm ci
+        run: npm install
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
@@ -292,10 +289,6 @@ jobs:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     needs: [changes, test]
-    # Only run when portal, trackmyweek, or CI config files changed.
-    # bptracker and prisondonkey are intentionally excluded — they share no
-    # runtime code with the portal auth flow or trackmyweek UI, so Playwright
-    # adds no value there.
     if: |
       always() && needs.test.result != 'skipped' && (
         needs.changes.outputs.portal      == 'true' ||
@@ -322,6 +315,9 @@ jobs:
             trackmyweek/client/package-lock.json
             bptracker/package-lock.json
 
+      - name: Clear npm cache
+        run: npm cache clean --force
+
       - name: Install root dependencies
         run: npm ci
 
@@ -338,7 +334,7 @@ jobs:
         working-directory: trackmyweek/client
 
       - name: Install bptracker dependencies
-        run: npm ci
+        run: npm install
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
