@@ -598,6 +598,13 @@ cd bptracker/client && npm install
 - **Before giving any instructions about PRs, always call `list_pull_requests` first.**
   Never reference PR numbers or merge order from memory — the human may have already
   merged or closed them.
+- **Always sync a PR branch with main before CI runs.** After opening a PR, if any commits
+  land on `main` that the PR branch does not yet include (e.g. a lock file fix, a CI config
+  change, or any prerequisite commit pushed directly to main), immediately call
+  `update_pull_request_branch` before CI starts. A PR running against a stale base will
+  fail for reasons unrelated to the PR's own changes, wasting cycles and causing confusion.
+  This rule exists because a stale bptracker lock file on a PR branch caused an `npm ci`
+  failure in CI even though the fix had already landed on `main`.
 
 ---
 
@@ -684,6 +691,8 @@ cd bptracker/client && npm install
 - [ ] Any new E2E test passes the litmus test in Section 2.6 before being written
 - [ ] Coverage thresholds pass: `cd portal && npm run test:coverage` and `cd trackmyweek && npm run test:coverage` (Section 17)
 - [ ] `docs/testing/` consulted and PR description includes test coverage summary (Section 16)
+- [ ] PR branch is up to date with main — `update_pull_request_branch` called if any commits
+      landed on `main` after the branch was created (Section 9)
 
 ---
 
