@@ -233,7 +233,7 @@
       <!-- Right — logo image -->
       <div class="pd-right">
         <img
-          src="/prisondonkey/assets/logo.png"
+          src="logo.png"
           alt="Prison Donkey — a donkey in an orange jumpsuit painting a self-portrait"
           class="pd-logo-img"
         />
@@ -246,7 +246,6 @@
       var canvas = document.getElementById('pd-grain');
       if (!canvas) return;
       var ctx = canvas.getContext('2d');
-      var animId;
       var frame = 0;
 
       function resize() {
@@ -258,18 +257,18 @@
 
       function drawGrain() {
         frame++;
-        if (frame % 3 !== 0) { animId = requestAnimationFrame(drawGrain); return; }
+        if (frame % 3 !== 0) { requestAnimationFrame(drawGrain); return; }
         var w = canvas.width;
         var h = canvas.height;
         var imageData = ctx.createImageData(w, h);
         var data = imageData.data;
         for (var i = 0; i < data.length; i += 4) {
           var v = Math.random() * 255;
-          data[i] = data[i+1] = data[i+2] = v;
-          data[i+3] = Math.random() * 18 + 4;
+          data[i] = data[i + 1] = data[i + 2] = v;
+          data[i + 3] = Math.random() * 18 + 4;
         }
         ctx.putImageData(imageData, 0, 0);
-        animId = requestAnimationFrame(drawGrain);
+        requestAnimationFrame(drawGrain);
       }
       drawGrain();
     })();

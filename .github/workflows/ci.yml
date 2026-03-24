@@ -96,10 +96,6 @@ jobs:
         run: npm ci
         working-directory: bptracker
 
-      - name: Install prisondonkey dependencies
-        run: rm -f package-lock.json && npm install
-        working-directory: prisondonkey
-
       - name: Bootstrap data files
         run: cp core/data/users.template.json core/data/users.json
 
@@ -287,7 +283,7 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
 
-  # ── Job 2: E2E Tests (Playwright) ────────────────────────────────
+  # ── Job 2: E2E Tests (Playwright) ────────────────────────────
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
@@ -340,10 +336,6 @@ jobs:
       - name: Install bptracker dependencies
         run: npm ci
         working-directory: bptracker
-
-      - name: Install prisondonkey dependencies
-        run: rm -f package-lock.json && npm install
-        working-directory: prisondonkey
 
       - name: Cache Playwright browsers
         id: playwright-cache
