@@ -45,6 +45,12 @@ input, textarea {
 
 /* --- Text size scale ------------------------------------------------------- */
 
+/* Root font-size on the app shell — all rem/em values inside scale with it */
+.app-shell.text-sm { font-size: 14px; }
+.app-shell.text-md { font-size: 16px; }
+.app-shell.text-lg { font-size: 19px; }
+
+/* Fine-grained overrides for key data values */
 .text-sm .scalable { font-size: 0.85em; }
 .text-md .scalable { font-size: 1em;    }
 .text-lg .scalable { font-size: 1.2em;  }
