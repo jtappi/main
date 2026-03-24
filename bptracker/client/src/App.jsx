@@ -78,7 +78,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="app-shell text-${textSize}" data-testid="app-shell">
+      <div className={`app-shell text-${textSize}`} data-testid="app-shell">
         <PortalTopBar userName={user.name} showDashboardLink={showDashboardLink} />
         <div className="app-content">
           <Routes>
