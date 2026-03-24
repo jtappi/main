@@ -97,7 +97,7 @@ jobs:
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
-        run: npm install
+        run: rm -f package-lock.json && npm install
         working-directory: prisondonkey
 
       - name: Bootstrap data files
@@ -342,7 +342,7 @@ jobs:
         working-directory: bptracker
 
       - name: Install prisondonkey dependencies
-        run: npm install
+        run: rm -f package-lock.json && npm install
         working-directory: prisondonkey
 
       - name: Cache Playwright browsers
