@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>prisonDonkey</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🫏</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400&family=Barlow+Condensed:ital,wght@0,300;1,300;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --orange:        #E8550A;
+      --orange-deep:   #B83F00;
+      --concrete:      #F2F0ED;
+      --concrete-dark: #C8C3BB;
+      --ink:           #1A1714;
+      --ink-mid:       #3D3730;
+      --ink-light:     #7A726B;
+
+      --font-display: 'Bebas Neue', 'Impact', sans-serif;
+      --font-body:    'Barlow Condensed', 'Arial Narrow', sans-serif;
+      --font-mono:    'DM Mono', 'Courier New', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background: var(--concrete);
+      color: var(--ink);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Grain overlay */
+    #pd-grain {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      mix-blend-mode: multiply;
+      opacity: 0.55;
+    }
+
+    /* Root + page layout */
+    .pd-root {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pd-page {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      align-items: center;
+      padding: 0 5vw;
+      gap: 4vw;
+    }
+
+    /* Left — wordmark */
+    .pd-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      animation: reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .pd-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: var(--font-mono);
+      font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+      animation: reveal 0.85s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .pd-bars { color: var(--orange); }
+
+    /* Wordmark */
+    .pd-wordmark {
+      display: block;
+      line-height: 0.87;
+      margin-bottom: clamp(0.75rem, 2.5vh, 1.75rem);
+      animation: reveal 0.85s 0.14s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .pd-word-prison {
+      display: block;
+      font-family: var(--font-display);
+      font-size: clamp(72px, 11vw, 180px);
+      letter-spacing: 0.03em;
+      color: var(--ink);
+      text-shadow:
+        4px 4px 0 var(--concrete-dark),
+        8px 8px 0 rgba(26,23,20,0.07);
+    }
+
+    .pd-word-donkey {
+      display: block;
+      font-family: var(--font-display);
+      font-size: clamp(72px, 11vw, 180px);
+      letter-spacing: 0.03em;
+      color: var(--orange);
+      text-shadow:
+        4px 4px 0 var(--orange-deep),
+        8px 8px 0 rgba(184,63,0,0.28);
+    }
+
+    /* Rule */
+    .pd-rule {
+      width: 100%;
+      max-width: 520px;
+      height: 6px;
+      position: relative;
+      margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+      animation: reveal 0.85s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .pd-rule::before,
+    .pd-rule::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--orange);
+    }
+    .pd-rule::before { top: 0; }
+    .pd-rule::after  { bottom: 0; }
+
+    /* Tagline */
+    .pd-tagline {
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: clamp(1rem, 1.6vw, 1.35rem);
+      color: var(--ink-mid);
+      letter-spacing: 0.01em;
+      line-height: 1.5;
+      animation: reveal 0.85s 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .pd-tagline em {
+      font-style: italic;
+      color: var(--orange);
+      font-weight: 400;
+    }
+
+    /* Right — logo image */
+    .pd-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: imgReveal 1s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes imgReveal {
+      from { opacity: 0; transform: translateX(32px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .pd-logo-img {
+      width: 100%;
+      max-width: 560px;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+      filter: drop-shadow(0 24px 48px rgba(26,23,20,0.18));
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; }
+
+      .pd-page {
+        grid-template-columns: 1fr;
+        padding: 2.5rem 1.5rem 3rem;
+        gap: 2.5rem;
+        align-items: start;
+      }
+
+      .pd-word-prison,
+      .pd-word-donkey { font-size: clamp(64px, 18vw, 110px); }
+
+      .pd-logo-img { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="pd-grain" aria-hidden="true"></canvas>
+
+  <div class="pd-root">
+    <div class="pd-page">
+      <!-- Left — wordmark column -->
+      <div class="pd-left">
+        <div class="pd-eyebrow" aria-hidden="true">
+          <span class="pd-bars">&#9612;&#9612;&#9612;</span>
+          <span>CREATIVE STUDIO</span>
+          <span class="pd-bars">&#9612;&#9612;&#9612;</span>
+        </div>
+
+        <h1 class="pd-wordmark">
+          <span class="pd-word-prison">PRISON</span>
+          <span class="pd-word-donkey">DONKEY</span>
+        </h1>
+
+        <div class="pd-rule" aria-hidden="true"></div>
+
+        <p class="pd-tagline">
+          Making things that matter
+          <br />
+          <em>from the inside out.</em>
+        </p>
+      </div>
+
+      <!-- Right — logo image -->
+      <div class="pd-right">
+        <img
+          src="logo.png"
+          alt="Prison Donkey — a donkey in an orange jumpsuit painting a self-portrait"
+          class="pd-logo-img"
+        />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var canvas = document.getElementById('pd-grain');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var frame = 0;
+
+      function resize() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function drawGrain() {
+        frame++;
+        if (frame % 3 !== 0) { requestAnimationFrame(drawGrain); return; }
+        var w = canvas.width;
+        var h = canvas.height;
+        var imageData = ctx.createImageData(w, h);
+        var data = imageData.data;
+        for (var i = 0; i < data.length; i += 4) {
+          var v = Math.random() * 255;
+          data[i] = data[i + 1] = data[i + 2] = v;
+          data[i + 3] = Math.random() * 18 + 4;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        requestAnimationFrame(drawGrain);
+      }
+      drawGrain();
+    })();
+  </script>
+</body>
+</html>

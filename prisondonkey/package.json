@@ -2,12 +2,8 @@
   "name": "prisondonkey",
   "version": "1.0.0",
   "private": true,
+  "description": "Static landing page. No dependencies — served by the portal's express instance.",
   "scripts": {
-    "start": "node server.js",
-    "dev":   "NODE_ENV=development nodemon server.js"
-  },
-  "dependencies": {
-    "cors":    "^2.8.5",
-    "express": "^4.18.2"
+    "start": "echo 'prisondonkey has no standalone server. Mount via portal.'"
   }
 }
