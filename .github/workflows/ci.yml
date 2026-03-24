@@ -1,11 +1,5 @@
 name: CI
 
-# CI runs on pull_request only — not on push to main.
-# Rationale: this is a solo-contributor repo. Tests run on the PR before merge,
-# which is sufficient. Running again post-merge on every push to main adds CI
-# minutes with no safety benefit when there is only one contributor.
-#
-# TODO (docs/TODO.md): Re-enable push trigger when a second contributor joins.
 on:
   pull_request:
     branches: [main]
@@ -288,10 +282,6 @@ jobs:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     needs: [changes, test]
-    # Only run when portal, trackmyweek, or CI config files changed.
-    # bptracker and prisondonkey are intentionally excluded — they share no
-    # runtime code with the portal auth flow or trackmyweek UI, so Playwright
-    # adds no value there.
     if: |
       always() && needs.test.result != 'skipped' && (
         needs.changes.outputs.portal      == 'true' ||
@@ -380,9 +370,9 @@ jobs:
         run: npm run build
         working-directory: bptracker/client
 
-      - name: Start portal server
+      - name: Start portal server and capture output
         run: |
-          SESSION_SECRET=ci-e2e-secret NODE_ENV=production node portal/server.js &
+          SESSION_SECRET=ci-e2e-secret NODE_ENV=production node portal/server.js > /tmp/portal.log 2>&1 &
           echo $! > /tmp/portal.pid
 
       - name: Wait for portal to be ready
@@ -394,7 +384,9 @@ jobs:
             fi
             sleep 1
           done
-          echo "Portal did not start in 30s" && exit 1
+          echo "=== Portal failed to start. Server output: ==="
+          cat /tmp/portal.log
+          exit 1
 
       - name: Run portal E2E tests
         id: portal-e2e
