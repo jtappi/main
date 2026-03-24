@@ -283,7 +283,7 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: log test run results [skip ci]"
           git push origin HEAD:main
 
-  # ── Job 2: E2E Tests (Playwright) ────────────────────────────
+  # ── Job 2: E2E Tests (Playwright) ────────────────────────────────
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
@@ -317,6 +317,7 @@ jobs:
             trackmyweek/package-lock.json
             trackmyweek/client/package-lock.json
             bptracker/package-lock.json
+            bptracker/client/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -336,6 +337,10 @@ jobs:
       - name: Install bptracker dependencies
         run: npm ci
         working-directory: bptracker
+
+      - name: Install bptracker client dependencies
+        run: npm ci
+        working-directory: bptracker/client
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -370,6 +375,10 @@ jobs:
       - name: Build trackmyweek client
         run: npm run build
         working-directory: trackmyweek/client
+
+      - name: Build bptracker client
+        run: npm run build
+        working-directory: bptracker/client
 
       - name: Start portal server
         run: |
