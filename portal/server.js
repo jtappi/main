@@ -136,7 +136,7 @@ app.get('/login', (req, res) => {
  * Smart redirect logic:
  *   - Admin users always land on the dashboard.
  *   - Non-admin users with exactly one active accessible project are redirected
- *     directly to that project’s route — no dashboard stop.
+ *     directly to that project's route — no dashboard stop.
  *   - Everyone else (multi-project users) sees the dashboard.
  */
 app.get('/dashboard', requireAuth, (req, res) => {
@@ -282,9 +282,11 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
 });
 
 // ── Mount sub-apps (share session automatically) ─────────────────────────────
+// trackmyweek and bptracker have their own node_modules and export plain routers.
+// prisondonkey has no dependencies — it exports a factory that needs express passed in.
 app.use('/trackmyweek',  require('../trackmyweek/server'));
 app.use('/bptracker',    require('../bptracker/server'));
-app.use('/prisondonkey', require('../prisondonkey/server'));
+app.use('/prisondonkey', require('../prisondonkey/server')(express));
 
 // ── Export for testing ────────────────────────────────────────────────────
 if (require.main === module) {
