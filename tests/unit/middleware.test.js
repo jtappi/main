@@ -77,7 +77,7 @@ describe('requireAdmin', () => {
   });
 });
 
-// ── requireProjectAccess ───────────────────────────────────────────
+// ── requireProjectAccess ───────────────────────────────────────────────
 describe('requireProjectAccess', () => {
   test('calls next() when admin (bypasses project check)', () => {
     const { req, res, next } = makeReqRes({ role: 'admin', projectAccess: [] });
@@ -91,12 +91,13 @@ describe('requireProjectAccess', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  test('returns 403 when guest lacks access', () => {
+  test('redirects to /dashboard?denied=<projectId> when guest lacks access', () => {
+    // Previously returned a raw 403. Now redirects so the user lands somewhere
+    // useful with a contextual banner instead of a blank error page.
     const { req, res, next } = makeReqRes({ role: 'guest', projectAccess: ['other'] });
     requireProjectAccess('trackmyweek')(req, res, next);
     expect(next).not.toHaveBeenCalled();
-    expect(res._status).toBe(403);
-    expect(res._sent).toMatch(/access denied/i);
+    expect(res._redirect).toBe('/dashboard?denied=trackmyweek');
   });
 
   test('redirects to /login?returnTo=<url> for unauthenticated request', () => {

@@ -35,7 +35,7 @@ function requireProjectAccess(projectId) {
     if (user.projectAccess && user.projectAccess.includes(projectId)) {
       return next();
     }
-    return res.status(403).send('Access denied to this project.');
+    return res.redirect('/dashboard?denied=' + encodeURIComponent(projectId));
   };
 }
 

@@ -137,14 +137,16 @@ app.get('/login', (req, res) => {
  *   - Admin users always land on the dashboard.
  *   - Non-admin users with exactly one active accessible project are redirected
  *     directly to that project's route — no dashboard stop.
+ *     The ?denied param is forwarded so the banner renders on the destination page.
  *   - Everyone else (multi-project users) sees the dashboard.
  */
 app.get('/dashboard', requireAuth, (req, res) => {
   const user     = req.session.user;
   const projects = getAccessibleProjects(user);
+  const denied   = req.query.denied ? '?denied=' + encodeURIComponent(req.query.denied) : '';
 
   if (user.role !== 'admin' && projects.length === 1) {
-    return res.redirect(projects[0].route);
+    return res.redirect(projects[0].route + denied);
   }
 
   res.sendFile(path.join(__dirname, 'public/dashboard.html'));
@@ -284,7 +286,8 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
 // ── Mount sub-apps (share session automatically) ─────────────────────────────
 // requireAuth ensures unauthenticated users get a clean redirect to /login.
 // requireProjectAccess enforces that the session user has explicit access to
-// each project. Admins bypass the project check automatically.
+// each project. On denial, users are redirected to /dashboard?denied=<projectId>
+// instead of receiving a raw 403. Admins bypass the project check automatically.
 app.use('/trackmyweek',  requireAuth, requireProjectAccess('trackmyweek'),  require('../trackmyweek/server'));
 app.use('/bptracker',    requireAuth, requireProjectAccess('bptracker'),    require('../bptracker/server'));
 app.use('/prisondonkey', requireAuth, requireProjectAccess('prisondonkey'), require('../prisondonkey/server')(express));
