@@ -26,7 +26,7 @@ bptracker/
 |   |   +-- readings.controller.test.js    <- readings controller CRUD (20 tests) ✅
 |   +-- integration/
 |       +-- extract.api.test.js            <- POST /api/extract (7 tests) ✅
-|       +-- readings.api.test.js           <- readings API (see below)
+|       +-- readings.api.test.js           <- readings + users API (see below) ✅
 +-- client/
     +-- tests/
         +-- e2e/
@@ -100,6 +100,51 @@ Added in PR #110.
 | POST /api/extract — returns 502 extraction_failed when Gemini returns unparseable output | Integration | ✅ |
 | POST /api/extract — returns 400 when imageData is missing | Integration | ✅ |
 
+### `tests/integration/readings.api.test.js` — readings + users API
+
+#### GET /bptracker/api/readings
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| returns scoped readings for guest user | Integration | ✅ |
+| returns all readings for admin user | Integration | ✅ |
+| returns empty array when user has no readings | Integration | ✅ |
+
+#### POST /bptracker/api/readings
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| saves reading and returns 201 with reading object | Integration | ✅ |
+| returns 400 when required fields are missing | Integration | ✅ |
+| returns 400 when systolic is not an integer | Integration | ✅ |
+
+#### PUT /bptracker/api/readings/:id
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| owner can update notes on their own reading | Integration | ✅ |
+| returns 403 when user tries to edit another user's reading | Integration | ✅ |
+| returns 404 when reading does not exist | Integration | ✅ |
+| returns 400 when no valid update fields are provided | Integration | ✅ |
+
+#### DELETE /bptracker/api/readings/:id
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| owner can delete their own reading | Integration | ✅ |
+| returns 403 when user tries to delete another user's reading | Integration | ✅ |
+| returns 404 when reading does not exist | Integration | ✅ |
+
+#### GET /bptracker/api/users (admin-only — added in feat/bptracker-admin-user-selector)
+
+| Test | Classification | Status |
+|------|---------------|--------|
+| admin receives active bptracker users including themselves | Integration | ✅ |
+| returns only id and name — no sensitive fields | Integration | ✅ |
+| excludes inactive users | Integration | ✅ |
+| excludes users without bptracker project access | Integration | ✅ |
+| returns 403 for guest user | Integration | ✅ |
+
 ### Remaining integration gaps
 
 | Test | Classification | Status |
@@ -137,6 +182,11 @@ Added in PR #110.
 | History table shows readings newest first | Smoke | 🔴 |
 | Delete reading removes it from history table | Critical | 🔴 |
 | Inline notes edit persists after save | Critical | 🔴 |
+| Admin sees user selector dropdown on Reports page | Smoke | 🔴 |
+| Guest does not see user selector dropdown | Smoke | 🔴 |
+| Selecting a user filters readings to that user only | Critical | 🔴 |
+| Selecting "All users" shows all readings | Critical | 🔴 |
+| User selector persists when navigating away and back to Reports | Critical | 🔴 |
 
 ---
 
@@ -146,10 +196,11 @@ Full inventory lives in `tests/TESTIDS.md`. BP Tracker testids added so far:
 
 | Component | data-testid | Notes |
 |-----------|-------------|-------|
-| App.jsx / PortalTopBar | `portal-top-bar` | Always rendered (was conditional) |
+| App.jsx / PortalTopBar | `portal-top-bar` | Always rendered |
 | App.jsx / PortalTopBar | `portal-back-link` | Only when showDashboardLink=true |
 | App.jsx / PortalTopBar | `portal-top-bar-user` | Always rendered |
 | App.jsx / PortalTopBar | `portal-top-bar-signout` | Always rendered |
+| App.jsx / AppShell | `admin-user-select` | Admin only, Reports page only |
 | Capture.jsx | `capture-view` | Outer container, all states |
 | Capture.jsx | `capture-greeting` | Idle + manual states |
 | Capture.jsx | `capture-datetime` | Idle state only |

@@ -98,3 +98,15 @@ export async function extractReading(imageData, mediaType = 'image/jpeg') {
   }
   return res.json();
 }
+
+/**
+ * Fetch the list of active users with bptracker access.
+ * Admin-only endpoint — returns [{ id, name }].
+ *
+ * @returns {Promise<Array<{ id: string, name: string }>>}
+ */
+export async function getUsers() {
+  const res = await fetch(`${BASE}/users`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`getUsers failed: ${res.status}`);
+  return res.json();
+}

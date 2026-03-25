@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Capture from './pages/Capture.jsx';
 import Reports from './pages/Reports.jsx';
 import Success from './pages/Success.jsx';
@@ -28,6 +28,9 @@ function getInitialTextSize() {
  * Manages:
  *   - Session user fetch
  *   - Text size preference (localStorage-backed, applied as CSS class on app-shell)
+ *   - Admin user selector state (selectedUserId) — lives here so it persists
+ *     across navigation between Capture and Reports. Only Reports uses it;
+ *     Capture is unaffected.
  *   - PortalTopBar: always shown. showDashboardLink is true only for admins
  *     and multi-project users — single-project guests have no dashboard to
  *     return to (the portal auto-redirected them here directly).
@@ -38,9 +41,11 @@ function getInitialTextSize() {
  *   /bptracker/success   -> Success (after save)
  */
 export default function App() {
-  const [user,     setUser]     = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [textSize, setTextSize] = useState(getInitialTextSize);
+  const [user,            setUser]            = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [textSize,        setTextSize]        = useState(getInitialTextSize);
+  const [selectedUserId,  setSelectedUserId]  = useState('');
+  const [bptrackerUsers,  setBptrackerUsers]  = useState([]);
 
   useEffect(() => {
     fetch('/auth/session', { credentials: 'include' })
@@ -74,22 +79,94 @@ export default function App() {
 
   if (!user) return null;
 
-  const showDashboardLink = user.projectAccess.length > 1 || user.role === 'admin';
+  const isAdmin = user.role === 'admin';
+  const showDashboardLink = user.projectAccess.length > 1 || isAdmin;
 
   return (
     <BrowserRouter>
-      <div className={`app-shell text-${textSize}`} data-testid="app-shell">
-        <PortalTopBar userName={user.name} showDashboardLink={showDashboardLink} />
-        <div className="app-content">
-          <Routes>
-            <Route path="/bptracker"         element={<Capture user={user} />} />
-            <Route path="/bptracker/reports" element={<Reports user={user} />} />
-            <Route path="/bptracker/success" element={<Success />} />
-            <Route path="*"                  element={<Navigate to="/bptracker" replace />} />
-          </Routes>
-        </div>
-        <BottomNav textSize={textSize} onTextSize={handleTextSize} />
-      </div>
+      <AppShell
+        user={user}
+        isAdmin={isAdmin}
+        showDashboardLink={showDashboardLink}
+        textSize={textSize}
+        onTextSize={handleTextSize}
+        selectedUserId={selectedUserId}
+        setSelectedUserId={setSelectedUserId}
+        bptrackerUsers={bptrackerUsers}
+        setBptrackerUsers={setBptrackerUsers}
+      />
     </BrowserRouter>
+  );
+}
+
+/**
+ * AppShell — rendered inside BrowserRouter so it can call useLocation.
+ *
+ * The admin user selector dropdown is only shown when the current route
+ * is Reports — the only page where viewing another user's data is supported.
+ */
+function AppShell({
+  user,
+  isAdmin,
+  showDashboardLink,
+  textSize,
+  onTextSize,
+  selectedUserId,
+  setSelectedUserId,
+  bptrackerUsers,
+  setBptrackerUsers,
+}) {
+  const location = useLocation();
+  const isReports = location.pathname === '/bptracker/reports';
+
+  // Build the adminControls node — only on Reports, only for admins
+  let adminControls = null;
+  if (isAdmin && isReports) {
+    adminControls = (
+      <>
+        <label htmlFor="admin-user-select">Viewing:</label>
+        <select
+          id="admin-user-select"
+          className="admin-user-select"
+          data-testid="admin-user-select"
+          value={selectedUserId}
+          onChange={(e) => setSelectedUserId(e.target.value)}
+        >
+          <option value="">All users</option>
+          {bptrackerUsers.map((u) => (
+            <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+      </>
+    );
+  }
+
+  return (
+    <div className={`app-shell text-${textSize}`} data-testid="app-shell">
+      <PortalTopBar
+        userName={user.name}
+        showDashboardLink={showDashboardLink}
+        adminControls={adminControls}
+      />
+      <div className="app-content">
+        <Routes>
+          <Route path="/bptracker"         element={<Capture user={user} />} />
+          <Route
+            path="/bptracker/reports"
+            element={
+              <Reports
+                user={user}
+                selectedUserId={selectedUserId}
+                bptrackerUsers={bptrackerUsers}
+                setBptrackerUsers={setBptrackerUsers}
+              />
+            }
+          />
+          <Route path="/bptracker/success" element={<Success />} />
+          <Route path="*"                  element={<Navigate to="/bptracker" replace />} />
+        </Routes>
+      </div>
+      <BottomNav textSize={textSize} onTextSize={onTextSize} />
+    </div>
   );
 }
