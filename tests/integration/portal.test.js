@@ -465,3 +465,79 @@ describe('parseJsonlLines (via GET /api/test-runs)', () => {
     fs.unlinkSync(tmpLog);
   });
 });
+
+// ── Project access gate — sub-app mount points ─────────────────────────────────────────────
+describe('Project access gate', () => {
+  test('unauthenticated request to /trackmyweek redirects to login with returnTo', async () => {
+    const res = await request(app).get('/trackmyweek');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login?returnTo=%2Ftrackmyweek');
+  });
+
+  test('unauthenticated request to /bptracker redirects to login with returnTo', async () => {
+    const res = await request(app).get('/bptracker');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login?returnTo=%2Fbptracker');
+  });
+
+  test('unauthenticated request to /prisondonkey redirects to login with returnTo', async () => {
+    const res = await request(app).get('/prisondonkey');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login?returnTo=%2Fprisondonkey');
+  });
+
+  test('guest with trackmyweek access can reach /trackmyweek', async () => {
+    // testsingle has projectAccess: ["trackmyweek"]
+    const agent = request.agent(app);
+    await loginAs(agent, 'testsingle');
+    const res = await agent.get('/trackmyweek');
+    // Sub-app serves the SPA index.html — expect 200
+    expect(res.status).toBe(200);
+  });
+
+  test('guest without trackmyweek access is denied /trackmyweek with 403', async () => {
+    // testnoaccess has projectAccess: []
+    const agent = request.agent(app);
+    await loginAs(agent, 'testnoaccess');
+    const res = await agent.get('/trackmyweek');
+    expect(res.status).toBe(403);
+  });
+
+  test('guest without bptracker access is denied /bptracker with 403', async () => {
+    // testsingle only has trackmyweek
+    const agent = request.agent(app);
+    await loginAs(agent, 'testsingle');
+    const res = await agent.get('/bptracker');
+    expect(res.status).toBe(403);
+  });
+
+  test('guest without prisondonkey access is denied /prisondonkey with 403', async () => {
+    // testsingle only has trackmyweek
+    const agent = request.agent(app);
+    await loginAs(agent, 'testsingle');
+    const res = await agent.get('/prisondonkey');
+    expect(res.status).toBe(403);
+  });
+
+  test('admin can reach /trackmyweek regardless of projectAccess array', async () => {
+    // testadmin role=admin — bypasses project access check
+    const agent = request.agent(app);
+    await loginAs(agent, 'testadmin');
+    const res = await agent.get('/trackmyweek');
+    expect(res.status).toBe(200);
+  });
+
+  test('admin can reach /bptracker regardless of projectAccess array', async () => {
+    const agent = request.agent(app);
+    await loginAs(agent, 'testadmin');
+    const res = await agent.get('/bptracker');
+    expect(res.status).toBe(200);
+  });
+
+  test('admin can reach /prisondonkey regardless of projectAccess array', async () => {
+    const agent = request.agent(app);
+    await loginAs(agent, 'testadmin');
+    const res = await agent.get('/prisondonkey');
+    expect(res.status).toBe(200);
+  });
+});
