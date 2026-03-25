@@ -83,3 +83,64 @@
   color: #4fb8c4;
   background: #d6f0f3;
 }
+
+/* ── Access Denied Banner ───────────────────────────────────── */
+.access-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #fef3c7;
+  border-bottom: 1.5px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.access-banner-body {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.access-banner-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.access-banner-close {
+  background: none;
+  border: none;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #92400e;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.access-banner-close:hover { opacity: 1; }
+
+.access-banner-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #d97706;
+  width: 100%;
+  transform-origin: left;
+  animation: banner-countdown 5s linear forwards;
+}
+
+@keyframes banner-countdown {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
