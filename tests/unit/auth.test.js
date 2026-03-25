@@ -126,8 +126,8 @@ describe('updateLastLogin', () => {
 describe('getAllUsers', () => {
   test('returns all users', () => {
     const users = auth.getAllUsers(FIXTURE);
-    // fixture has: testadmin, testguest, testsingle, inactiveuser
-    expect(users.length).toBe(4);
+    // fixture has: testadmin, testguest, testsingle, inactiveuser, testnoaccess
+    expect(users.length).toBe(5);
   });
 });
 

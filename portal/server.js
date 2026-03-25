@@ -11,7 +11,7 @@ const fs      = require('fs');
 const https   = require('https');
 
 const auth = require('../core/auth/auth');
-const { requireAuth, requireAdmin } = require('../core/auth/middleware');
+const { requireAuth, requireAdmin, requireProjectAccess } = require('../core/auth/middleware');
 
 const app  = express();
 const PORT = process.env.PORTAL_PORT || 3000;
@@ -282,11 +282,12 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
 });
 
 // ── Mount sub-apps (share session automatically) ─────────────────────────────
-// trackmyweek and bptracker have their own node_modules and export plain routers.
-// prisondonkey has no dependencies — exports a factory that needs express passed in.
-app.use('/trackmyweek',  require('../trackmyweek/server'));
-app.use('/bptracker',    require('../bptracker/server'));
-app.use('/prisondonkey', require('../prisondonkey/server')(express));
+// requireAuth ensures unauthenticated users get a clean redirect to /login.
+// requireProjectAccess enforces that the session user has explicit access to
+// each project. Admins bypass the project check automatically.
+app.use('/trackmyweek',  requireAuth, requireProjectAccess('trackmyweek'),  require('../trackmyweek/server'));
+app.use('/bptracker',    requireAuth, requireProjectAccess('bptracker'),    require('../bptracker/server'));
+app.use('/prisondonkey', requireAuth, requireProjectAccess('prisondonkey'), require('../prisondonkey/server')(express));
 
 // ── Export for testing ────────────────────────────────────────────────────
 if (require.main === module) {
