@@ -2,6 +2,7 @@
 
 /**
  * readings.api.test.js — integration tests for /bptracker/api/readings
+ * and /bptracker/api/users
  *
  * jest.mock() calls are hoisted by Jest to the top of this file before any
  * require() runs. This ensures the mocks are in place when server.js and the
@@ -33,12 +34,60 @@ jest.mock('../../lib/data', () => ({
   IMAGES_DIR:         '/tmp/bptracker-test/images',
 }));
 
+const mockGetAllUsers = jest.fn();
+jest.mock('../../../core/auth/auth', () => ({
+  getAllUsers: mockGetAllUsers,
+}));
+
 const request = require('supertest');
 const express = require('express');
 
 function buildApp(user) {
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => { req.session = { user }; next(); });
+  app.use('/bptracker', require('../../server'));
+  return app;
+}
+
+/**
+ * buildAppWithRealMiddleware — builds the app with real requireAdmin middleware
+ * so we can test that non-admin users are rejected from admin-only routes.
+ */
+function buildAppWithAuth(user) {
+  jest.resetModules();
+
+  jest.mock('../../../core/auth/middleware', () => ({
+    requireAuth:  (_req, _res, next) => next(),
+    requireAdmin: (req, res, next) => {
+      if (req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin only.' });
+      }
+      next();
+    },
+    requireProjectAccess: () => (_req, _res, next) => next(),
+  }));
+
+  jest.mock('../../lib/data', () => ({
+    readReadings:       jest.fn().mockReturnValue([]),
+    writeReadings:      jest.fn(),
+    filterByUserId:     jest.fn((r) => r),
+    appendReading:      jest.fn(),
+    updateReading:      jest.fn(),
+    deleteReading:      jest.fn(),
+    purgeExpiredImages: jest.fn(() => ({ purged: 0 })),
+    IMAGE_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
+    DATA_DIR:           '/tmp/bptracker-test',
+    IMAGES_DIR:         '/tmp/bptracker-test/images',
+  }));
+
+  jest.mock('../../../core/auth/auth', () => ({
+    getAllUsers: mockGetAllUsers,
+  }));
+
+  const expressInner = require('express');
+  const app = expressInner();
+  app.use(expressInner.json());
   app.use((req, _res, next) => { req.session = { user }; next(); });
   app.use('/bptracker', require('../../server'));
   return app;
@@ -56,6 +105,17 @@ function makeReading(overrides = {}) {
     extractionConfidence: 'high',
     notes:                null,
     createdAt:            '2026-03-16T08:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makeUser(overrides = {}) {
+  return {
+    id:            'user-001',
+    name:          'Alice',
+    role:          'guest',
+    active:        true,
+    projectAccess: ['bptracker'],
     ...overrides,
   };
 }
@@ -248,5 +308,76 @@ describe('DELETE /bptracker/api/readings/:id', () => {
     const res = await request(app).delete('/bptracker/api/readings/nonexistent');
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /bptracker/api/users
+// ---------------------------------------------------------------------------
+describe('GET /bptracker/api/users', () => {
+  test('admin receives active bptracker users including themselves', async () => {
+    mockGetAllUsers.mockReturnValue([
+      makeUser({ id: 'admin-001', name: 'Admin', role: 'admin', projectAccess: [] }),
+      makeUser({ id: 'user-001', name: 'Alice', role: 'guest', projectAccess: ['bptracker'] }),
+      makeUser({ id: 'user-002', name: 'Bob',   role: 'guest', projectAccess: ['trackmyweek'] }),
+    ]);
+
+    const app = buildApp({ id: 'admin-001', role: 'admin' });
+    const res = await request(app).get('/bptracker/api/users');
+
+    expect(res.status).toBe(200);
+    // Admin always included; Alice has bptracker access; Bob does not
+    expect(res.body).toHaveLength(2);
+    expect(res.body.map(u => u.name)).toEqual(expect.arrayContaining(['Admin', 'Alice']));
+    expect(res.body.map(u => u.name)).not.toContain('Bob');
+  });
+
+  test('returns only id and name — no sensitive fields', async () => {
+    mockGetAllUsers.mockReturnValue([
+      makeUser({ id: 'admin-001', name: 'Admin', role: 'admin', email: 'admin@example.com', passwordHash: 'secret' }),
+    ]);
+
+    const app = buildApp({ id: 'admin-001', role: 'admin' });
+    const res = await request(app).get('/bptracker/api/users');
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual({ id: 'admin-001', name: 'Admin' });
+    expect(res.body[0].email).toBeUndefined();
+    expect(res.body[0].passwordHash).toBeUndefined();
+  });
+
+  test('excludes inactive users', async () => {
+    mockGetAllUsers.mockReturnValue([
+      makeUser({ id: 'admin-001', name: 'Admin', role: 'admin' }),
+      makeUser({ id: 'user-001', name: 'Alice', active: false, projectAccess: ['bptracker'] }),
+    ]);
+
+    const app = buildApp({ id: 'admin-001', role: 'admin' });
+    const res = await request(app).get('/bptracker/api/users');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe('Admin');
+  });
+
+  test('excludes users without bptracker project access', async () => {
+    mockGetAllUsers.mockReturnValue([
+      makeUser({ id: 'admin-001', name: 'Admin', role: 'admin' }),
+      makeUser({ id: 'user-001', name: 'Alice', projectAccess: [] }),
+      makeUser({ id: 'user-002', name: 'Bob',   projectAccess: ['trackmyweek'] }),
+    ]);
+
+    const app = buildApp({ id: 'admin-001', role: 'admin' });
+    const res = await request(app).get('/bptracker/api/users');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe('Admin');
+  });
+
+  test('returns 403 for guest user', async () => {
+    const app = buildAppWithAuth({ id: 'user-001', role: 'guest' });
+    const res = await request(app).get('/bptracker/api/users');
+    expect(res.status).toBe(403);
   });
 });

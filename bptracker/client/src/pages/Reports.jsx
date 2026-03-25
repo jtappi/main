@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getReadings } from '../api/client.js';
+import { getReadings, getUsers } from '../api/client.js';
 import SummaryCards from '../components/SummaryCards.jsx';
 import TrendChart from '../components/TrendChart.jsx';
 import HistoryTable from '../components/HistoryTable.jsx';
@@ -7,27 +7,43 @@ import HistoryTable from '../components/HistoryTable.jsx';
 /**
  * Reports — full reports view.
  *
- * Fetches readings on mount, manages range state shared between
- * TrendChart and HistoryTable, handles loading and empty states.
+ * Fetches all readings on mount (admin gets everyone's, guest gets their own).
+ * For admin users, client-side filters by selectedUserId when one is chosen.
+ * Also fetches the bptracker user list (admin only) and hands it up to App
+ * via setBptrackerUsers so the PortalTopBar dropdown stays populated.
+ *
+ * Props:
+ *   user             {Object}   — session user from App
+ *   selectedUserId   {string}   — '' means all users; a user id means that user only
+ *   bptrackerUsers   {Array}    — [{id, name}] list from /api/users (admin only)
+ *   setBptrackerUsers {Function} — setter from App to store user list
  */
-export default function Reports({ user }) {
-  const [readings, setReadings] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [range,    setRange]    = useState('30d');
+export default function Reports({ user, selectedUserId, bptrackerUsers, setBptrackerUsers }) {
+  const [readings,    setReadings]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [range,       setRange]       = useState('30d');
+
+  const isAdmin = user.role === 'admin';
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getReadings();
-      setReadings(data);
+      const [readingsData, usersData] = await Promise.all([
+        getReadings(),
+        isAdmin && bptrackerUsers.length === 0 ? getUsers() : Promise.resolve(null),
+      ]);
+      setReadings(readingsData);
+      if (usersData !== null) {
+        setBptrackerUsers(usersData);
+      }
     } catch (err) {
-      setError('Could not load readings. Please try again.');
+      setError('Could not load data. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, setBptrackerUsers]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -38,6 +54,16 @@ export default function Reports({ user }) {
   function handleDelete(id) {
     setReadings(prev => prev.filter(r => r.id !== id));
   }
+
+  // Apply admin user filter — if a specific user is selected, show only their readings.
+  // For non-admins selectedUserId is always '' so this is a no-op.
+  const visibleReadings = selectedUserId
+    ? readings.filter(r => r.userId === selectedUserId)
+    : readings;
+
+  // Heading label: show whose data we're looking at when a user is selected
+  const selectedUser = bptrackerUsers.find(u => u.id === selectedUserId);
+  const headingLabel = selectedUser ? `Reports — ${selectedUser.name}` : 'Reports';
 
   if (loading) {
     return (
@@ -64,12 +90,14 @@ export default function Reports({ user }) {
     );
   }
 
-  if (!readings.length) {
+  if (!visibleReadings.length) {
     return (
       <div className="reports-view" data-testid="reports-view">
-        <h1 className="reports-heading">Reports</h1>
+        <h1 className="reports-heading">{headingLabel}</h1>
         <div className="reports-empty" data-testid="reports-empty">
-          No readings yet. Take your first reading to see your data here.
+          {selectedUser
+            ? `No readings found for ${selectedUser.name}.`
+            : 'No readings yet. Take your first reading to see your data here.'}
         </div>
       </div>
     );
@@ -77,18 +105,18 @@ export default function Reports({ user }) {
 
   return (
     <div className="reports-view" data-testid="reports-view">
-      <h1 className="reports-heading">Reports</h1>
+      <h1 className="reports-heading">{headingLabel}</h1>
 
-      <SummaryCards readings={readings} />
+      <SummaryCards readings={visibleReadings} />
 
       <TrendChart
-        readings={readings}
+        readings={visibleReadings}
         range={range}
         onRange={setRange}
       />
 
       <HistoryTable
-        readings={readings}
+        readings={visibleReadings}
         range={range}
         onUpdate={handleUpdate}
         onDelete={handleDelete}

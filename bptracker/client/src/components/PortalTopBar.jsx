@@ -3,16 +3,20 @@ import './PortalTopBar.css';
 
 /**
  * PortalTopBar — always shown inside subprojects.
- * Provides a "Back to Dashboard" link (when showDashboardLink is true)
- * and always provides the user chip and Sign out button.
+ * Provides a "Back to Dashboard" link (when showDashboardLink is true),
+ * an optional adminControls slot in the centre, and always the user chip
+ * and Sign out button on the right.
  *
  * Props:
- *   userName           {string}  — display name from session
- *   showDashboardLink  {boolean} — show the back link (default true)
- *                                  false for single-project guests who have
- *                                  no dashboard to return to
+ *   userName           {string}        — display name from session
+ *   showDashboardLink  {boolean}       — show the back link (default true)
+ *                                        false for single-project guests who have
+ *                                        no dashboard to return to
+ *   adminControls      {React.Node}    — optional content rendered in the centre
+ *                                        of the bar (admin user selector, etc.)
+ *                                        null/undefined renders nothing
  */
-export default function PortalTopBar({ userName, showDashboardLink = true }) {
+export default function PortalTopBar({ userName, showDashboardLink = true, adminControls = null }) {
   async function handleSignOut() {
     await fetch('/auth/logout', { method: 'POST' });
     window.location.href = '/login';
@@ -41,6 +45,12 @@ export default function PortalTopBar({ userName, showDashboardLink = true }) {
           </svg>
           Dashboard
         </a>
+      )}
+
+      {adminControls && (
+        <div className="portal-top-bar__admin-controls">
+          {adminControls}
+        </div>
       )}
 
       <div className="portal-top-bar__right">
