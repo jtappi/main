@@ -172,6 +172,16 @@ describe('GET /dashboard', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('/trackmyweek');
   });
+
+  test('forwards ?denied param through single-project redirect', async () => {
+    // testsingle has only trackmyweek — when denied=bptracker is present,
+    // the redirect destination should carry the param so the banner renders.
+    const agent = request.agent(app);
+    await loginAs(agent, 'testsingle');
+    const res = await agent.get('/dashboard?denied=bptracker');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/trackmyweek?denied=bptracker');
+  });
 });
 
 describe('GET /admin', () => {
@@ -497,28 +507,31 @@ describe('Project access gate', () => {
     expect(res.status).not.toBe(403);
   });
 
-  test('guest without trackmyweek access is denied /trackmyweek with 403', async () => {
+  test('guest without trackmyweek access is redirected to /dashboard?denied=trackmyweek', async () => {
     // testnoaccess has projectAccess: []
     const agent = request.agent(app);
     await loginAs(agent, 'testnoaccess');
     const res = await agent.get('/trackmyweek');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/dashboard?denied=trackmyweek');
   });
 
-  test('guest without bptracker access is denied /bptracker with 403', async () => {
+  test('guest without bptracker access is redirected to /dashboard?denied=bptracker', async () => {
     // testsingle only has trackmyweek
     const agent = request.agent(app);
     await loginAs(agent, 'testsingle');
     const res = await agent.get('/bptracker');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/dashboard?denied=bptracker');
   });
 
-  test('guest without prisondonkey access is denied /prisondonkey with 403', async () => {
+  test('guest without prisondonkey access is redirected to /dashboard?denied=prisondonkey', async () => {
     // testsingle only has trackmyweek
     const agent = request.agent(app);
     await loginAs(agent, 'testsingle');
     const res = await agent.get('/prisondonkey');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/dashboard?denied=prisondonkey');
   });
 
   test('admin passes the gate for /trackmyweek regardless of projectAccess array', async () => {
