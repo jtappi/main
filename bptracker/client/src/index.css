@@ -98,6 +98,14 @@ input, textarea {
   flex: 1;
   overflow-y: auto;
   padding-bottom: 72px;
+  /*
+   * The PortalTopBar uses position: fixed to escape .app-shell's max-width
+   * constraint and span the full viewport. This padding-top reserves space
+   * so content starts below the bar rather than hidden under it.
+   * 44px = 0.6rem top padding + 0.6rem bottom padding + ~0.875rem line-height
+   * at 16px base font = ~43.8px. Rounded up to 44px.
+   */
+  padding-top: 44px;
 }
 
 .app-loading {
