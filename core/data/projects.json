@@ -28,5 +28,15 @@
     "status": "active",
     "createdAt": "2026-03-19T00:00:00.000Z",
     "icon": "<svg class=\"project-icon-svg\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"5\" y=\"5\" width=\"90\" height=\"90\" rx=\"4\" fill=\"#1A1714\"/><text x=\"50\" y=\"62\" font-family=\"Impact,sans-serif\" font-size=\"46\" fill=\"#E8550A\" text-anchor=\"middle\" letter-spacing=\"1\">PD</text><line x1=\"15\" y1=\"72\" x2=\"85\" y2=\"72\" stroke=\"#E8550A\" stroke-width=\"4\"/></svg>"
+  },
+  {
+    "id": "task-manager",
+    "name": "Task Manager",
+    "description": "Personal to-do list with kanban board, timeline, and calendar view.",
+    "route": "/task-manager",
+    "port": 3004,
+    "status": "active",
+    "createdAt": "2026-05-23T00:00:00.000Z",
+    "icon": "<svg class=\"project-icon-svg\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"15\" width=\"80\" height=\"75\" rx=\"8\" fill=\"#f5f4f0\" stroke=\"#d4cfc4\" stroke-width=\"3\"/><rect x=\"10\" y=\"15\" width=\"80\" height=\"22\" rx=\"8\" fill=\"#1a1a18\"/><rect x=\"10\" y=\"29\" width=\"80\" height=\"8\" fill=\"#1a1a18\"/><line x1=\"43\" y1=\"37\" x2=\"43\" y2=\"90\" stroke=\"#d4cfc4\" stroke-width=\"2\"/><line x1=\"67\" y1=\"37\" x2=\"67\" y2=\"90\" stroke=\"#d4cfc4\" stroke-width=\"2\"/><rect x=\"15\" y=\"44\" width=\"22\" height=\"10\" rx=\"3\" fill=\"#5DCAA5\"/><rect x=\"15\" y=\"58\" width=\"22\" height=\"10\" rx=\"3\" fill=\"#5DCAA5\" opacity=\"0.5\"/><rect x=\"48\" y=\"44\" width=\"14\" height=\"10\" rx=\"3\" fill=\"#F0997B\"/><rect x=\"72\" y=\"44\" width=\"13\" height=\"10\" rx=\"3\" fill=\"#85B7EB\"/><rect x=\"72\" y=\"58\" width=\"13\" height=\"10\" rx=\"3\" fill=\"#85B7EB\" opacity=\"0.5\"/></svg>"
   }
 ]

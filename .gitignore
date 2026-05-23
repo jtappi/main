@@ -12,6 +12,9 @@ core/data/users.json
 trackmyweek/data/data.json
 trackmyweek/data/questions.json
 
+# Task Manager runtime data — template committed, live file gitignored
+task-manager/tasks.json
+
 # macOS
 .DS_Store
 
