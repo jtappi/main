@@ -18,6 +18,7 @@ jobs:
       trackmyweek:   ${{ steps.filter.outputs.trackmyweek }}
       bptracker:     ${{ steps.filter.outputs.bptracker }}
       prisondonkey:  ${{ steps.filter.outputs.prisondonkey }}
+      taskmanager:   ${{ steps.filter.outputs.taskmanager }}
       ci:            ${{ steps.filter.outputs.ci }}
       scripts:       ${{ steps.filter.outputs.scripts }}
     steps:
@@ -37,6 +38,8 @@ jobs:
               - 'bptracker/**'
             prisondonkey:
               - 'prisondonkey/**'
+            taskmanager:
+              - 'task-manager/**'
             ci:
               - '.github/workflows/**'
             scripts:
@@ -53,6 +56,7 @@ jobs:
         needs.changes.outputs.trackmyweek   == 'true' ||
         needs.changes.outputs.bptracker     == 'true' ||
         needs.changes.outputs.prisondonkey  == 'true' ||
+        needs.changes.outputs.taskmanager   == 'true' ||
         needs.changes.outputs.ci            == 'true' ||
         needs.changes.outputs.scripts       == 'true'
       )
@@ -74,6 +78,7 @@ jobs:
             portal/package-lock.json
             trackmyweek/package-lock.json
             bptracker/package-lock.json
+            task-manager/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -90,6 +95,10 @@ jobs:
         run: npm ci
         working-directory: bptracker
 
+      - name: Install task-manager dependencies
+        run: npm ci
+        working-directory: task-manager
+
       - name: Bootstrap data files
         run: cp core/data/users.template.json core/data/users.json
 
@@ -105,6 +114,10 @@ jobs:
           [ -f bptracker/data/readings.json ] || cp bptracker/data/readings.template.json bptracker/data/readings.json
           mkdir -p bptracker/data/images
 
+      - name: Bootstrap task-manager data files
+        run: |
+          [ -f task-manager/tasks.json ] || cp task-manager/data/tasks.template.json task-manager/tasks.json
+
       - name: Ensure log file exists
         run: touch logs/test-runs.jsonl
 
@@ -119,6 +132,10 @@ jobs:
       - name: Run bptracker unit & integration tests
         run: npm test -- --ci --forceExit --json --outputFile=/tmp/bptracker-jest-results.json
         working-directory: bptracker
+
+      - name: Run task-manager unit & integration tests
+        run: npm test -- --ci --forceExit --json --outputFile=/tmp/taskmanager-jest-results.json
+        working-directory: task-manager
 
       - name: Upload portal coverage report
         if: always()
@@ -262,6 +279,10 @@ jobs:
         if: always()
         run: node scripts/log-test-run.js /tmp/bptracker-jest-results.json --project=bptracker
 
+      - name: Log task-manager test run results
+        if: always()
+        run: node scripts/log-test-run.js /tmp/taskmanager-jest-results.json --project=task-manager
+
       - name: Commit and push test log
         if: always()
         run: |
@@ -286,6 +307,7 @@ jobs:
       always() && needs.test.result != 'skipped' && (
         needs.changes.outputs.portal      == 'true' ||
         needs.changes.outputs.trackmyweek == 'true' ||
+        needs.changes.outputs.taskmanager == 'true' ||
         needs.changes.outputs.ci          == 'true'
       )
 
@@ -308,6 +330,7 @@ jobs:
             trackmyweek/client/package-lock.json
             bptracker/package-lock.json
             bptracker/client/package-lock.json
+            task-manager/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -331,6 +354,10 @@ jobs:
       - name: Install bptracker client dependencies
         run: npm ci
         working-directory: bptracker/client
+
+      - name: Install task-manager dependencies
+        run: npm ci
+        working-directory: task-manager
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -361,6 +388,10 @@ jobs:
         run: |
           [ -f bptracker/data/readings.json ] || cp bptracker/data/readings.template.json bptracker/data/readings.json
           mkdir -p bptracker/data/images
+
+      - name: Bootstrap task-manager data files
+        run: |
+          [ -f task-manager/tasks.json ] || cp task-manager/data/tasks.template.json task-manager/tasks.json
 
       - name: Build trackmyweek client
         run: npm run build
