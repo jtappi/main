@@ -12,8 +12,8 @@
       <h1>My Tasks — 2026</h1>
       <div class="hdr-right">
         <div class="view-switch" role="tablist" aria-label="Choose view">
-          <button id="view-v1-btn" class="view-btn active" onclick="setView('v1')">V1</button>
-          <button id="view-v2-btn" class="view-btn" onclick="setView('v2')">V2</button>
+          <button id="view-v1-btn" class="view-btn active">V1</button>
+          <button id="view-v2-btn" class="view-btn">V2</button>
         </div>
         <span class="sv" id="sv"></span>
       </div>
@@ -25,11 +25,11 @@
       <input type="text" id="ni" placeholder="What needs to be done?" autocomplete="off" />
       <div class="add-row">
         <div class="pills">
-          <button class="pill pw active" id="p-working" onclick="selCat('working')">Working on</button>
-          <button class="pill pa" id="p-asap" onclick="selCat('asap')">Do ASAP</button>
-          <button class="pill pl" id="p-later" onclick="selCat('later')">Do Later</button>
+          <button class="pill pw active" id="p-working">Working on</button>
+          <button class="pill pa" id="p-asap">Do ASAP</button>
+          <button class="pill pl" id="p-later">Do Later</button>
         </div>
-        <button class="add-btn" onclick="addTask()">Add</button>
+        <button class="add-btn" id="add-btn-v1">Add</button>
       </div>
     </div>
 
@@ -58,14 +58,12 @@
     </div>
 
     <div class="foot">
-      <button class="secbtn" id="tgl-closed" onclick="toggleClosed()">Show closed tasks (0)</button>
-      <button class="clrbtn" onclick="clearDone()">Clear completed</button>
+      <button class="secbtn" id="tgl-closed">Show closed tasks (0)</button>
+      <button class="clrbtn" id="clear-done-v1">Clear completed</button>
     </div>
 
     <div class="closed-wrap hide" id="closed-wrap">
-      <div class="closed-hd">
-        <span>Closed Task Audit Trail</span>
-      </div>
+      <div class="closed-hd"><span>Closed Task Audit Trail</span></div>
       <div id="closed-list"></div>
     </div>
 
@@ -81,7 +79,7 @@
             <option value="later">Do Later</option>
           </select>
           <input type="date" id="date2" class="v2-select" />
-          <button class="add-btn" onclick="addTaskFromV2()">Add Task</button>
+          <button class="add-btn" id="add-btn-v2">Add Task</button>
         </div>
       </div>
 
@@ -96,16 +94,16 @@
         <div class="v2-timeline-top">
           <div class="v2-section-hd">Timeline</div>
           <div class="v2-timeline-switch" role="tablist" aria-label="Timeline view mode">
-            <button id="timeline-list-btn" class="timeline-btn active" onclick="setTimelineMode('list')">List</button>
-            <button id="timeline-swimlane-btn" class="timeline-btn" onclick="setTimelineMode('swimlane')">Calendar Mon-Fri</button>
+            <button id="timeline-list-btn" class="timeline-btn active">List</button>
+            <button id="timeline-swimlane-btn" class="timeline-btn">Calendar Mon-Fri</button>
           </div>
         </div>
         <div class="v2-week-row" id="v2-week-row">
           <div class="v2-week-label" id="v2-week-label"></div>
           <div class="v2-week-nav">
-            <button class="timeline-btn" onclick="shiftSwimlaneWeek(-1)">Previous Week</button>
-            <button class="timeline-btn" onclick="jumpToCurrentSwimlaneWeek()">This Week</button>
-            <button class="timeline-btn" onclick="shiftSwimlaneWeek(1)">Next Week</button>
+            <button class="timeline-btn" id="week-prev">Previous Week</button>
+            <button class="timeline-btn" id="week-today">This Week</button>
+            <button class="timeline-btn" id="week-next">Next Week</button>
           </div>
         </div>
         <div class="v2-timeline" id="v2-timeline"></div>
@@ -117,7 +115,7 @@
             <div class="v2-section-hd">Timeline Focus</div>
             <div class="v2-focus-title" id="v2-focus-title"></div>
           </div>
-          <button class="timeline-btn" onclick="closeTimelinePanel()">Close</button>
+          <button class="timeline-btn" id="focus-close">Close</button>
         </div>
         <div class="v2-focus-meta" id="v2-focus-meta"></div>
         <div class="v2-focus-grid">
@@ -127,25 +125,23 @@
           <label class="full">Notes<textarea id="focus-notes" rows="4" placeholder="context, blockers, dependencies"></textarea></label>
         </div>
         <div class="v2-focus-actions">
-          <button class="mvbtn" id="focus-save" onclick="saveTimelinePanelDetails()">Save</button>
+          <button class="mvbtn" id="focus-save">Save</button>
         </div>
       </section>
 
       <div class="v2-board-toggle-row">
-        <button class="timeline-btn" id="v2-board-toggle" onclick="toggleV2Board()">Show Board</button>
+        <button class="timeline-btn" id="v2-board-toggle">Show Board</button>
       </div>
 
       <div class="v2-board" id="v2-list"></div>
 
       <div class="foot">
-        <button class="secbtn" id="tgl-closed-2" onclick="toggleClosed()">Show closed tasks (0)</button>
-        <button class="clrbtn" onclick="clearDone()">Clear completed</button>
+        <button class="secbtn" id="tgl-closed-2">Show closed tasks (0)</button>
+        <button class="clrbtn" id="clear-done-v2">Clear completed</button>
       </div>
 
       <div class="closed-wrap hide" id="closed-wrap-2">
-        <div class="closed-hd">
-          <span>Closed Task Audit Trail</span>
-        </div>
+        <div class="closed-hd"><span>Closed Task Audit Trail</span></div>
         <div id="closed-list-2"></div>
       </div>
     </div>
