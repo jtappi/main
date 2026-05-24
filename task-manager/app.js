@@ -11,6 +11,15 @@ let timelinePanelTaskId = null;
 let showV2Board = false;
 let noDateCollapsed = true;
 
+// Resolve the API base path from the current URL so the app works both
+// standalone (dev, port 3004) and mounted in the portal at /task-manager.
+// e.g. http://localhost:3000/task-manager/  -> '/task-manager'
+//      http://localhost:3004/               -> ''
+const API_BASE = (function () {
+  const p = window.location.pathname.replace(/\/$/, '');
+  return p.endsWith('/task-manager') ? p : '';
+}());
+
 const LABELS = { working: 'Working on', asap: 'Do ASAP', later: 'Do Later' };
 const LIST_IDS = { working: 'lw', asap: 'la', later: 'll' };
 const COUNT_IDS = { working: 'cw', asap: 'ca', later: 'cl' };
@@ -60,7 +69,7 @@ function nextOrder(cat) {
 
 async function loadTasks() {
   try {
-    const res = await fetch('/api/tasks');
+    const res = await fetch(API_BASE + '/api/tasks');
     if (res.ok) {
       const payload = await res.json();
       if (Array.isArray(payload)) { tasks = payload; closedLog = []; }
@@ -74,7 +83,7 @@ async function loadTasks() {
 
 async function saveTasks() {
   try {
-    const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks, closedLog }) });
+    const res = await fetch(API_BASE + '/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks, closedLog }) });
     if (res.ok) { const t = new Date(); showStatus('saved ' + t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); }
     else showStatus('save failed');
   } catch (e) { showStatus('could not save - is the server running?'); }
