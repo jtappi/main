@@ -219,6 +219,85 @@ the following must ALL be in the same PR:
 
 ---
 
+## 0.57. Raw HTML/JS Apps — CSP and Event Handler Rules
+
+**This is a hard rule. It exists because the task-manager shipped with `onclick` attributes
+throughout `index.html` and `app.js`, which the portal's Content Security Policy silently
+blocked — making every button in the app non-functional.**
+
+### The problem
+
+The portal sets a `Content-Security-Policy` header via Helmet:
+```
+script-src: 'self' 'unsafe-inline' ...
+```
+`'unsafe-inline'` permits inline `<script>` blocks but **NOT** `onclick`, `ondblclick`,
+or any other inline event handler attributes on DOM elements. These are silently blocked
+by the browser regardless of `'unsafe-inline'`. The same applies to handler strings built
+via `innerHTML` in JavaScript (e.g. `element.innerHTML = '<button onclick="fn()">...'`).
+
+React/Vite apps are naturally immune — the build toolchain compiles JSX event props into
+proper `addEventListener` calls. Raw HTML/JS apps must do this manually.
+
+### The rule
+
+**Every raw HTML/JS app served by the portal must wire all event handlers via
+`addEventListener`. `onclick`, `ondblclick`, `onchange`, `onsubmit`, and all other
+inline event attributes are forbidden — both in HTML files and in JavaScript strings
+passed to `innerHTML`.**
+
+### Correct patterns
+
+**In HTML — use `id` only, wire in JS:**
+```html
+<!-- WRONG -->
+<button onclick="addTask()">Add</button>
+
+<!-- CORRECT -->
+<button id="add-btn">Add</button>
+```
+```js
+document.getElementById('add-btn').addEventListener('click', addTask);
+```
+
+**In JS when building DOM — use `createElement` + `addEventListener`:**
+```js
+// WRONG
+el.innerHTML = '<button onclick="deleteTask(' + id + ')">Delete</button>';
+
+// CORRECT
+const btn = document.createElement('button');
+btn.textContent = 'Delete';
+btn.addEventListener('click', () => deleteTask(id));
+el.appendChild(btn);
+```
+
+**Drag-and-drop — same rule applies:**
+```js
+// WRONG
+element.setAttribute('ondragstart', 'onDragStart(event,' + id + ')');
+
+// CORRECT
+element.addEventListener('dragstart', e => { ... });
+```
+
+### Enforcement
+
+Before opening any PR that includes a raw HTML/JS app or modifies one:
+- [ ] Grep the HTML file for `onclick=`, `ondblclick=`, `onchange=`, `onsubmit=`, `ondrag`
+      — zero results required
+- [ ] Grep the JS files for `innerHTML` strings containing `onclick=` or similar
+      — zero results required
+- [ ] All event wiring uses `addEventListener` — verified by reading the JS bootstrap section
+
+### Why not fix the CSP instead?
+
+Adding `'unsafe-hashes'` with per-handler SHA256 hashes is fragile (every handler
+change requires a new hash) and doesn't fix `innerHTML`-generated handlers anyway.
+Weakening the CSP is always the wrong answer. Fix the code.
+
+---
+
 ## 0.6. Security Review — Blocking Gate
 
 **This repo is public. Every change must be evaluated against this checklist before committing.
@@ -749,6 +828,7 @@ cd task-manager && npm install
 
 - [ ] Security review checklist (Section 0.6) fully passed
 - [ ] New project CI checklist (Section 0.56) fully passed if a new project was added
+- [ ] Raw HTML/JS CSP checklist (Section 0.57) fully passed if an HTML/JS app was added or modified
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] TrackMyWeek tests pass: `cd trackmyweek && npm test`
 - [ ] BP Tracker tests pass: `cd bptracker && npm test`
