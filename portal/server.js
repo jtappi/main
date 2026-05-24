@@ -288,9 +288,10 @@ app.get('/api/test-runs', requireAdmin, (req, res) => {
 // requireProjectAccess enforces that the session user has explicit access to
 // each project. On denial, users are redirected to /dashboard?denied=<projectId>
 // instead of receiving a raw 403. Admins bypass the project check automatically.
-app.use('/trackmyweek',  requireAuth, requireProjectAccess('trackmyweek'),  require('../trackmyweek/server'));
-app.use('/bptracker',    requireAuth, requireProjectAccess('bptracker'),    require('../bptracker/server'));
-app.use('/prisondonkey', requireAuth, requireProjectAccess('prisondonkey'), require('../prisondonkey/server')(express));
+app.use('/trackmyweek',   requireAuth, requireProjectAccess('trackmyweek'),   require('../trackmyweek/server'));
+app.use('/bptracker',     requireAuth, requireProjectAccess('bptracker'),     require('../bptracker/server'));
+app.use('/prisondonkey',  requireAuth, requireProjectAccess('prisondonkey'),  require('../prisondonkey/server')(express));
+app.use('/task-manager',  requireAuth, requireProjectAccess('task-manager'),  require('../task-manager/server'));
 
 // ── Export for testing ────────────────────────────────────────────────────
 if (require.main === module) {

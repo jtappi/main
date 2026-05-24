@@ -146,9 +146,76 @@ Every subproject that has a `package.json` must have a committed, fully-resolved
 | `trackmyweek/client/package-lock.json` | trackmyweek client |
 | `bptracker/package-lock.json` | bptracker server |
 | `bptracker/client/package-lock.json` | bptracker client |
+| `task-manager/package-lock.json` | task-manager |
 
 When a new subproject is added, add its lock file row to this table in the same PR as
 the `package.json`.
+
+---
+
+## 0.56. New Project Integration Checklist — CI and Infrastructure
+
+**This is a hard rule. Adding a new project to the monorepo is not complete until every
+item on this checklist is done in the same PR. CI will silently fail or produce wrong
+results if any step is skipped.**
+
+This rule exists because the task-manager integration PR shipped without updating `ci.yml`,
+causing the portal server to crash in CI (MODULE_NOT_FOUND on startup) and all E2E tests
+to fail. Every item below is a direct consequence of that missed step.
+
+### The complete new-project CI checklist
+
+When a new subproject with a `package.json` is added and mounted in `portal/server.js`,
+the following must ALL be in the same PR:
+
+**`ci.yml` — Job 0: changes filter**
+- [ ] Add a new output key for the project: `<slug>: ${{ steps.filter.outputs.<slug> }}`
+- [ ] Add a new filter entry under `filters:` matching `'<dir>/**'`
+
+**`ci.yml` — Job 1: test (unit/integration)**
+- [ ] Add `<slug>` to the `if:` condition so the job runs when project files change
+- [ ] Add `<slug>/package-lock.json` to `cache-dependency-path`
+- [ ] Add an `Install <slug> dependencies` step (`npm ci`, `working-directory: <dir>`)
+- [ ] Add a `Bootstrap <slug> data files` step (safe `[ -f ] || cp template` pattern)
+- [ ] Add a `Run <slug> unit & integration tests` step with `--outputFile=/tmp/<slug>-jest-results.json`
+- [ ] Add a `Log <slug> test run results` step calling `scripts/log-test-run.js`
+
+**`ci.yml` — Job 2: e2e**
+- [ ] Add `<slug>` to the e2e job `if:` condition if the project affects the portal server
+- [ ] Add `<slug>/package-lock.json` to `cache-dependency-path`
+- [ ] Add an `Install <slug> dependencies` step (`npm ci`, `working-directory: <dir>`)
+- [ ] Add a `Bootstrap <slug> data files` step (same safe pattern as test job)
+
+**`CLAUDE.md`**
+- [ ] Add `<slug>/package-lock.json` row to the lock file table in Section 0.55
+- [ ] Add `<slug>/package-lock.json` row to the lock file table in Section 6
+- [ ] Add `cd <dir> && npm test` to the "Running tests" block in Section 6
+- [ ] Add `cd <dir> && npm install` to the "After pulling changes" block in Section 6
+- [ ] Add `cd <slug> && npm test` to the merge checklist in Section 11
+- [ ] Add `<slug>/package-lock.json` to the merge checklist in Section 11
+
+**`core/data/projects.json`**
+- [ ] Add the project entry (id, name, description, route, port, status, createdAt, icon)
+
+**`portal/server.js`**
+- [ ] Add the `app.use(...)` mount line with `requireAuth` and `requireProjectAccess`
+
+**`.gitignore`**
+- [ ] Add the project's runtime data file(s) (e.g. `<dir>/tasks.json`)
+
+**`docs/testing/`**
+- [ ] Create `docs/testing/<PROJECT>.md` with the test catalog
+- [ ] Update `docs/testing/README.md` to add the project row
+
+### Why every item is required
+
+- Missing `npm ci` step → portal crashes on startup with `MODULE_NOT_FOUND`; E2E job fails
+  before any test runs (this is exactly what happened with task-manager)
+- Missing `cache-dependency-path` → cache misses on every run; slow CI
+- Missing bootstrap step → runtime data file absent; first API call may crash
+- Missing `if:` condition → CI never runs for this project's own PRs
+- Missing log step → test results missing from the test dashboard
+- Missing lock file table entries → future contributors miss required files
 
 ---
 
@@ -523,16 +590,18 @@ This is a monorepo. Package ownership is split intentionally:
 | `playwright.ci.config.js` | `trackmyweek/client/` | CI-only config for TrackMyWeek E2E |
 | `jest`, `supertest` | `trackmyweek/package.json` | TrackMyWeek unit/integration tests |
 | `jest`, `supertest` | `bptracker/package.json` | BP Tracker unit/integration tests |
+| `jest`, `supertest` | `task-manager/package.json` | Task Manager unit/integration tests |
 | Vite, React, chart.js | `trackmyweek/client/package.json` | Client build only — no Playwright here |
 | Vite, React, chart.js | `bptracker/client/package.json` | Client build only — no Playwright here |
 
-**Lock files — all six must exist in the repo:**
+**Lock files — all must exist in the repo:**
 - `package-lock.json` — root
 - `portal/package-lock.json` — portal
 - `trackmyweek/package-lock.json` — trackmyweek server
 - `trackmyweek/client/package-lock.json` — trackmyweek client
 - `bptracker/package-lock.json` — bptracker server
 - `bptracker/client/package-lock.json` — bptracker client
+- `task-manager/package-lock.json` — task-manager
 
 If any is missing, CI will fail with `npm ci` errors. After any `npm install` in any
 location, immediately commit the resulting lock file.
@@ -544,6 +613,7 @@ location, immediately commit the resulting lock file.
 cd portal && npm test
 cd trackmyweek && npm test
 cd bptracker && npm test
+cd task-manager && npm test
 cd ~/apps/main && npm run test:e2e
 ```
 
@@ -555,6 +625,7 @@ cd trackmyweek && npm install
 cd trackmyweek/client && npm install
 cd bptracker && npm install
 cd bptracker/client && npm install
+cd task-manager && npm install
 ```
 
 ---
@@ -629,6 +700,7 @@ cd bptracker/client && npm install
 | **Test catalog (Portal)** | **`docs/testing/PORTAL.md`** |
 | **Test catalog (TrackMyWeek)** | **`docs/testing/TRACKMYWEEK.md`** |
 | **Test catalog (BP Tracker)** | **`docs/testing/BPTRACKER.md`** |
+| **Test catalog (Task Manager)** | **`docs/testing/TASKMANAGER.md`** |
 | Playwright config (portal, local) | `playwright.config.js` (root) |
 | Playwright config (trackmyweek, CI) | `trackmyweek/client/playwright.ci.config.js` |
 | Playwright config (trackmyweek, local) | `trackmyweek/client/playwright.config.js` |
@@ -644,6 +716,8 @@ cd bptracker/client && npm install
 | BP Tracker server package-lock.json | `bptracker/package-lock.json` (must exist in repo) |
 | BP Tracker client package.json | `bptracker/client/package.json` (Vite + React only, no Playwright) |
 | BP Tracker client package-lock.json | `bptracker/client/package-lock.json` (must exist in repo) |
+| Task Manager package.json | `task-manager/package.json` |
+| Task Manager package-lock.json | `task-manager/package-lock.json` (must exist in repo) |
 | CI workflow | `.github/workflows/ci.yml` |
 | Test run logs | `logs/test-runs.jsonl` (append-only, never deleted) |
 | Log script | `scripts/log-test-run.js` |
@@ -663,6 +737,10 @@ cd bptracker/client && npm install
 | BP Tracker data (gitignored) | `bptracker/data/readings.json` |
 | BP Tracker images (gitignored) | `bptracker/data/images/` |
 | BP Tracker data template | `bptracker/data/readings.template.json` |
+| Task Manager server | `task-manager/server.js` |
+| Task Manager tests | `task-manager/tests/integration/` |
+| Task Manager data (gitignored) | `task-manager/tasks.json` |
+| Task Manager data template | `task-manager/data/tasks.template.json` |
 | This file | `CLAUDE.md` |
 
 ---
@@ -670,9 +748,11 @@ cd bptracker/client && npm install
 ## 11. Before Merging to Main
 
 - [ ] Security review checklist (Section 0.6) fully passed
+- [ ] New project CI checklist (Section 0.56) fully passed if a new project was added
 - [ ] Unit + integration tests pass: `cd portal && npm test`
 - [ ] TrackMyWeek tests pass: `cd trackmyweek && npm test`
 - [ ] BP Tracker tests pass: `cd bptracker && npm test`
+- [ ] Task Manager tests pass: `cd task-manager && npm test`
 - [ ] E2E tests pass: `cd ~/apps/main && npm run test:e2e`
 - [ ] `package-lock.json` exists at repo root and is committed
 - [ ] `portal/package-lock.json` exists and is committed
@@ -680,6 +760,7 @@ cd bptracker/client && npm install
 - [ ] `trackmyweek/client/package-lock.json` exists and is committed
 - [ ] `bptracker/package-lock.json` exists and is committed
 - [ ] `bptracker/client/package-lock.json` exists and is committed
+- [ ] `task-manager/package-lock.json` exists and is committed
 - [ ] No deprecated dependencies introduced — `npm install` output is clean (Section 0.55)
 - [ ] No new `data-testid` added without a corresponding entry in `tests/TESTIDS.md`
 - [ ] No element ID changed without updating `docs/HTML_JS_CONTRACT.md`
@@ -758,12 +839,14 @@ during a deploy** unless the file is confirmed to not exist yet.
 - `trackmyweek/data/data.template.json` → seeds `trackmyweek/data/data.json` on first deploy only
 - `trackmyweek/data/questions.template.json` → seeds `trackmyweek/data/questions.json` on first deploy only
 - `bptracker/data/readings.template.json` → seeds `bptracker/data/readings.json` on first deploy only
+- `task-manager/data/tasks.template.json` → seeds `task-manager/tasks.json` on first deploy only
 
 **Safe first-deploy pattern** (only copies if the live file does not already exist):
 ```bash
 [ -f trackmyweek/data/data.json ]      || cp trackmyweek/data/data.template.json trackmyweek/data/data.json
 [ -f trackmyweek/data/questions.json ] || cp trackmyweek/data/questions.template.json trackmyweek/data/questions.json
 [ -f bptracker/data/readings.json ]    || cp bptracker/data/readings.template.json bptracker/data/readings.json
+[ -f task-manager/tasks.json ]         || cp task-manager/data/tasks.template.json task-manager/tasks.json
 mkdir -p bptracker/data/images
 ```
 
@@ -823,7 +906,7 @@ See `docs/DEPLOY.md` for the full deploy workflow.
 **Both steps are always required. `pm2 restart` alone does not pull new code.**
 
 After merging any PR that changes server-side code (`portal/`, `core/`, `trackmyweek/server.js`,
-`bptracker/server.js`, or any `.github/workflows/` file that affects the running app):
+`bptracker/server.js`, `task-manager/server.js`, or any `.github/workflows/` file that affects the running app):
 
 ```bash
 cd ~/apps/main
@@ -875,6 +958,7 @@ or client-side code, so the human is never left guessing what to run after mergi
 1. Create `docs/testing/<PROJECT_NAME>.md` using the existing catalogs as a template.
 2. Update `docs/testing/README.md` to add the project row.
 3. Both files must be in the same PR as the first test for the project.
+4. **Run Section 0.56 CI checklist in full** — no exceptions.
 
 ### Why this rule exists
 
@@ -926,6 +1010,9 @@ required to lower a threshold or add a per-file exception.
 **BP Tracker** (`bptracker/package.json` → `jest.coverageThreshold`):
 Floors to be set after first test run in CI (Phase 7). Aspirational targets apply in the meantime.
 
+**Task Manager** (`task-manager/package.json` → `jest.coverageThreshold`):
+Floors to be set after first CI run with coverage reporting enabled. Aspirational targets apply in the meantime.
+
 **Per-file exceptions (require owner approval to modify):**
 - `trackmyweek/controllers/prebuilt.controller.js` — floor: 0% branches, 10% functions,
   25% lines. Nearly untested. A dedicated PR will bring this to target. Until then this
@@ -945,6 +1032,7 @@ When a new project is added to the monorepo:
 3. Add `coverageReporters: ["text", "lcov", "json-summary"]` so CI can upload the report.
 4. Add coverage artifact upload steps to `ci.yml` for the new project.
 5. Document floors and targets in `docs/TODO.md` under "Code Coverage — Aspirational Targets".
+6. **This is covered by Section 0.56 — run that checklist, not just this section.**
 
 ### Visibility
 
