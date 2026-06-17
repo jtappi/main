@@ -239,8 +239,8 @@ correct description and signup URL.
 
 These came from a manual read of every `package.json` in the repo, cross-referenced
 against CLAUDE.md Section 0.55's deprecated-dependency policy, followed by a real
-`npm audit` run by the repo owner (see "Remediation status" below for how that's
-being handled).
+`npm audit` run by the repo owner (see "npm audit remediation" below for how that's
+being handled, and "Portal — npm audit triage" for the first subproject's results).
 
 ### D1 — `@google/generative-ai` is a deprecated SDK
 
@@ -324,7 +324,10 @@ approach, to avoid landing an untested dependency bump directly on production:
    Jest's, Vite's, or Playwright's own dependency tree) and never run in the live
    request-handling path. Those are real findings but lower urgency than anything in
    `express`, `express-session`, or `helmet` — packages that are in the request path on
-   every visitor in production.
+   every visitor in production. **Also distinguish reachability from severity label** —
+   npm's severity score is computed for the package in isolation and does not know how
+   *your* code actually calls it. A "high" finding in a function your code never invokes
+   (see the portal's `uuid` finding below) carries near-zero real risk despite the label.
 
 5. **CI passing is not 100% proof of no breakage.** Coverage isn't complete everywhere —
    `docs/TODO.md` already flags `trackmyweek/controllers/prebuilt.controller.js` as
@@ -340,9 +343,96 @@ approach, to avoid landing an untested dependency bump directly on production:
    locally and commits the resulting lock file changes, then the PR is opened and CI is
    the verification gate.
 
-**Next concrete step:** repo owner to paste the actual `npm audit` output (ideally
-`--json`) so findings can be sorted into production-reachable vs. build/test-tool-only,
-and into in-range-fix vs. major-version-jump, before any subproject PR is opened.
+7. **Don't read `fixAvailable`'s major-version suggestion as a literal target.** When npm
+   reports `"fixAvailable": {"name": "jest", "version": "25.0.0", "isSemVerMajor": true}`,
+   that `25.0.0` is the minimum version satisfying npm's dependency-graph resolution for
+   the audit fix, not a recommendation to install that exact (older) version. Always check
+   the actual current latest major release of the package before bumping.
+
+---
+
+## Portal — `npm audit` triage (2026-06-17)
+
+Source: `npm audit --json` run by the repo owner in `portal/`. 27 raw findings (1 low,
+23 moderate, 3 high) collapse into far fewer actual decisions once the dependency chains
+are traced — most of the 23 "moderate" findings are different symptoms of the same one
+or two root packages.
+
+### Root cause collapse
+
+- **`qs`** is the root cause feeding both the `body-parser` and `express` findings.
+- **`js-yaml`** is the root cause feeding `@istanbuljs/load-nyc-config` →
+  `babel-plugin-istanbul` → `@jest/transform` → which fans out into `@jest/core`,
+  `@jest/reporters`, `jest-runner`, `jest-runtime`, `jest-snapshot`, `jest-config`,
+  `jest-cli`, `create-jest`, `babel-jest`, and `jest` itself. One `js-yaml` issue is
+  responsible for roughly ten of the twenty-seven raw findings.
+
+### Safe in-range fixes — apply via plain `npm audit fix` (no `--force`)
+
+All of the following show `fixAvailable: true` with no `isSemVerMajor` flag, meaning
+they resolve within the existing `package.json` semver ranges:
+
+`@babel/core`, `body-parser`, `@jest/expect`, `@jest/globals`, `@jest/reporters`,
+`babel-jest`, `create-jest`, `express`, `form-data`, `jest-circus`, `jest-cli`,
+`jest-config`, `jest-resolve-dependencies`, `jest-runner`, `jest-runtime`,
+`brace-expansion`, `path-to-regexp`, `picomatch`, `qs`.
+
+This single command should resolve the large majority of the 27 raw findings.
+
+**Production-reachable among these:** `express` (direct dependency) and `qs`
+(its query-string parser) sit in the live request path on every request with a query
+string. `body-parser` is Express's body-parsing middleware, also in the live path.
+`path-to-regexp` is Express 4.x's internal route-matching dependency and technically
+executes on every request, but the ReDoS risk model requires attacker-influenceable
+route *pattern* strings — this app's routes are all static literals in `server.js`,
+never built from user input, so real-world exploitability is low even though the code
+runs constantly. All three are covered by the same safe fix, so there's no tension
+between urgency and risk here.
+
+**Flagged but not a real risk in this codebase:**
+- `form-data` shows **high** severity but is only a transitive dependency of
+  `supertest`/`superagent`, used solely when the test suite constructs multipart
+  requests during `npm test`. No untrusted external input reaches this path. Still
+  worth taking the free fix, just not urgent.
+- `uuid` is a **direct** dependency flagged moderate, but the actual vulnerability is
+  specifically in the **v3/v5/v6 functions when a `buf` argument is supplied**.
+  Confirmed by reading the actual call sites: `core/auth/auth.js` uses Node's built-in
+  `crypto.randomUUID()` (not this package at all), and
+  `bptracker/controllers/readings.controller.js` imports only `{ v4: uuidv4 }` called
+  with no arguments. The vulnerable code path is never executed anywhere in this
+  codebase. The real fix requires a major bump to `uuid@14` (not covered by plain
+  `npm audit fix`) — deprioritized given zero real exploitability despite the
+  "direct dependency, moderate severity" label.
+
+**Dev/build-tool-only:** `picomatch` and `brace-expansion` are pulled in by `nodemon`'s
+file-watcher and Jest's glob matching — never execute in the production request path.
+Already covered by the safe fix above.
+
+### Requires a deliberate, separate PR
+
+**Jest major-version bump.** The entire `js-yaml` chain (the ~10-finding cluster) only
+fully resolves with a Jest major bump. Per remediation-process rule 7 above, the
+`"version": "25.0.0"` in npm's `fixAvailable` output is not a real target — current
+`package.json` already specifies `^29.7.0`, so that would be a downgrade. The actual
+move is to check the true latest Jest major on npm, bump deliberately, and run the full
+portal test suite before merging. This is its own PR, not bundled with the safe batch.
+
+### Portal triage summary
+
+| Package | Severity (npm label) | Real-world risk here | Action |
+|---|---|---|---|
+| express, qs, body-parser | moderate | Real — live request path | Safe fix, apply now |
+| path-to-regexp | high | Low (routes are static, not user-built) | Safe fix, apply now |
+| form-data | high | Near-zero (test-only, no untrusted input) | Safe fix, apply now |
+| picomatch, brace-expansion | high/moderate | None (dev-tool only) | Safe fix, apply now |
+| @babel/core and other safe-fix items | low/moderate | Low/none | Safe fix, apply now |
+| uuid | moderate | **Zero** — vulnerable code path never called | Deprioritized, needs major bump later |
+| jest + entire js-yaml chain | moderate | Build/test-tool only | Deliberate major-version PR, separate |
+
+**Next concrete step:** repo owner to run `npm audit fix` in `portal/`, commit the
+resulting `package-lock.json`, open a PR, confirm CI is green. Then run `npm audit --json`
+in the remaining six locations (`trackmyweek`, `trackmyweek/client`, `bptracker`,
+`bptracker/client`, `task-manager`, and root) for the same triage treatment.
 
 ---
 
@@ -362,10 +452,16 @@ and into in-range-fix vs. major-version-jump, before any subproject PR is opened
 | D1 | `@google/generative-ai` is deprecated | Dependency | 🔴 Not fixed |
 | D2 | Vite 5.1.x across 3 client scaffolds | Dependency | 🔴 Not fixed (low priority) |
 | D3 | `prisondonkey/client` unused, no lock file | Dependency | 🔴 Not fixed (low priority) |
+| P1 | Portal `npm audit` — safe in-range batch (19 packages) | Dependency | 🔴 Not fixed — ready to apply |
+| P2 | Portal `npm audit` — Jest major-version bump | Dependency | 🔴 Not fixed — needs deliberate PR |
+| P3 | Portal `npm audit` — `uuid@14` bump | Dependency | 🔴 Not fixed — deprioritized, zero real risk |
 
 **Proposed PR grouping when remediation begins:**
 - **PR 1 (Critical + High):** C1, C2, H1, H2, H3
 - **PR 2 (Medium + Low):** M1, M2, L1, L2
 - **PR 3 (dependency migration):** D1 — separate, larger effort
-- **`npm audit` PRs:** one per subproject, per the process above, opened once the
-  actual audit output has been reviewed and triaged
+- **PR 4 (portal npm audit — safe batch):** P1, ready now
+- **PR 5 (portal npm audit — Jest major bump):** P2, deliberate, own PR
+- **`npm audit` PRs:** one per remaining subproject (trackmyweek, trackmyweek/client,
+  bptracker, bptracker/client, task-manager, root), per the process above, opened once
+  each subproject's actual audit output has been reviewed and triaged the same way
